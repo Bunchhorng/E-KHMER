@@ -20,6 +20,11 @@ class InventoryPolicy
     /**
      * A staff member may view/adjust stock only in the branch they belong to.
      */
+    public function viewAny(User $user): bool
+    {
+        return $user->isAdmin() || $user->shops()->exists();
+    }
+
     public function view(User $user, Inventory $inventory): bool
     {
         if ($inventory->shop_id === null) {

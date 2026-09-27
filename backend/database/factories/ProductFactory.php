@@ -58,6 +58,7 @@ class ProductFactory extends Factory
         return $this->afterCreating(function (Product $product) use ($price, $stock): void {
             $variant = ProductVariant::create([
                 'product_id' => $product->id,
+                'shop_id' => $product->shop_id,
                 'name' => 'Default',
                 'sku' => 'SKU-' . Str::upper(Str::random(8)),
                 'price' => $price ?? (float) $product->price,
@@ -66,6 +67,7 @@ class ProductFactory extends Factory
             ]);
 
             $variant->inventory()->create([
+                'shop_id' => $product->shop_id,
                 'quantity' => $stock,
                 'reserved_quantity' => 0,
                 'low_stock_threshold' => 5,

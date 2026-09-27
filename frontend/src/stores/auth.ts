@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import apiClient from '@/api/client'
 
 const TOKEN_KEY = 'access_token'
+const REFRESH_TOKEN_KEY = 'refresh_token'
 const USER_KEY = 'ekhmer_user'
 
 export interface AuthUser {
@@ -42,6 +43,18 @@ export const useAuthStore = defineStore('auth', {
   },
 
   actions: {
+    /**
+     * Drop the local session without hitting the API. Used by the 401 response
+     * interceptor so a rejected token can never leave a stale in-memory user
+     * behind (which would keep isAuthenticated/isAdmin true).
+     */
+    clearSession() {
+      this.user = null
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(REFRESH_TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+    },
+
     async login(email: string, password: string) {
       this.loading = true
       try {
@@ -76,9 +89,7 @@ export const useAuthStore = defineStore('auth', {
       } catch {
         /* ignore network errors on logout */
       }
-      this.user = null
-      localStorage.removeItem(TOKEN_KEY)
-      localStorage.removeItem(USER_KEY)
+      this.clearSession()
     },
 
     async refreshUser() {

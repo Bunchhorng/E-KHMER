@@ -7,6 +7,17 @@ export const apiClient = axios.create({
 })
 
 const SESSION_KEY = 'ekhmer_session_id'
+const TOKEN_KEY = 'access_token'
+const REFRESH_TOKEN_KEY = 'refresh_token'
+const USER_KEY = 'ekhmer_user'
+
+/**
+ * Emitted when the API rejects our token. The auth store subscribes to this in
+ * main.ts so the in-memory session is dropped in lockstep with localStorage —
+ * clearing only localStorage would leave `auth.isAuthenticated` / `auth.isAdmin`
+ * true and keep admin chrome on screen for an unauthenticated visitor.
+ */
+export const UNAUTHORIZED_EVENT = 'auth:unauthorized'
 
 function getSessionId(): string {
   let sid = localStorage.getItem(SESSION_KEY)
@@ -18,7 +29,7 @@ function getSessionId(): string {
 }
 
 apiClient.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
+  const token = localStorage.getItem(TOKEN_KEY)
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
@@ -26,13 +37,27 @@ apiClient.interceptors.request.use((config) => {
   return config
 })
 
+let redirecting = false
+
 apiClient.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem('access_token')
-      localStorage.removeItem('refresh_token')
+      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(REFRESH_TOKEN_KEY)
+      localStorage.removeItem(USER_KEY)
+
+      window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
+
+      // Bounce to login unless we are already on a guest-only auth screen, and
+      // preserve the attempted path so the user lands back where they were.
+      if (!redirecting && typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+        redirecting = true
+        const redirect = encodeURIComponent(window.location.pathname + window.location.search)
+        window.location.assign(`/auth/login?redirect=${redirect}`)
+      }
     }
+
     return Promise.reject(error)
   }
 )

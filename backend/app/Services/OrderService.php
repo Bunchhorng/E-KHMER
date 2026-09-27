@@ -118,7 +118,7 @@ class OrderService
             $this->recordTrackingEvent($order, $to);
             $this->notifyStatusChange($order, $to);
 
-            return $order->load(['items', 'payment', 'shipments', 'trackingEvents']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
         });
     }
 
@@ -236,7 +236,7 @@ class OrderService
             $this->recordTrackingEvent($order, Order::STATUS_CANCELLED);
             $this->notifyStatusChange($order, Order::STATUS_CANCELLED);
 
-            return $order->load(['items', 'payment', 'shipments', 'trackingEvents']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
         });
     }
 }

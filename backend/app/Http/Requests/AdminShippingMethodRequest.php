@@ -15,6 +15,7 @@ class AdminShippingMethodRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'shop_id' => ['nullable', 'integer', 'exists:shops,id'],
             'name' => ['required', 'string', 'max:255'],
             'code' => ['required', 'string', 'max:50'],
             'description' => ['nullable', 'string'],

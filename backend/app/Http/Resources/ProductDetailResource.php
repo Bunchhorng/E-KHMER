@@ -25,6 +25,13 @@ class ProductDetailResource extends JsonResource
             'rating_count' => (int) $this->rating_count,
             'is_featured' => (bool) $this->is_featured,
             'is_active' => (bool) $this->is_active,
+            'shop_id' => $this->shop_id !== null ? (int) $this->shop_id : null,
+            'shop' => $this->whenLoaded('shop', fn () => $this->shop === null ? null : [
+                'id' => (int) $this->shop->id,
+                'slug' => $this->shop->slug,
+                'name' => $this->shop->name,
+                'code' => $this->shop->code,
+            ]),
             'in_stock' => $this->inStock ?? $this->computeInStock(),
             'cover_image' => $this->resolveCoverImage(),
             'brand' => $this->whenLoaded('brand', fn () => [

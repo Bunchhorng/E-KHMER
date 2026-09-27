@@ -12,7 +12,17 @@ class AdminCouponController extends Controller
 {
     public function index(Request $request)
     {
-        $paginator = Coupon::orderByDesc('id')->paginate(15);
+        $this->authorize('viewAny', Coupon::class);
+
+        $query = Coupon::query()->with('shop');
+
+        if ($request->filled('shop_id')) {
+            $request->shop_id === 'none'
+                ? $query->whereNull('shop_id')
+                : $query->where('shop_id', (int) $request->shop_id);
+        }
+
+        $paginator = $query->orderByDesc('id')->paginate(15);
 
         return [
             'data' => CouponResource::collection($paginator->items()),
@@ -27,6 +37,8 @@ class AdminCouponController extends Controller
 
     public function store(AdminCouponRequest $request)
     {
+        $this->authorize('create', Coupon::class, $request->validated());
+
         $coupon = Coupon::create($request->validated());
 
         return (new CouponResource($coupon))->response()->setStatusCode(201);
@@ -34,6 +46,12 @@ class AdminCouponController extends Controller
 
     public function update(AdminCouponRequest $request, Coupon $coupon)
     {
+        $this->authorize('update', $coupon);
+
+        if ($request->has('shop_id')) {
+            $this->authorize('changeShop', $coupon, $request->input('shop_id') === null ? null : (int) $request->input('shop_id'));
+        }
+
         $coupon->update($request->validated());
 
         return new CouponResource($coupon);
@@ -41,6 +59,8 @@ class AdminCouponController extends Controller
 
     public function destroy(Coupon $coupon)
     {
+        $this->authorize('delete', $coupon);
+
         $coupon->delete();
 
         return response()->json(['data' => ['message' => 'Coupon deleted.']]);

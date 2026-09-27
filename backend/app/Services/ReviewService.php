@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Order;
+use App\Models\Product;
 use App\Models\Review;
 use App\Models\User;
 use App\Notifications\ReviewApprovedNotification;
@@ -43,6 +44,7 @@ class ReviewService
             'user_id' => $user->id,
             'product_id' => (int) $data['product_id'],
             'order_id' => $order->id,
+            'shop_id' => Product::find((int) $data['product_id'])?->shop_id,
             'rating' => (int) $data['rating'],
             'title' => $data['title'] ?? null,
             'body' => $data['body'] ?? null,

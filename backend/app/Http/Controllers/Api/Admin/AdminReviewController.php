@@ -18,6 +18,18 @@ class AdminReviewController extends Controller
     {
         $query = Review::with(['user', 'product'])->orderByDesc('created_at');
 
+        $shopIds = $this->visibleShopIds($request);
+
+        if ($shopIds !== null) {
+            $shopIds === []
+                ? $query->whereRaw('1 = 0')
+                : $query->whereIn('shop_id', $shopIds);
+        }
+
+        if ($request->filled('shop_id') && $request->shop_id !== 'all') {
+            $query->where('shop_id', (int) $request->shop_id);
+        }
+
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
@@ -37,6 +49,8 @@ class AdminReviewController extends Controller
 
     public function approve(Review $review)
     {
+        $this->authorize('moderate', $review);
+
         $this->reviews->approve($review);
 
         return new ReviewResource($review->fresh(['user', 'product']));
@@ -44,6 +58,8 @@ class AdminReviewController extends Controller
 
     public function reject(Review $review)
     {
+        $this->authorize('moderate', $review);
+
         $this->reviews->reject($review);
 
         return new ReviewResource($review->fresh(['user', 'product']));
@@ -51,8 +67,25 @@ class AdminReviewController extends Controller
 
     public function destroy(Review $review)
     {
+        $this->authorize('delete', $review);
+
         $review->delete();
 
         return response()->json(['data' => ['message' => 'Review deleted successfully.']]);
+    }
+
+    private function visibleShopIds(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if ($user === null || $user->isAdmin()) {
+            return null;
+        }
+
+        return $user->shops()
+            ->wherePivot('status', 'active')
+            ->pluck('shops.id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
     }
 }

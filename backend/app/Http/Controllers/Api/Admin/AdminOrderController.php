@@ -19,7 +19,25 @@ class AdminOrderController extends Controller
 
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Order::class);
+
         $query = Order::with(['items', 'user'])->withCount('items')->orderByDesc('placed_at');
+
+        // Branch scoping: a shop manager only ever sees orders that contain at
+        // least one of their own line items.
+        $shopIds = $this->visibleShopIds($request);
+
+        if ($shopIds !== null) {
+            if ($shopIds === []) {
+                return $this->emptyOrderPage();
+            }
+
+            $query->whereHas('items', fn ($q) => $q->whereIn('shop_id', $shopIds));
+        }
+
+        if ($request->filled('shop_id') && $request->shop_id !== 'all') {
+            $query->whereHas('items', fn ($q) => $q->where('shop_id', (int) $request->shop_id));
+        }
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
@@ -49,11 +67,19 @@ class AdminOrderController extends Controller
 
     public function show(Order $order)
     {
-        return new OrderResource($order->load(['items', 'payment', 'shipments', 'trackingEvents']));
+        $this->authorize('view', $order);
+
+        $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
+
+        $this->restrictItemsToActorShop($order, request());
+
+        return new OrderResource($order);
     }
 
     public function transition(OrderTransitionRequest $request, Order $order)
     {
+        $this->authorize('view', $order);
+
         $order = $this->orders->transition($order, $request->status);
 
         return new OrderResource($order);
@@ -61,9 +87,64 @@ class AdminOrderController extends Controller
 
     public function receipt(Order $order)
     {
-        $order->load(['items', 'payment']);
+        $this->authorize('view', $order);
+
+        $order->load(['items.shop', 'payment']);
+
+        $this->restrictItemsToActorShop($order, request());
 
         return Pdf::loadView('reports.receipt', ['order' => $order])
             ->download('receipt-' . $order->order_number . '.pdf');
+    }
+
+    /**
+     * Shop ids the acting user may see, or null when unrestricted (super admin).
+     */
+    private function visibleShopIds(Request $request): ?array
+    {
+        $user = $request->user();
+
+        if ($user === null || $user->isAdmin()) {
+            return null;
+        }
+
+        return $user->shops()
+            ->wherePivot('status', 'active')
+            ->pluck('shops.id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
+
+    /**
+     * Drop order lines belonging to other branches so a shop manager never sees
+     * a competitor's items, prices or customers inside a shared order.
+     */
+    private function restrictItemsToActorShop(Order $order, Request $request): void
+    {
+        $user = $request->user();
+
+        if ($user === null || $user->isAdmin()) {
+            return;
+        }
+
+        $shopIds = $this->visibleShopIds($request) ?? [];
+
+        $order->setRelation(
+            'items',
+            $order->items->filter(fn ($item) => in_array((int) $item->shop_id, $shopIds, true))->values()
+        );
+    }
+
+    private function emptyOrderPage(): array
+    {
+        return [
+            'data' => [],
+            'meta' => [
+                'current_page' => 1,
+                'last_page' => 1,
+                'per_page' => 15,
+                'total' => 0,
+            ],
+        ];
     }
 }

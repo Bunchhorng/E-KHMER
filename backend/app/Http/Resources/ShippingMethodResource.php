@@ -11,6 +11,14 @@ class ShippingMethodResource extends JsonResource
     {
         return [
             'id' => $this->id,
+            'shop_id' => $this->shop_id === null ? null : (int) $this->shop_id,
+            'shop' => $this->relationLoaded('shop') && $this->shop !== null
+                ? [
+                    'id' => (int) $this->shop->id,
+                    'name' => $this->shop->name,
+                    'slug' => $this->shop->slug,
+                ]
+                : null,
             'name' => $this->name,
             'code' => $this->code,
             'description' => $this->description,

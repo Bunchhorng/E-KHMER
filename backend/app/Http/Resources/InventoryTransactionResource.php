@@ -12,6 +12,7 @@ class InventoryTransactionResource extends JsonResource
         return [
             'id' => (int) $this->id,
             'inventory_id' => (int) $this->inventory_id,
+            'shop_id' => $this->shop_id === null ? null : (int) $this->shop_id,
             'type' => $this->type,
             'quantity' => (int) $this->quantity,
             'balance_after' => $this->balance_after !== null ? (int) $this->balance_after : null,

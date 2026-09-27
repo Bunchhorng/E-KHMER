@@ -28,6 +28,10 @@ class AppServiceProvider extends ServiceProvider
         Gate::policy(\App\Models\Product::class, \App\Policies\ProductPolicy::class);
         Gate::policy(\App\Models\Inventory::class, \App\Policies\InventoryPolicy::class);
         Gate::policy(\App\Models\OrderItem::class, \App\Policies\OrderItemPolicy::class);
+        Gate::policy(\App\Models\Order::class, \App\Policies\OrderPolicy::class);
+        Gate::policy(\App\Models\Coupon::class, \App\Policies\CouponPolicy::class);
+        Gate::policy(\App\Models\ShippingMethod::class, \App\Policies\ShippingMethodPolicy::class);
+        Gate::policy(\App\Models\Review::class, \App\Policies\ReviewPolicy::class);
 
         ResetPassword::createUrlUsing(function ($notifiable, string $token) {
             $frontendUrl = rtrim((string) config('app.frontend_url'), '/');

@@ -15,6 +15,7 @@ class AdminCouponRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'shop_id' => ['nullable', 'integer', 'exists:shops,id'],
             'code' => ['required', 'string', 'max:50'],
             'type' => ['required', 'in:percentage,fixed'],
             'value' => ['required', 'numeric', 'min:0'],

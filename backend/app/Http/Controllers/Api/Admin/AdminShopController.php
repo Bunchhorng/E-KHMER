@@ -12,6 +12,8 @@ class AdminShopController extends Controller
 {
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Shop::class);
+
         $shops = Shop::query()
             ->withCount(['products', 'inventories'])
             ->when($request->filled('status'), fn ($q) => $q->where('status', $request->string('status')))
@@ -28,6 +30,8 @@ class AdminShopController extends Controller
 
     public function store(Request $request)
     {
+        $this->authorize('create', Shop::class);
+
         $data = $request->validate($this->rules());
 
         $shop = Shop::create($data);
@@ -37,6 +41,8 @@ class AdminShopController extends Controller
 
     public function show(Shop $shop)
     {
+        $this->authorize('view', $shop);
+
         $shop->loadCount(['products', 'inventories', 'users']);
 
         return new ShopResource($shop);
@@ -44,6 +50,8 @@ class AdminShopController extends Controller
 
     public function update(Request $request, Shop $shop)
     {
+        $this->authorize('update', $shop);
+
         $data = $request->validate($this->rules($shop));
 
         $shop->update($data);
@@ -53,6 +61,8 @@ class AdminShopController extends Controller
 
     public function destroy(Shop $shop)
     {
+        $this->authorize('delete', $shop);
+
         if ($shop->is_default) {
             return response()->json(['message' => 'The default shop cannot be deleted.'], 422);
         }
@@ -64,6 +74,8 @@ class AdminShopController extends Controller
 
     public function updateStatus(Request $request, Shop $shop)
     {
+        $this->authorize('update', $shop);
+
         $data = $request->validate([
             'status' => ['required', Rule::in([
                 Shop::STATUS_PENDING,

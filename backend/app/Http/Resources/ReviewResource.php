@@ -16,6 +16,7 @@ class ReviewResource extends JsonResource
             'body' => $this->body,
             'verified' => (bool) $this->verified,
             'status' => $this->status,
+            'shop_id' => $this->shop_id === null ? null : (int) $this->shop_id,
             'helpful_count' => (int) $this->helpful_count,
             'created_at' => $this->created_at?->toISOString(),
             'is_featured' => (bool) $this->is_featured,

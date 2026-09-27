@@ -104,7 +104,7 @@ class CheckoutController extends Controller
                 abort(404, 'Order not found.');
             }
 
-            return $order->load(['items', 'payment', 'shipments', 'trackingEvents']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
         }
 
         $sessionId = $request->header('X-Session-Id');
@@ -114,7 +114,7 @@ class CheckoutController extends Controller
             abort(404, 'Order not found.');
         }
 
-        return $order->load(['items', 'payment', 'shipments', 'trackingEvents']);
+        return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
     }
 
     protected function resolveAddress(CheckoutRequest $request, $user, ?string $sessionId): array

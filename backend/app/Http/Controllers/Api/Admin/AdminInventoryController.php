@@ -12,10 +12,19 @@ class AdminInventoryController extends Controller
 {
     public function index(Request $request)
     {
+        $this->authorize('viewAny', Inventory::class);
+
         $query = Inventory::query()->with([
+            'shop',
             'variant.product',
             'variant.attributeValues.value.attribute',
         ]);
+
+        if ($request->filled('shop_id')) {
+            $request->shop_id === 'none'
+                ? $query->whereNull('shop_id')
+                : $query->where('shop_id', (int) $request->shop_id);
+        }
 
         if ($request->filled('q')) {
             $term = mb_strtolower(trim((string) $request->q));
@@ -49,6 +58,8 @@ class AdminInventoryController extends Controller
 
     public function transactions(Inventory $inventory, Request $request)
     {
+        $this->authorize('view', $inventory);
+
         $query = $inventory->transactions()->with('createdBy');
 
         if ($request->filled('type') && in_array($request->type, ['reserve', 'release', 'deduct', 'adjust'], true)) {

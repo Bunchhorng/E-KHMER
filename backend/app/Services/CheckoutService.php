@@ -114,6 +114,7 @@ class CheckoutService
                     'order_id' => $order->id,
                     'product_id' => $product?->id,
                     'product_variant_id' => $variant?->id,
+                    'shop_id' => $product?->shop_id,
                     'product_name' => $product?->name ?? 'Product',
                     'variant_label' => $variant !== null ? $this->variantLabel($variant) : null,
                     'sku' => $variant?->sku ?? $product?->sku,
@@ -143,7 +144,7 @@ class CheckoutService
                 $this->coupon->applyUsage($coupon, $order, $user);
             }
 
-            return $order->load(['items', 'payment', 'shipments', 'trackingEvents']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
         });
     }
 
@@ -209,7 +210,7 @@ class CheckoutService
                 $this->cart->clear($this->cart->forUser($user, null));
             }
 
-            return $order->load(['items', 'payment', 'shipments', 'trackingEvents']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
         });
     }
 

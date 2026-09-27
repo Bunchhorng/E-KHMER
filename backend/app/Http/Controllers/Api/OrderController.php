@@ -57,13 +57,13 @@ class OrderController extends Controller
             abort(404, 'Order not found.');
         }
 
-        return new OrderResource($order->load(['items', 'payment', 'shipments', 'trackingEvents']));
+        return new OrderResource($order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']));
     }
 
     public function receipt(Request $request, string $orderNumber)
     {
         $order = $this->resolveForUser($request->user(), $orderNumber);
-        $order->load(['items', 'payment']);
+        $order->load(['items.shop', 'payment']);
 
         return Pdf::loadView('reports.receipt', ['order' => $order])
             ->download('receipt-' . $order->order_number . '.pdf');

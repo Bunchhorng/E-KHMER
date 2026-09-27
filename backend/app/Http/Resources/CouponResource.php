@@ -21,6 +21,8 @@ class CouponResource extends JsonResource
         }
 
         return [
+            'id' => (int) $this->id,
+            'shop_id' => $this->shop_id !== null ? (int) $this->shop_id : null,
             'code' => $this->code,
             'type' => $this->type,
             'value' => (float) $this->value,

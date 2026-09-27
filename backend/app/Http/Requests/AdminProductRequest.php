@@ -21,6 +21,7 @@ class AdminProductRequest extends FormRequest
             'slug' => ['nullable', 'string', 'max:255'],
             'category_id' => ['nullable', 'integer', 'exists:categories,id'],
             'brand_id' => ['nullable', 'integer', 'exists:brands,id'],
+            'shop_id' => ['nullable', 'integer', 'exists:shops,id'],
             'short_description' => ['nullable', 'string'],
             'description' => ['nullable', 'string'],
             'price' => ['nullable', 'numeric', 'min:0'],

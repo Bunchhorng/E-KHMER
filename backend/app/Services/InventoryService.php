@@ -14,14 +14,48 @@ use Illuminate\Support\Facades\Notification;
 class InventoryService
 {
     /**
+     * Resolve the shop that owns a variant. A variant always belongs to exactly
+     * one product, and a product to exactly one shop, so the shop is derived
+     * rather than passed in — this keeps the stock ledger authoritative even
+     * when callers have no shop context (guest checkout, cron expiry, refunds).
+     */
+    public function shopIdForVariant(int $variantId): ?int
+    {
+        $shopId = DB::table('product_variants')
+            ->join('products', 'products.id', '=', 'product_variants.product_id')
+            ->where('product_variants.id', $variantId)
+            ->value('products.shop_id');
+
+        return $shopId === null ? null : (int) $shopId;
+    }
+
+    /**
+     * Stamp the owning shop onto a stock row that predates branch scoping (or
+     * was written by a caller that had no shop context). Deriving the shop on
+     * every mutation keeps the ledger self-healing instead of leaving a NULL
+     * shop_id stranded forever on rows that already existed.
+     */
+    private function syncShop(Inventory $inventory): Inventory
+    {
+        if ($inventory->shop_id === null) {
+            $inventory->shop_id = $this->shopIdForVariant((int) $inventory->product_variant_id);
+            $inventory->save();
+        }
+
+        return $inventory;
+    }
+
+    /**
      * Get the currently available quantity for a variant (never negative).
      */
     public function available(int $variantId): int
     {
         $inventory = Inventory::firstOrCreate(
             ['product_variant_id' => $variantId],
-            ['quantity' => 0, 'reserved_quantity' => 0]
+            ['quantity' => 0, 'reserved_quantity' => 0, 'shop_id' => $this->shopIdForVariant($variantId)]
         );
+
+        $inventory = $this->syncShop($inventory);
 
         return max((int) $inventory->quantity - (int) $inventory->reserved_quantity, 0);
     }
@@ -41,10 +75,13 @@ class InventoryService
             if ($inventory === null) {
                 $inventory = Inventory::create([
                     'product_variant_id' => $variantId,
+                    'shop_id' => $this->shopIdForVariant($variantId),
                     'quantity' => 0,
                     'reserved_quantity' => 0,
                 ]);
             }
+
+            $inventory = $this->syncShop($inventory);
 
             $available = (int) $inventory->quantity - (int) $inventory->reserved_quantity;
 
@@ -94,6 +131,8 @@ class InventoryService
                 return;
             }
 
+            $inventory = $this->syncShop($inventory);
+
             $inventory->reserved_quantity = max((int) $inventory->reserved_quantity - $quantity, 0);
             $inventory->save();
 
@@ -128,6 +167,8 @@ class InventoryService
             if ($inventory === null) {
                 return;
             }
+
+            $inventory = $this->syncShop($inventory);
 
             $inventory->quantity = max((int) $inventory->quantity - $quantity, 0);
             $inventory->reserved_quantity = max((int) $inventory->reserved_quantity - $quantity, 0);
@@ -170,6 +211,8 @@ class InventoryService
                 return;
             }
 
+            $inventory = $this->syncShop($inventory);
+
             $inventory->quantity = (int) $inventory->quantity + $quantity;
             $inventory->sold_count = max((int) $inventory->sold_count - $quantity, 0);
             $inventory->save();
@@ -203,6 +246,7 @@ class InventoryService
             if ($inventory === null) {
                 $inventory = Inventory::create([
                     'product_variant_id' => $variantId,
+                    'shop_id' => $this->shopIdForVariant($variantId),
                     'quantity' => 0,
                     'reserved_quantity' => 0,
                 ]);
@@ -211,6 +255,7 @@ class InventoryService
             $current = (int) $inventory->quantity;
             $delta = $newQuantity - $current;
 
+            $inventory = $this->syncShop($inventory);
             $inventory->quantity = max($newQuantity, 0);
             $inventory->save();
 
@@ -223,6 +268,7 @@ class InventoryService
     {
         InventoryTransaction::create([
             'inventory_id' => $inventory->id,
+            'shop_id' => $inventory->shop_id,
             'created_by' => $userId,
             'type' => $type,
             'quantity' => $quantity,

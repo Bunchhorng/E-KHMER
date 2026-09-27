@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['user_id', 'product_id', 'order_id', 'rating', 'title', 'body', 'status', 'verified', 'helpful_count', 'is_featured'])]
+#[Fillable(['user_id', 'product_id', 'order_id', 'shop_id', 'rating', 'title', 'body', 'status', 'verified', 'helpful_count', 'is_featured'])]
 class Review extends Model
 {
     public const STATUS_PENDING = 'pending';
@@ -35,5 +35,10 @@ class Review extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function shop()
+    {
+        return $this->belongsTo(Shop::class);
     }
 }

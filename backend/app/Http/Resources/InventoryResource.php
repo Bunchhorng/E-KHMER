@@ -12,6 +12,15 @@ class InventoryResource extends JsonResource
         return [
             'id' => (int) $this->id,
             'product_variant_id' => (int) $this->product_variant_id,
+            'shop_id' => $this->shop_id === null ? null : (int) $this->shop_id,
+            'shop' => $this->relationLoaded('shop') && $this->shop !== null
+                ? [
+                    'id' => (int) $this->shop->id,
+                    'name' => $this->shop->name,
+                    'slug' => $this->shop->slug,
+                    'code' => $this->shop->code,
+                ]
+                : null,
             'product' => $this->variant !== null && $this->variant->relationLoaded('product')
                 ? (
                     $this->variant->product !== null
