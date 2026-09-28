@@ -1,0 +1,303 @@
+name: Telegram Team Activity Notification
+
+# Display name used in every Telegram message. Change only here.
+env:
+  PROJECT_NAME: ETEC Backend
+
+# ---------------------------------------------------------------
+# Supported events: push, pull_request (opened/reopened/closed),
+# pull_request_review (submitted).
+# `synchronize` is intentionally NOT handled: a push to a PR
+# branch already fires the `push` event, so handling it too would
+# send duplicate notifications.
+# ---------------------------------------------------------------
+on:
+  # Notify for pushes to EVERY branch. No branch filter = pushes to
+  # feature/*, dev, main, experimental, etc. are all reported.
+  push:
+  pull_request:
+    types: [opened, reopened, closed]
+  pull_request_review:
+    types: [submitted]
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------
+  # PUSH — triggered whenever code is pushed to a watched branch.
+  # ---------------------------------------------------------------
+  notify-push:
+    name: Notify Telegram (Push)
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build notification message
+        shell: bash
+        env:
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          ACTOR: ${{ github.actor }}
+          BRANCH: ${{ github.ref_name }}
+        run: |-
+          MESSAGE_FILE="$RUNNER_TEMP/telegram-push.txt"
+          python3 - "$MESSAGE_FILE" <<'PY'
+          import json
+          import os
+          import sys
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as fh:
+              event = json.load(fh)
+
+          # Take the first line of every commit message (keeps messages short).
+          messages = []
+          for commit in event.get("commits") or []:
+              message = (commit.get("message") or "").strip()
+              messages.append(message.splitlines()[0] if message else "(empty commit message)")
+
+          lines = [f"🚀 {os.environ['PROJECT_NAME']} Update", ""]
+          lines.append(f"👤 Developer: {os.environ['ACTOR']}")
+          lines.append("")
+          lines.append(f"🌿 Branch: {os.environ['BRANCH']}")
+          lines.append("")
+
+          if len(messages) == 1:
+              lines.extend(["📝 Commit: " + messages[0], ""])
+          else:
+              lines.append("📝 Commits:")
+              lines.extend("• " + m for m in messages[:5])
+              if len(messages) > 5:
+                  lines.append(f"... and {len(messages) - 5} more")
+              lines.append("")
+              lines.append(f"📦 Total commits: {len(messages)}")
+              lines.append("")
+
+          lines.append("✅ Push completed.")
+          with open(sys.argv[1], "w", encoding="utf-8") as fh:
+              fh.write("\n".join(lines))
+          PY
+          echo "MESSAGE_FILE=$MESSAGE_FILE" >> "$GITHUB_ENV"
+
+      # Shared send step (validation + Telegram API call).
+      - name: Send Telegram message
+        uses: ./.github/actions/telegram-notify
+        with:
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message_file: ${{ env.MESSAGE_FILE }}
+
+  # ---------------------------------------------------------------
+  # PULL REQUEST OPENED / REOPENED
+  # ---------------------------------------------------------------
+  notify-pr-opened:
+    name: Notify Telegram (PR Opened)
+    if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'reopened')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build notification message
+        shell: bash
+        env:
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          ACTOR: ${{ github.actor }}
+        run: |-
+          MESSAGE_FILE="$RUNNER_TEMP/telegram-pr-opened.txt"
+          python3 - "$MESSAGE_FILE" <<'PY'
+          import json
+          import os
+          import sys
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as fh:
+              event = json.load(fh)
+          pr = event["pull_request"]
+
+          lines = [f"🔵 {os.environ['PROJECT_NAME']} Update", ""]
+          lines.append(f"👤 Developer: {os.environ['ACTOR']}")
+          lines.append("")
+          lines.append(f"🌿 Branch: {pr['head']['ref']}")
+          lines.append("")
+          lines.append(f"🎯 Target: {pr['base']['ref']}")
+          lines.append("")
+          lines.append(f"📝 Pull Request: #{pr['number']}")
+          lines.append("")
+          lines.append(f"📌 Title: {pr['title']}")
+          lines.append("")
+          lines.append("🔄 Pull Request opened.")
+
+          with open(sys.argv[1], "w", encoding="utf-8") as fh:
+              fh.write("\n".join(lines))
+          PY
+          echo "MESSAGE_FILE=$MESSAGE_FILE" >> "$GITHUB_ENV"
+
+      - name: Send Telegram message
+        uses: ./.github/actions/telegram-notify
+        with:
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message_file: ${{ env.MESSAGE_FILE }}
+
+  # ---------------------------------------------------------------
+  # PULL REQUEST REVIEW (APPROVED / CHANGES_REQUESTED / COMMENTED)
+  # ---------------------------------------------------------------
+  notify-pr-review:
+    name: Notify Telegram (PR Review)
+    if: github.event_name == 'pull_request_review' && github.event.action == 'submitted'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build notification message
+        shell: bash
+        env:
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          ACTOR: ${{ github.actor }}
+        run: |-
+          MESSAGE_FILE="$RUNNER_TEMP/telegram-pr-review.txt"
+          python3 - "$MESSAGE_FILE" <<'PY'
+          import json
+          import os
+          import sys
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as fh:
+              event = json.load(fh)
+
+          pr = event["pull_request"]
+          state = event["review"]["state"]
+          labels = {
+              "APPROVED": "Approved",
+              "CHANGES_REQUESTED": "Changes requested",
+              "COMMENTED": "Comment only",
+          }
+
+          lines = [f"🟡 {os.environ['PROJECT_NAME']} Update", ""]
+          lines.append(f"👤 Reviewer: {os.environ['ACTOR']}")
+          lines.append("")
+          lines.append(f"🌿 Branch: {pr['head']['ref']}")
+          lines.append("")
+          lines.append(f"📝 Pull Request: #{pr['number']}")
+          lines.append("")
+          lines.append(f"💬 Review: {labels.get(state, state)}")
+          lines.append("")
+          lines.append("🔎 Review submitted.")
+
+          with open(sys.argv[1], "w", encoding="utf-8") as fh:
+              fh.write("\n".join(lines))
+          PY
+          echo "MESSAGE_FILE=$MESSAGE_FILE" >> "$GITHUB_ENV"
+
+      - name: Send Telegram message
+        uses: ./.github/actions/telegram-notify
+        with:
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message_file: ${{ env.MESSAGE_FILE }}
+
+  # ---------------------------------------------------------------
+  # PULL REQUEST MERGED — only fires when pull_request.merged is true.
+  # A PR that is merely closed never reports "merged".
+  # ---------------------------------------------------------------
+  notify-pr-merged:
+    name: Notify Telegram (PR Merged)
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build notification message
+        shell: bash
+        env:
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          ACTOR: ${{ github.actor }}
+        run: |-
+          MESSAGE_FILE="$RUNNER_TEMP/telegram-pr-merged.txt"
+          python3 - "$MESSAGE_FILE" <<'PY'
+          import json
+          import os
+          import sys
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as fh:
+              event = json.load(fh)
+          pr = event["pull_request"]
+
+          lines = [f"🟣 {os.environ['PROJECT_NAME']} Update", ""]
+          lines.append(f"👤 Developer: {os.environ['ACTOR']}")
+          lines.append("")
+          lines.append(f"🌿 Branch: {pr['head']['ref']}")
+          lines.append("")
+          lines.append(f"🎯 Target: {pr['base']['ref']}")
+          lines.append("")
+          lines.append(f"📝 Pull Request: #{pr['number']}")
+          lines.append("")
+          lines.append(f"📌 Title: {pr['title']}")
+          lines.append("")
+          lines.append("✅ Merge completed.")
+
+          with open(sys.argv[1], "w", encoding="utf-8") as fh:
+              fh.write("\n".join(lines))
+          PY
+          echo "MESSAGE_FILE=$MESSAGE_FILE" >> "$GITHUB_ENV"
+
+      - name: Send Telegram message
+        uses: ./.github/actions/telegram-notify
+        with:
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message_file: ${{ env.MESSAGE_FILE }}
+
+  # ---------------------------------------------------------------
+  # PULL REQUEST CLOSED WITHOUT MERGE — fires when merged is false.
+  # ---------------------------------------------------------------
+  notify-pr-closed:
+    name: Notify Telegram (PR Closed)
+    if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build notification message
+        shell: bash
+        env:
+          PROJECT_NAME: ${{ env.PROJECT_NAME }}
+          ACTOR: ${{ github.actor }}
+        run: |-
+          MESSAGE_FILE="$RUNNER_TEMP/telegram-pr-closed.txt"
+          python3 - "$MESSAGE_FILE" <<'PY'
+          import json
+          import os
+          import sys
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as fh:
+              event = json.load(fh)
+          pr = event["pull_request"]
+
+          lines = [f"🔴 {os.environ['PROJECT_NAME']} Update", ""]
+          lines.append(f"👤 Developer: {os.environ['ACTOR']}")
+          lines.append("")
+          lines.append(f"🌿 Branch: {pr['head']['ref']}")
+          lines.append("")
+          lines.append(f"🎯 Target: {pr['base']['ref']}")
+          lines.append("")
+          lines.append(f"📝 Pull Request: #{pr['number']}")
+          lines.append("")
+          lines.append(f"📌 Title: {pr['title']}")
+          lines.append("")
+          lines.append("❌ Pull Request closed without merge.")
+
+          with open(sys.argv[1], "w", encoding="utf-8") as fh:
+              fh.write("\n".join(lines))
+          PY
+          echo "MESSAGE_FILE=$MESSAGE_FILE" >> "$GITHUB_ENV"
+
+      - name: Send Telegram message
+        uses: ./.github/actions/telegram-notify
+        with:
+          bot_token: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          chat_id: ${{ secrets.TELEGRAM_CHAT_ID }}
+          message_file: ${{ env.MESSAGE_FILE }}

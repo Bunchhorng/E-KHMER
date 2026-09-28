@@ -1,0 +1,72 @@
+name: Send Telegram notification
+description: >
+  Validates the Telegram secrets, then sends the contents of a message
+  file to a Telegram chat via the Telegram Bot API.
+
+inputs:
+  bot_token:
+    description: Telegram bot token (from the TELEGRAM_BOT_TOKEN secret)
+    required: true
+  chat_id:
+    description: Telegram chat ID (from the TELEGRAM_CHAT_ID secret)
+    required: true
+  message_file:
+    description: Absolute path to the UTF-8 message text file to send
+    required: true
+
+runs:
+  using: composite
+  steps:
+    # ---------------------------------------------------------------
+    # Fail fast with a clear message when the repository secrets are
+    # missing. Never log the secret values themselves.
+    # ---------------------------------------------------------------
+    - name: Validate secrets
+      shell: bash
+      env:
+        BOT_TOKEN: ${{ inputs.bot_token }}
+        CHAT_ID: ${{ inputs.chat_id }}
+      run: |
+        if [ -z "$BOT_TOKEN" ]; then
+          echo "::error::TELEGRAM_BOT_TOKEN secret is not configured. Add it under Repository Settings -> Secrets and variables -> Actions."
+          exit 1
+        fi
+        if [ -z "$CHAT_ID" ]; then
+          echo "::error::TELEGRAM_CHAT_ID secret is not configured. Add it under Repository Settings -> Secrets and variables -> Actions."
+          exit 1
+        fi
+        echo "Secret validation passed."
+
+    # ---------------------------------------------------------------
+    # Send the message. The file is URL-encoded with --data-urlencode,
+    # so special characters in commits/titles cannot break the request.
+    # The token is only passed via the environment (never echoed).
+    # ---------------------------------------------------------------
+    - name: Send message to Telegram
+      shell: bash
+      env:
+        BOT_TOKEN: ${{ inputs.bot_token }}
+        CHAT_ID: ${{ inputs.chat_id }}
+        MESSAGE_FILE: ${{ inputs.message_file }}
+      run: |
+        if [ ! -f "$MESSAGE_FILE" ]; then
+          echo "::error::Message file not found: $MESSAGE_FILE"
+          exit 1
+        fi
+
+        set +e
+        HTTP_CODE=""
+        HTTP_CODE=$(curl -sS -o "$RUNNER_TEMP/telegram-response.json" -w "%{http_code}" \
+          -X POST "https://api.telegram.org/bot${BOT_TOKEN}/sendMessage" \
+          --data-urlencode "chat_id=${CHAT_ID}" \
+          --data-urlencode "text@${MESSAGE_FILE}" 2>&1)
+        CURL_EXIT=$?
+        set -e
+
+        if [ "$CURL_EXIT" -ne 0 ] || [ "$HTTP_CODE" != "200" ]; then
+          echo "::error::Telegram notification failed (curl exit ${CURL_EXIT}, HTTP ${HTTP_CODE})."
+          echo "::error::Please check that TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are correct and the bot is in the group."
+          exit 1
+        fi
+
+        echo "Telegram notification sent (HTTP ${HTTP_CODE})."
