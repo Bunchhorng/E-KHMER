@@ -366,4 +366,3 @@ php artisan schedule:work
 Developed for educational and academic purposes.
 
 
-testing bot
