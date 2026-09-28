@@ -2,7 +2,7 @@ name: Telegram Team Activity Notification
 
 # Display name used in every Telegram message. Change only here.
 env:
-  PROJECT_NAME: ETEC Backend
+  PROJECT_NAME: E-KHMER Backend
 
 # ---------------------------------------------------------------
 # Supported events: push, pull_request (opened/reopened/closed),
