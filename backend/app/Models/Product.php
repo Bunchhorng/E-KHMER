@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -20,6 +21,20 @@ class Product extends Model
             'is_featured' => 'boolean',
             'is_active' => 'boolean',
         ];
+    }
+
+    /**
+     * Shopper-visible scope: the product is published *and* its owning shop is
+     * still active. Platform products have no shop and stay visible.
+     *
+     * Previously the catalog filtered on `is_active` only, so products belonging
+     * to a suspended or pending shop stayed purchasable.
+     */
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->where('is_active', true)->where(function (Builder $q) {
+            $q->whereNull('shop_id')->orWhereHas('shop', fn (Builder $s) => $s->active());
+        });
     }
 
     public function shop()

@@ -166,7 +166,7 @@ class ProductDetailResource extends JsonResource
                     'id' => $variant->id,
                     'sku' => $variant->sku,
                     'name' => $variant->name,
-                    'price' => $variant->price !== null ? (float) $variant->price : null,
+                    'price' => $variant->price !== null ? (float) $variant->price : (float) $this->price,
                     'compare_at_price' => $variant->compare_at_price !== null ? (float) $variant->compare_at_price : null,
                     'is_default' => (bool) $variant->is_default,
                     'is_active' => (bool) $variant->is_active,

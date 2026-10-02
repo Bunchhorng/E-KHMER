@@ -38,8 +38,13 @@ class ProductResource extends JsonResource
                     'name' => $variant->name,
                     'price' => $variant->price !== null ? (float) $variant->price : (float) $this->price,
                     'in_stock' => $this->variantInStock($variant),
+                    // Without this the storefront cannot render colour/size swatches
+                    // on a listing card, because the card only has the list payload.
+                    'attributes' => $this->variantAttributes($variant),
                 ])
                 ->values()),
+            'colors' => $this->whenLoaded('variants', fn () => $this->attributeSummary('color')),
+            'sizes' => $this->whenLoaded('variants', fn () => $this->attributeSummary('size')),
             'cover_image' => $this->resolveCoverImage(),
             'brand' => $this->whenLoaded('brand', fn () => [
                 'slug' => $this->brand->slug,
@@ -50,6 +55,53 @@ class ProductResource extends JsonResource
                 'name' => $this->category->name,
             ]),
         ];
+    }
+
+    protected function variantAttributes(ProductVariant $variant): array
+    {
+        if (! $variant->relationLoaded('attributeValues')) {
+            return [];
+        }
+
+        return $variant->attributeValues
+            ->map(fn ($pivot) => [
+                'attribute_slug' => $pivot->value?->attribute?->slug,
+                'name' => $pivot->value?->attribute?->name,
+                'value' => $pivot->value?->value,
+                'swatch_color' => $pivot->value?->swatch_color,
+            ])
+            ->filter(fn ($attribute) => $attribute['value'] !== null)
+            ->values()
+            ->all();
+    }
+
+    /**
+     * Distinct values of one attribute across the active variants, so a card can
+     * show its swatches without walking the variant list.
+     */
+    protected function attributeSummary(string $attributeSlug): array
+    {
+        $summary = [];
+
+        foreach ($this->variants ?? [] as $variant) {
+            if (! (bool) $variant->is_active) {
+                continue;
+            }
+
+            foreach ($this->variantAttributes($variant) as $attribute) {
+                if ($attribute['attribute_slug'] !== $attributeSlug) {
+                    continue;
+                }
+
+                $summary[$attribute['value']] ??= [
+                    'value' => $attribute['value'],
+                    'name' => $attribute['value'],
+                    'swatch_color' => $attribute['swatch_color'],
+                ];
+            }
+        }
+
+        return array_values($summary);
     }
 
     protected function variantInStock(ProductVariant $variant): bool

@@ -121,4 +121,31 @@ class ReviewTest extends TestCase
 
         $this->assertSame('rejected', Review::findOrFail($review->id)->status);
     }
+
+    public function test_reviews_of_an_unpublished_product_are_not_readable(): void
+    {
+        $user = User::factory()->create();
+        $product = $this->product();
+        $this->deliveredPurchase($user, $product);
+
+        $review = Review::create([
+            'user_id' => $user->id,
+            'product_id' => $product->id,
+            'rating' => 5,
+            'status' => Review::STATUS_APPROVED,
+            'verified' => true,
+        ]);
+
+        $this->getJson("/api/products/{$product->id}/reviews")
+            ->assertOk()
+            ->assertJsonCount(1, 'data');
+
+        $product->update(['is_active' => false]);
+
+        // Otherwise the review endpoint stays a way to read a product the catalog
+        // hides.
+        $this->getJson("/api/products/{$product->id}/reviews")->assertStatus(404);
+
+        $this->assertSame($review->id, Review::query()->firstOrFail()->id);
+    }
 }

@@ -16,7 +16,7 @@ class WishlistController extends Controller
 
         $products = $wishlist->products()
             ->with(['brand', 'category', 'images', 'variants.inventory'])
-            ->where('is_active', true)
+            ->active()
             ->get();
 
         return ProductResource::collection($products);

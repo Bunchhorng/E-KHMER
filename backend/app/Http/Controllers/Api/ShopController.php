@@ -36,12 +36,24 @@ class ShopController extends Controller
     {
         abort_unless($shop->isActive(), 404);
 
+        // Same bound as the catalog listing: an uncapped per_page turned this
+        // public endpoint into a whole-shop dump.
+        $validated = $request->validate([
+            'per_page' => ['nullable', 'integer', 'min:1', 'max:48'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
         $products = Product::query()
-            ->where('is_active', true)
+            ->active()
             ->where('shop_id', $shop->id)
             ->with(['brand', 'category', 'images', 'variants'])
             ->orderBy('name')
-            ->paginate($request->integer('per_page', 20));
+            ->paginate(
+                (int) ($validated['per_page'] ?? 20),
+                ['*'],
+                'page',
+                (int) ($validated['page'] ?? 1),
+            );
 
         return ProductResource::collection($products);
     }

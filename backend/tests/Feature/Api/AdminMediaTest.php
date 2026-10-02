@@ -237,4 +237,46 @@ class AdminMediaTest extends TestCase
         $this->assertSame(0, $product->images()->count());
         $this->assertFalse(Storage::disk('public')->exists('images/products/a.jpg'));
     }
+
+    public function test_uploading_a_new_cover_demotes_the_previous_cover(): void
+    {
+        Storage::fake('public');
+
+        $urlA = Storage::disk('public')->url('images/products/a.jpg');
+        Storage::disk('public')->put('images/products/a.jpg', 'a');
+
+        $product = Product::factory()->create();
+        $first = $product->images()->create(['image_path' => $urlA, 'sort_order' => 0, 'is_cover' => true]);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson("/api/admin/products/{$product->id}/images", [
+                'image' => UploadedFile::fake()->image('new-cover.jpg', 10, 10),
+                'is_cover' => true,
+            ])->assertCreated();
+
+        // A gallery has exactly one cover: the old flag has to be cleared or the
+        // storefront renders two cover images.
+        $this->assertSame(1, $product->images()->where('is_cover', true)->count());
+        $this->assertFalse($first->fresh()->is_cover);
+        $this->assertTrue($product->images()->orderByDesc('id')->first()->is_cover);
+    }
+
+    public function test_uploading_a_non_cover_keeps_the_existing_cover(): void
+    {
+        Storage::fake('public');
+
+        $urlA = Storage::disk('public')->url('images/products/a.jpg');
+        Storage::disk('public')->put('images/products/a.jpg', 'a');
+
+        $product = Product::factory()->create();
+        $first = $product->images()->create(['image_path' => $urlA, 'sort_order' => 0, 'is_cover' => true]);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson("/api/admin/products/{$product->id}/images", [
+                'image' => UploadedFile::fake()->image('second.jpg', 10, 10),
+            ])->assertCreated();
+
+        $this->assertSame(1, $product->images()->where('is_cover', true)->count());
+        $this->assertTrue($first->fresh()->is_cover);
+    }
 }

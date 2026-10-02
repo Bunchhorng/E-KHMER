@@ -131,23 +131,32 @@ Email is trimmed and lowercased before the lookup, so the stored address always 
 
 ### GET /catalog/products — Filtered product listing (paginated)
 
-Controller: `CatalogController@index` → `CatalogService::filtered()`.
+Controller: `CatalogController@index` → `CatalogService::filtered()`. Input is validated by
+`CatalogFilterRequest`; unknown parameters are ignored and invalid ones return `422`.
+Throttled to `120` requests/minute per client.
 
 **Query parameters** (all optional)
 | Param | Type | Behavior |
 | --- | --- | --- |
-| `q` | string | Search `name`, `short_description`, `sku` (LIKE, case-insensitive) |
+| `q` | string (max 120) | Search `name`, `short_description`, `description`, `sku` (LIKE, case-insensitive, `%`/`_` escaped) |
 | `category` | string | Filter by category **slug** |
 | `brand` | string | Filter by brand **slug** |
-| `colors` | string/array | Comma-separated or array; matches attribute values LIKE |
-| `sizes` | string/array | Comma-separated or array; matches attribute values LIKE |
+| `colors` | string/array | Comma-separated or array; exact attribute value match on the `color` attribute |
+| `sizes` | string/array | Comma-separated or array; exact attribute value match on the `size` attribute |
 | `min` | number | `price >= min` |
 | `max` | number | `price <= max` |
-| `rating` | int | `rating_avg >= rating` |
-| `stock` | 0/1 | Only products with `quantity - reserved_quantity > 0` |
-| `sort` | string | `newest` (default), `price-asc`, `price-desc`, `rating`, `popularity` |
-| `page` | int | Page number (default 1) |
-| `perPage` | int | Items per page (default 12) |
+| `rating` | int 1–5 | `rating_avg >= rating` |
+| `stock` | 0/1 | Only products with `quantity - reserved_quantity > 0`; `0`/`false` disables the filter |
+| `sort` | string | `newest` (default), `price-asc`, `price-desc`, `name-asc`, `name-desc`, `rating`, `popularity`, `featured` |
+| `page` | int ≥ 1 | Page number (default 1) |
+| `perPage` | int 1–48 | Items per page (default 12). Values above the cap return `422`. |
+
+Attribute filters are **AND across attributes, OR within one attribute**: `colors=Red,Blue&sizes=L`
+matches "Red or Blue, in size L". Values are compared exactly (case-insensitive), so `Red` does not
+match `Crimson Red`.
+
+Only products that are `is_active` **and** whose owning shop is `active` (or that have no shop)
+are returned.
 
 **Response `200`**
 ```json
@@ -166,6 +175,20 @@ Controller: `CatalogController@index` → `CatalogService::filtered()`.
       "is_active": true,
       "in_stock": true,
       "cover_image": "/storage/products/tee.jpg",
+      "variants": [
+        {
+          "id": 7,
+          "sku": "TEE-RED-M",
+          "name": "Red / M",
+          "price": 29.99,
+          "in_stock": true,
+          "attributes": [
+            { "attribute_slug": "color", "name": "Color", "value": "Red", "swatch_color": "#dc2626" }
+          ]
+        }
+      ],
+      "colors": [ { "value": "Red", "name": "Red", "swatch_color": "#dc2626" } ],
+      "sizes": [ { "value": "M", "name": "M", "swatch_color": null } ],
       "brand": { "slug": "acme", "name": "Acme" },
       "category": { "slug": "apparel", "name": "Apparel" }
     }
@@ -174,9 +197,13 @@ Controller: `CatalogController@index` → `CatalogService::filtered()`.
 }
 ```
 
+`colors` / `sizes` summarise the active variants so a card can render swatches without walking the
+variant list.
+
 ### GET /catalog/featured — Featured products
 
-`CatalogController@featured`. Query `limit` (default 8). Returns `ProductResource` **collection**.
+`CatalogController@featured`. Query `limit` (default 8, max 24; out-of-range values return `422`).
+Throttled to `120` requests/minute. Returns `ProductResource` **collection**.
 
 **Response `200`**
 ```json
@@ -185,17 +212,69 @@ Controller: `CatalogController@index` → `CatalogService::filtered()`.
 
 ### GET /catalog/facets — Facets for the filter sidebar
 
-`CatalogController@facets` → returns no-arg JSON:
+`CatalogController@facets` → returns no-arg JSON. Counts only include products a shopper can reach,
+so the facet numbers match the listing totals. Throttled to `120` requests/minute.
 ```json
 {
   "data": {
     "brands": [ { "slug": "acme", "name": "Acme", "count": 12 } ],
     "categories": [ { "slug": "apparel", "name": "Apparel", "count": 30 } ],
-    "colors": [ { "slug": "blue", "name": "Blue", "count": 5 } ],
-    "sizes": [ { "slug": "l", "name": "L", "count": 8 } ]
+    "colors": [ { "slug": "blue", "value": "Blue", "name": "Blue", "swatch_color": "#2563eb", "count": 5 } ],
+    "sizes": [ { "slug": "l", "value": "L", "name": "L", "swatch_color": null, "count": 8 } ],
+    "attributes": [
+      {
+        "slug": "color",
+        "name": "Color",
+        "type": "color",
+        "values": [ { "slug": "blue", "value": "Blue", "name": "Blue", "swatch_color": "#2563eb", "count": 5 } ]
+      }
+    ],
+    "price_range": { "min": 4.5, "max": 349.0 },
+    "max_per_page": 48
   }
 }
 ```
+
+`colors` and `sizes` are retained for the existing swatch UI; `attributes` lists **every** attribute
+with `is_filterable = true` so the sidebar can be built generically. Send the `value` field (not
+`slug`) back as `colors` / `sizes` — the filter matches on the exact attribute value.
+
+### POST /catalog/variants/resolve — Dynamic variant filtering
+
+`CatalogController@resolveVariants`. Maps a set of attribute value ids to the concrete variants that
+satisfy **all** of them, with live stock. Throttled to `120` requests/minute.
+
+**Request body**
+```json
+{ "attribute_values": [3, 11], "product_id": 1 }
+```
+| Field | Rules |
+| --- | --- |
+| `attribute_values` | required, array, 1–10 entries, each an integer ≥ 1 |
+| `product_id` | optional; scopes the resolution to one product |
+
+**Response `200`**
+```json
+{
+  "data": [
+    {
+      "variant_id": 42,
+      "product_id": 1,
+      "sku": "TEE-RED-M",
+      "name": "Red / M",
+      "price": 29.99,
+      "available_quantity": 4,
+      "in_stock": true,
+      "attributes": [
+        { "attribute": "color", "value": "Red", "swatch_color": "#dc2626" }
+      ]
+    }
+  ]
+}
+```
+
+Variants of unpublished products, unpublished variants and soft-deleted rows are excluded.
+`422` when `attribute_values` is missing or empty.
 
 ### GET /catalog/products/{slug} — Product detail
 
@@ -777,7 +856,15 @@ All routes guarded by `auth:sanctum` **and** the `admin` middleware. Non-admins 
 }
 ```
 
-**Validation:** `name` required on POST; `slug` auto-generated from name via `Str::slug`; `variants.*.attributes.*.{attribute,value}` required_with variants.*.attributes. Inventory created per variant with `low_stock_threshold=5`.
+**Validation:** `name` required on POST. `slug` is normalised with `Str::slug` and de-duplicated
+against the unique index (a repeat becomes `classic-tee-1`); a name that slugifies to nothing gets a
+generated `product-<random>` slug. `sku` must be unique across `products` — a clash returns `422`.
+`short_description` is capped at 255 and `description` at 60000, matching the column widths. Variant
+SKUs must be unique **per branch** (`product_variants_shop_sku_unique`) and no two variants may
+share the same attribute combination — both return `422` on `variants`. `images` entries must
+already be attached to this product or point at a file that exists under `images/products/` on the
+public disk; anything else is rejected with `422` on `images.<index>` instead of being attached or
+deleted. The whole write (product, variants, inventory, images) runs in one transaction.
 
 **Response `201`** — `ProductDetailResource`.
 
@@ -787,7 +874,16 @@ All routes guarded by `auth:sanctum` **and** the `admin` middleware. Non-admins 
 
 #### PUT /admin/products/{product} — Update product
 
-`AdminProductController@update`. If `variants` present, `syncVariants` runs (creates/updates matching by id or SKU, deletes unreferenced). Slug de-duplicated if changed. `ProductDetailResource`.
+`AdminProductController@update`. If `variants` present, `syncVariants` runs (creates/updates matching
+by id or SKU, deletes unreferenced) inside a transaction. SKUs of the variants being rewritten are
+parked on temporary values first, so two SKUs can be swapped within one product without tripping the
+unique index. Slug de-duplicated if changed. Moving a product to another branch is rejected with
+`422` on `shop_id` if the destination already stocks one of its SKUs. `ProductDetailResource`.
+
+#### PATCH /admin/products — Bulk status
+
+`AdminProductController@updateStatus`. Body `{ "ids": [1,2], "is_active": false }`. Authorizes each
+product individually, then reports the number of rows actually written in `data.updated`.
 
 #### DELETE /admin/products/{product} — Delete product
 
@@ -932,6 +1028,7 @@ Pending → Confirmed → Processing → Shipped → Delivered
 | `ChangePasswordRequest` | POST /account/password | current_password, password min:8 confirmed |
 | `OrderTransitionRequest` | PUT /admin/orders/{id}/transition | status in pending..refunded |
 | `AdminProductRequest` | /admin/products | product + variants array |
+| `CatalogFilterRequest` | /catalog/products | whitelists and bounds every catalog query parameter |
 | `AdminCategoryRequest` | /admin/categories | name, slug, parent, is_active, sort_order |
 | `AdminBrandRequest` | /admin/brands | name, slug, description, logo, is_active |
 | `AdminShippingMethodRequest` | /admin/shipping-methods | name, code, price, estimated days |
@@ -963,7 +1060,7 @@ Pending → Confirmed → Processing → Shipped → Delivered
 | Controller | Responsibilities |
 | --- | --- |
 | `AuthController` | register, login, me, logout |
-| `CatalogController` | index, show, featured, facets |
+| `CatalogController` | index, show, featured, facets, resolveVariants |
 | `CartController` | index, add, update, remove, clear, totals |
 | `CheckoutController` | begin, confirm, cancel |
 | `OrderController` | customer order list/show/cancel |

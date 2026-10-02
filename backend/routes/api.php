@@ -59,11 +59,13 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::prefix('catalog')->group(function () {
-    Route::get('products', [CatalogController::class, 'index']);
-    Route::get('featured', [CatalogController::class, 'featured']);
-    Route::get('facets', [CatalogController::class, 'facets']);
+    Route::get('products', [CatalogController::class, 'index'])->middleware('throttle:120,1');
+    Route::get('featured', [CatalogController::class, 'featured'])->middleware('throttle:120,1');
+    Route::get('facets', [CatalogController::class, 'facets'])->middleware('throttle:120,1');
+    Route::post('variants/resolve', [CatalogController::class, 'resolveVariants'])->middleware('throttle:120,1');
     Route::get('products/{slug}', [CatalogController::class, 'show'])
-        ->where('slug', '[A-Za-z0-9-]+');
+        ->where('slug', '[A-Za-z0-9-]+')
+        ->middleware('throttle:120,1');
 });
 
 Route::get('categories', [CategoryController::class, 'index']);

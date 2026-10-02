@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CatalogFilterRequest;
 use App\Http\Resources\ProductDetailResource;
 use App\Http\Resources\ProductResource;
 use App\Services\CatalogService;
@@ -14,14 +15,9 @@ class CatalogController extends Controller
     {
     }
 
-    public function index(Request $request)
+    public function index(CatalogFilterRequest $request)
     {
-        $filters = $request->only([
-            'q', 'category', 'brand', 'colors', 'sizes', 'min', 'max',
-            'rating', 'stock', 'sort', 'page', 'perPage',
-        ]);
-
-        $products = $this->catalog->filtered($filters);
+        $products = $this->catalog->filtered($request->filters());
 
         return [
             'data' => ProductResource::collection($products->items()),
@@ -47,7 +43,11 @@ class CatalogController extends Controller
 
     public function featured(Request $request)
     {
-        $limit = (int) $request->query('limit', 8);
+        $validated = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:24'],
+        ]);
+
+        $limit = (int) ($validated['limit'] ?? 8);
 
         return ProductResource::collection($this->catalog->featured($limit));
     }
@@ -55,5 +55,25 @@ class CatalogController extends Controller
     public function facets()
     {
         return ['data' => $this->catalog->facets()];
+    }
+
+    /**
+     * Dynamic variant filtering: map selected attribute value ids to the concrete
+     * purchasable variants (with live stock) that satisfy all of them.
+     */
+    public function resolveVariants(Request $request)
+    {
+        $validated = $request->validate([
+            'attribute_values' => ['required', 'array', 'min:1', 'max:10'],
+            'attribute_values.*' => ['integer', 'min:1'],
+            'product_id' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        $variants = $this->catalog->resolveVariants(
+            $validated['attribute_values'],
+            isset($validated['product_id']) ? (int) $validated['product_id'] : null,
+        );
+
+        return ['data' => $variants];
     }
 }

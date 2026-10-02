@@ -19,6 +19,10 @@ class ReviewController extends Controller
 
     public function index(Request $request, int $product)
     {
+        // Reviews of an unpublished product are not public, otherwise the review
+        // endpoint stays a way to read a product the catalog hides.
+        abort_unless(Product::query()->active()->whereKey($product)->exists(), 404, 'Product not found.');
+
         $reviews = Review::with(['user'])
             ->where('product_id', $product)
             ->where('status', Review::STATUS_APPROVED)

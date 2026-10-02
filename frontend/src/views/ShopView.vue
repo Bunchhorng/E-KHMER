@@ -10,6 +10,7 @@ import { catalogApi } from '@/api/catalog'
 import type { Facets } from '@/api/catalog'
 import type { Product } from '@/types'
 import { mapCatalogProduct } from '@/utils/product'
+import { swatchColor } from '@/utils/color'
 import { useCartStore } from '@/stores/cart'
 import { useWishlistStore } from '@/stores/wishlist'
 import { useUiStore } from '@/stores/ui'
@@ -192,8 +193,20 @@ onMounted(() => {
   fetchFacets()
 })
 
+/**
+ * The catalog filter matches on the exact attribute value, so the chip carries
+ * `value` for the query string and `swatch` only for rendering. Previously the
+ * slug was used for both, which meant `Light Blue` was sent as `light-blue`
+ * (matching nothing) and painted as an invalid CSS colour.
+ */
 const colorOptions = computed(() =>
-  facets.value.colors.map((c) => ({ slug: c.slug, name: c.name, count: c.count }))
+  facets.value.colors.map((c) => ({
+    slug: c.slug,
+    value: c.value ?? c.name,
+    name: c.name,
+    count: c.count,
+    swatch: swatchColor(c.swatch_color, c.name)
+  }))
 )
 
 const activeCategoryName = computed(() => {
@@ -228,11 +241,11 @@ function removeChip(key: string) {
   if (key === 'brand') filters.brand = undefined
 }
 
-function toggleColor(hex: string) {
+function toggleColor(value: string) {
   filters.page = 1
-  const idx = filters.colors.indexOf(hex)
+  const idx = filters.colors.indexOf(value)
   if (idx >= 0) filters.colors.splice(idx, 1)
-  else filters.colors.push(hex)
+  else filters.colors.push(value)
 }
 
 function toggleSize(size: string) {
@@ -446,10 +459,10 @@ function setPage(p: number) {
                 :key="c.slug"
                 type="button"
                 class="h-8 w-8 rounded-full border-2 transition"
-                :class="filters.colors.includes(c.slug) ? 'border-primary ring-2 ring-primary/30' : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'"
-                :style="{ backgroundColor: c.slug }"
+                :class="filters.colors.includes(c.value) ? 'border-primary ring-2 ring-primary/30' : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'"
+                :style="{ backgroundColor: c.swatch }"
                 :title="c.name"
-                @click="toggleColor(c.slug)"
+                @click="toggleColor(c.value)"
               ></button>
             </div>
           </div>
@@ -462,8 +475,8 @@ function setPage(p: number) {
                 :key="s.slug"
                 type="button"
                 class="rounded-lg border px-3 py-1.5 text-sm transition"
-                :class="filters.sizes.includes(s.slug) ? 'border-primary bg-primary/5 text-primary' : 'border-border-gray text-gray-600 hover:border-gray-300 dark:border-border-gray dark:text-muted dark:hover:border-gray-500'"
-                @click="toggleSize(s.slug)"
+                :class="filters.sizes.includes(s.value ?? s.name) ? 'border-primary bg-primary/5 text-primary' : 'border-border-gray text-gray-600 hover:border-gray-300 dark:border-border-gray dark:text-muted dark:hover:border-gray-500'"
+                @click="toggleSize(s.value ?? s.name)"
               >
                 {{ s.name }}
               </button>
@@ -601,7 +614,7 @@ function setPage(p: number) {
             <div>
               <div class="label">{{ $t('shop.size') }}</div>
               <div class="flex flex-wrap gap-2">
-                <button v-for="s in facets.sizes" :key="s.slug" type="button" class="rounded-lg border px-3 py-1.5 text-sm" :class="filters.sizes.includes(s.slug) ? 'border-primary bg-primary/5 text-primary' : 'border-border-gray text-gray-600 dark:border-border-gray dark:text-muted'" @click="toggleSize(s.slug)">{{ s.name }}</button>
+                <button v-for="s in facets.sizes" :key="s.slug" type="button" class="rounded-lg border px-3 py-1.5 text-sm" :class="filters.sizes.includes(s.value ?? s.name) ? 'border-primary bg-primary/5 text-primary' : 'border-border-gray text-gray-600 dark:border-border-gray dark:text-muted'" @click="toggleSize(s.value ?? s.name)">{{ s.name }}</button>
               </div>
             </div>
 

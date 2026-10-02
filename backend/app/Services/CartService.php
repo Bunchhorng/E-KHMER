@@ -47,7 +47,12 @@ class CartService
      */
     public function add(Cart $cart, int $variantId, int $quantity = 1): Cart
     {
-        $variant = ProductVariant::where('id', $variantId)->where('is_active', true)->first();
+        // The product has to be purchasable too: a variant can stay active while
+        // its product is unpublished or owned by a shop that is no longer active.
+        $variant = ProductVariant::where('id', $variantId)
+            ->where('is_active', true)
+            ->whereHas('product', fn ($q) => $q->active())
+            ->first();
 
         if ($variant === null) {
             throw ValidationException::withMessages(['message' => 'Variant not found']);

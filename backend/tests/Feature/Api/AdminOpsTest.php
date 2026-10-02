@@ -11,6 +11,7 @@ use App\Models\Shipment;
 use App\Models\ShippingMethod;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Tests\TestCase;
 
@@ -421,5 +422,168 @@ class AdminOpsTest extends TestCase
                 ],
             ])->assertStatus(422)
             ->assertJsonValidationErrors('variants');
+    }
+
+    public function test_store_deduplicates_a_slug_that_is_already_taken(): void
+    {
+        $existing = Product::factory()->create(['slug' => 'taken-slug']);
+
+        $response = $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/products', [
+                'name' => 'Another Product',
+                'slug' => 'taken-slug',
+                'price' => 10,
+            ])->assertCreated();
+
+        // products.slug carries a unique index, so a repeat used to surface as a
+        // driver error rather than a usable slug.
+        $this->assertSame('taken-slug-1', $response->json('data.slug'));
+        $this->assertNotSame($existing->slug, $response->json('data.slug'));
+    }
+
+    public function test_store_rejects_a_product_sku_that_already_exists(): void
+    {
+        Product::factory()->create(['sku' => 'DUP-PRODUCT-SKU']);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/products', [
+                'name' => 'Clashing Product',
+                'sku' => 'DUP-PRODUCT-SKU',
+                'price' => 10,
+            ])->assertStatus(422)
+            ->assertJsonValidationErrors('sku');
+    }
+
+    public function test_store_rejects_an_over_long_short_description(): void
+    {
+        // short_description is a varchar(255): without a bound the insert failed
+        // with a truncation error and returned a 500.
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/products', [
+                'name' => 'Long Summary Product',
+                'price' => 10,
+                'short_description' => str_repeat('a', 256),
+            ])->assertStatus(422)
+            ->assertJsonValidationErrors('short_description');
+    }
+
+    public function test_store_normalises_an_unsafe_slug(): void
+    {
+        $response = $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/products', [
+                'name' => 'Bad Slug',
+                'slug' => 'Not A Slug',
+                'price' => 10,
+            ])->assertCreated();
+
+        $this->assertSame('not-a-slug', $response->json('data.slug'));
+    }
+
+    public function test_store_falls_back_to_a_generated_slug_for_non_latin_names(): void
+    {
+        $response = $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/products', [
+                'name' => 'ផលិតផលនំ',
+                'price' => 10,
+            ])->assertCreated();
+
+        $this->assertStringStartsWith('product-', $response->json('data.slug'));
+    }
+
+    public function test_variants_can_swap_skus_within_the_same_product(): void
+    {
+        $product = Product::factory()->create();
+        $product->variants()->create(['name' => 'Red', 'sku' => 'SWAP-RED', 'is_active' => true]);
+        $product->variants()->create(['name' => 'Blue', 'sku' => 'SWAP-BLUE', 'is_active' => true]);
+
+        $ids = $product->variants()->orderBy('id')->pluck('id')->all();
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->putJson("/api/admin/products/{$product->id}", [
+                'name' => $product->name,
+                'variants' => [
+                    ['id' => $ids[0], 'name' => 'Red', 'sku' => 'SWAP-BLUE'],
+                    ['id' => $ids[1], 'name' => 'Blue', 'sku' => 'SWAP-RED'],
+                ],
+            ])->assertOk();
+
+        $skus = $product->variants()->orderBy('id')->pluck('sku')->all();
+        $this->assertSame(['SWAP-BLUE', 'SWAP-RED'], $skus);
+    }
+
+    public function test_variants_cannot_share_the_same_attribute_combination(): void
+    {
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/products', [
+                'name' => 'Duplicate Combination',
+                'price' => 10,
+                'variants' => [
+                    [
+                        'name' => 'Red L',
+                        'sku' => 'COMBO-1',
+                        'price' => 10,
+                        'attributes' => [
+                            ['attribute' => 'Color', 'value' => 'Red'],
+                            ['attribute' => 'Size', 'value' => 'L'],
+                        ],
+                    ],
+                    [
+                        'name' => 'Red Large',
+                        'sku' => 'COMBO-2',
+                        'price' => 10,
+                        'attributes' => [
+                            ['attribute' => 'Size', 'value' => 'l'],
+                            ['attribute' => 'Color', 'value' => 'red'],
+                        ],
+                    ],
+                ],
+            ])->assertStatus(422)
+            ->assertJsonValidationErrors('variants.1.attributes');
+    }
+
+    public function test_bulk_status_reports_the_number_of_rows_actually_updated(): void
+    {
+        $first = Product::factory()->create(['is_active' => true]);
+        $second = Product::factory()->create(['is_active' => true]);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->patchJson('/api/admin/products', [
+                'ids' => [$first->id, $second->id],
+                'is_active' => false,
+            ])->assertOk()
+            ->assertJsonPath('data.updated', 2);
+
+        $this->assertFalse($first->fresh()->is_active);
+        $this->assertFalse($second->fresh()->is_active);
+    }
+
+    public function test_store_rejects_image_paths_that_were_never_uploaded(): void
+    {
+        Storage::fake('public');
+
+        Storage::disk('public')->put('images/products/legit.jpg', 'x');
+        $legit = Storage::disk('public')->url('images/products/legit.jpg');
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/products', [
+                'name' => 'Gallery Product',
+                'price' => 10,
+                // A path under the uploads folder that belongs to another product.
+                'images' => [$legit, 'https://evil.example.com/tracker.gif'],
+            ])->assertStatus(422)
+            ->assertJsonValidationErrors('images.1');
+    }
+
+    public function test_store_rejects_a_path_traversal_attempt(): void
+    {
+        Storage::fake('public');
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/products', [
+                'name' => 'Traversal Product',
+                'price' => 10,
+                'images' => ['/storage/images/products/../../secret.txt'],
+            ])->assertStatus(422)
+            ->assertJsonValidationErrors('images.0');
     }
 }

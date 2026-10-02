@@ -1,5 +1,19 @@
 import apiClient from './client'
 
+export interface VariantAttribute {
+  attribute_slug: string | null
+  name: string | null
+  value: string
+  /** Detail/admin payloads omit it; only the catalog listing carries swatches. */
+  swatch_color?: string | null
+}
+
+export interface AttributeSummary {
+  value: string
+  name: string
+  swatch_color: string | null
+}
+
 export interface CatalogProduct {
   id: number
   slug: string
@@ -19,7 +33,10 @@ export interface CatalogProduct {
     name: string | null
     price: number | null
     in_stock: boolean
+    attributes?: VariantAttribute[]
   }[]
+  colors?: AttributeSummary[]
+  sizes?: AttributeSummary[]
   brand: { slug: string; name: string } | null
   category: { slug: string; name: string } | null
 }
@@ -62,11 +79,30 @@ export interface PaginatedResponse<T> {
   }
 }
 
+export interface FacetValue {
+  slug: string
+  /** Exact attribute value; this is what the catalog filter matches on. */
+  value?: string
+  name: string
+  swatch_color?: string | null
+  count: number
+}
+
+export interface FacetAttribute {
+  slug: string
+  name: string
+  type: string
+  values: FacetValue[]
+}
+
 export interface Facets {
   brands: { slug: string; name: string; count: number }[]
   categories: { slug: string; name: string; count: number }[]
-  colors: { slug: string; name: string; count: number }[]
-  sizes: { slug: string; name: string; count: number }[]
+  colors: FacetValue[]
+  sizes: FacetValue[]
+  attributes?: FacetAttribute[]
+  price_range?: { min: number | null; max: number | null }
+  max_per_page?: number
 }
 
 export interface CatalogFilters {
@@ -112,5 +148,27 @@ export const catalogApi = {
 
   getFacets() {
     return apiClient.get<{ data: Facets }>('/catalog/facets')
+  },
+
+  /**
+   * Dynamic variant filtering: resolve selected attribute value ids to the
+   * concrete purchasable variants, with live stock.
+   */
+  resolveVariants(attributeValueIds: number[], productId?: number) {
+    return apiClient.post<{ data: ResolvedVariant[] }>('/catalog/variants/resolve', {
+      attribute_values: attributeValueIds,
+      product_id: productId
+    })
   }
+}
+
+export interface ResolvedVariant {
+  variant_id: number
+  product_id: number
+  sku: string | null
+  name: string | null
+  price: number | null
+  available_quantity: number
+  in_stock: boolean
+  attributes: { attribute: string | null; value: string | null; swatch_color: string | null }[]
 }

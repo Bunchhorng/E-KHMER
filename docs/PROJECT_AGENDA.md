@@ -34,7 +34,7 @@ Planning -> Setup -> Database -> Backend -> API -> Frontend -> Integration -> Te
 | ---- | ----- | ------ | -------- | ----- |
 | Authentication | M1 | TESTING | 85% | Register/login/me/logout, email verification, password reset, 429 throttling, remember-me lifetime and token revocation implemented and covered by 30 auth tests; merge to `dev` and a 500-path test still pending |
 | Users and Addresses | M1 | TESTING | 80% | Profile update, password change, notification ownership and address CRUD (ownership, default-flag invariant, column limits) implemented and covered by 24 tests; avatar upload and account reviews endpoints remain untested |
-| Products | M2 | NOT STARTED | 0% | Catalog + admin product routes exist; verify EAV variants |
+| Products | M2 | TESTING | 70% | Public catalog (listing, detail, featured, facets, search, filters, sorting, variant resolve, active-shop scoping, throttling) and admin product CRUD (transactional writes, slug/SKU uniqueness, per-shop variant SKUs, combination uniqueness, image path validation, cover handling, bulk status) implemented and covered by `CatalogTest` (24), `AdminOpsTest`, `AdminMediaTest`, `CartTest`, `ReviewTest`; remaining: draft/archived status, description sanitization, admin attribute CRUD, explicit shop filter, disabled variant combinations |
 | Shopping (Cart/Wishlist/Checkout) | M3 | NOT STARTED | 0% | Session cart plus Sanctum cart routes exist |
 | Orders | M4 | NOT STARTED | 0% | `PUT admin/orders/{order}/transition` exists; verify state machine |
 | Payments | M4 | NOT STARTED | 0% | Payment tables exist; no gateway integration yet |
@@ -431,27 +431,27 @@ Verification evidence for this section: `docker compose exec app php artisan tes
 
 | ID | Done | Task | Owner | Priority | Status | Depends On |
 | -- | ---- | ---- | ----- | -------- | ------ | ---------- |
-| PRD-01 | [ ] | Admin product create with full validation | M2 | CRITICAL | NOT STARTED | AUTH-11, DB-05 |
-| PRD-02 | [ ] | Admin product read/show | M2 | CRITICAL | NOT STARTED | PRD-01 |
-| PRD-03 | [ ] | Admin product update | M2 | CRITICAL | NOT STARTED | PRD-02 |
-| PRD-04 | [ ] | Admin product delete (soft delete) and restore | M2 | HIGH | NOT STARTED | PRD-03 |
-| PRD-05 | [ ] | Product image upload, validation, ordering, primary image | M2 | HIGH | NOT STARTED | PRD-01 |
-| PRD-06 | [ ] | Product image delete with storage cleanup | M2 | MEDIUM | NOT STARTED | PRD-05 |
-| PRD-07 | [ ] | Product status (draft, active, archived) with bulk patch | M2 | HIGH | NOT STARTED | PRD-03 |
-| PRD-08 | [ ] | Price stored as decimal/minor units with currency formatting | M2 | CRITICAL | NOT STARTED | PRD-01, DB-13 |
-| PRD-09 | [ ] | SKU generation and uniqueness validation per shop | M2 | HIGH | NOT STARTED | PRD-01, DB-06 |
+| PRD-01 | [x] | Admin product create with full validation | M2 | CRITICAL | DONE | AUTH-11, DB-05 |
+| PRD-02 | [x] | Admin product read/show | M2 | CRITICAL | DONE | PRD-01 |
+| PRD-03 | [x] | Admin product update | M2 | CRITICAL | DONE | PRD-02 |
+| PRD-04 | [x] | Admin product delete (soft delete) and restore | M2 | HIGH | DONE | PRD-03 |
+| PRD-05 | [x] | Product image upload, validation, ordering, primary image | M2 | HIGH | DONE | PRD-01 |
+| PRD-06 | [x] | Product image delete with storage cleanup | M2 | MEDIUM | DONE | PRD-05 |
+| PRD-07 | [ ] | Product status (draft, active, archived) with bulk patch | M2 | HIGH | IN PROGRESS | PRD-03 |
+| PRD-08 | [x] | Price stored as decimal/minor units with currency formatting | M2 | CRITICAL | DONE | PRD-01, DB-13 |
+| PRD-09 | [ ] | SKU generation and uniqueness validation per shop | M2 | HIGH | IN PROGRESS | PRD-01, DB-06 |
 | PRD-10 | [ ] | Description (rich text or markdown) with sanitization | M2 | HIGH | NOT STARTED | PRD-01 |
-| PRD-11 | [ ] | Slug generation with uniqueness and friendly URLs | M2 | HIGH | NOT STARTED | PRD-11, DB-06 |
-| PRD-12 | [ ] | Public catalog list with pagination, sorting, and shop filter | M2 | CRITICAL | NOT STARTED | PRD-02 |
-| PRD-13 | [ ] | Public catalog detail by slug with variants, images, attributes | M2 | CRITICAL | NOT STARTED | PRD-12 |
-| PRD-14 | [ ] | Featured products endpoint for the home page | M2 | MEDIUM | NOT STARTED | PRD-12 |
-| PRD-15 | [ ] | Facets endpoint (categories, brands, price range, attributes) | M2 | HIGH | NOT STARTED | PRD-12 |
-| PRD-16 | [ ] | Search across name, description, SKU | M2 | HIGH | NOT STARTED | PRD-12 |
-| PRD-17 | [ ] | Filtering by category, brand, price, attribute values, in-stock | M2 | HIGH | NOT STARTED | PRD-12, PRD-19 |
-| PRD-18 | [ ] | Sorting by newest, price, name, popularity | M2 | MEDIUM | NOT STARTED | PRD-12 |
-| PRD-19 | [ ] | Dynamic variant filtering resolving variant ids from selected attribute values | M2 | CRITICAL | NOT STARTED | PRD-24, PRD-25 |
-| PRD-20 | [ ] | Only active products visible to customers; drafts hidden | M2 | CRITICAL | NOT STARTED | PRD-07, PRD-12 |
-| PRD-21 | [ ] | Product tests: CRUD, visibility rules, filters, search, sorting | M2 | HIGH | NOT STARTED | PRD-13 |
+| PRD-11 | [x] | Slug generation with uniqueness and friendly URLs | M2 | HIGH | DONE | PRD-11, DB-06 |
+| PRD-12 | [ ] | Public catalog list with pagination, sorting, and shop filter | M2 | CRITICAL | IN PROGRESS | PRD-02 |
+| PRD-13 | [x] | Public catalog detail by slug with variants, images, attributes | M2 | CRITICAL | DONE | PRD-12 |
+| PRD-14 | [x] | Featured products endpoint for the home page | M2 | MEDIUM | DONE | PRD-12 |
+| PRD-15 | [x] | Facets endpoint (categories, brands, price range, attributes) | M2 | HIGH | DONE | PRD-12 |
+| PRD-16 | [x] | Search across name, description, SKU | M2 | HIGH | DONE | PRD-12 |
+| PRD-17 | [x] | Filtering by category, brand, price, attribute values, in-stock | M2 | HIGH | DONE | PRD-12, PRD-19 |
+| PRD-18 | [x] | Sorting by newest, price, name, popularity | M2 | MEDIUM | DONE | PRD-12 |
+| PRD-19 | [x] | Dynamic variant filtering resolving variant ids from selected attribute values | M2 | CRITICAL | DONE | PRD-24, PRD-25 |
+| PRD-20 | [ ] | Only active products visible to customers; drafts hidden | M2 | CRITICAL | IN PROGRESS | PRD-07, PRD-12 |
+| PRD-21 | [x] | Product tests: CRUD, visibility rules, filters, search, sorting | M2 | HIGH | DONE | PRD-13 |
 
 ## 7.2 Categories
 
@@ -475,7 +475,7 @@ Verification evidence for this section: `docker compose exec app php artisan tes
 | PBD-04 | [ ] | Brand delete with product handling | M2 | HIGH | NOT STARTED | PBD-03 |
 | PBD-05 | [ ] | Brand logo upload with validation | M2 | MEDIUM | NOT STARTED | PBD-01 |
 | PBD-06 | [ ] | Brand validation (name, slug, uniqueness per shop) | M2 | HIGH | NOT STARTED | PBD-01 |
-| PBD-07 | [ ] | Product relationship: brand filter on catalog | M2 | HIGH | NOT STARTED | PBD-02, PRD-17 |
+| PBD-07 | [x] | Product relationship: brand filter on catalog | M2 | HIGH | DONE | PBD-02, PRD-17 |
 
 ## 7.4 Variants and Attributes
 
@@ -483,14 +483,22 @@ Verification evidence for this section: `docker compose exec app php artisan tes
 | -- | ---- | ---- | ----- | -------- | ------ | ---------- |
 | PVA-01 | [ ] | Attribute create/read/update/delete | M2 | HIGH | NOT STARTED | DB-09 |
 | PVA-02 | [ ] | Attribute value create/read/update/delete scoped to attribute | M2 | HIGH | NOT STARTED | PVA-01 |
-| PVA-03 | [ ] | Variant creation under product with attribute value mapping | M2 | CRITICAL | NOT STARTED | PVA-02, PRD-01 |
-| PVA-04 | [ ] | Variant SKU unique per shop | M2 | HIGH | NOT STARTED | PVA-03, DB-06 |
-| PVA-05 | [ ] | Variant price override falling back to product price | M2 | CRITICAL | NOT STARTED | PVA-03 |
-| PVA-06 | [ ] | Variant stock display joined from inventories | M2 | CRITICAL | NOT STARTED | PVA-03, INV-01 |
-| PVA-07 | [ ] | Variant selection on product detail with disabled combinations | M2 | HIGH | NOT STARTED | PVA-03, PRD-19 |
-| PVA-08 | [ ] | Variant update and delete handling with product references | M2 | HIGH | NOT STARTED | PVA-03 |
-| PVA-09 | [ ] | Combination uniqueness (no duplicate attribute value sets) | M2 | MEDIUM | NOT STARTED | PVA-03, DB-06 |
-| PVA-10 | [ ] | Tests for variant resolution and stock display | M2 | HIGH | NOT STARTED | PVA-07 |
+| PVA-03 | [x] | Variant creation under product with attribute value mapping | M2 | CRITICAL | DONE | PVA-02, PRD-01 |
+| PVA-04 | [x] | Variant SKU unique per shop | M2 | HIGH | DONE | PVA-03, DB-06 |
+| PVA-05 | [x] | Variant price override falling back to product price | M2 | CRITICAL | DONE | PVA-03 |
+| PVA-06 | [x] | Variant stock display joined from inventories | M2 | CRITICAL | DONE | PVA-03, INV-01 |
+| PVA-07 | [ ] | Variant selection on product detail with disabled combinations | M2 | HIGH | IN PROGRESS | PVA-03, PRD-19 |
+| PVA-08 | [x] | Variant update and delete handling with product references | M2 | HIGH | DONE | PVA-03 |
+| PVA-09 | [x] | Combination uniqueness (no duplicate attribute value sets) | M2 | MEDIUM | DONE | PVA-03, DB-06 |
+| PVA-10 | [x] | Tests for variant resolution and stock display | M2 | HIGH | DONE | PVA-07 |
+
+Verification evidence for this section: `docker compose exec app php artisan test --filter=CatalogTest` -> 24 passed (126 assertions); the last full-suite run before the final catalog additions was 228 passed (1020 assertions). Frontend `npx vue-tsc --noEmit -p tsconfig.app.json` and `npm run build` both pass after the shop-facet and swatch changes.
+
+Deliberate scope decisions recorded during this pass:
+- `products` keeps a boolean `is_active`; no draft/archived column was added, so PRD-07 and PRD-20 stay IN PROGRESS rather than DONE.
+- No HTML sanitizer dependency was introduced, so PRD-10 remains NOT STARTED and rich-text rendering must stay escaped.
+- Attribute and attribute-value management is still read-only on the public API; PVA-01/PVA-02 stay NOT STARTED.
+- Variant CRUD is intentionally part of the product write endpoints, not standalone `/variants` routes.
 
 ---
 
@@ -902,26 +910,26 @@ Status values: NOT STARTED / IN PROGRESS / BLOCKED / REVIEW / TESTING / DONE.
 | API-06 | GET | `/api/auth/me` | M1 | TESTED | [x] |
 | API-07 | POST | `/api/auth/logout` | M1 | TESTED | [x] |
 | API-08 | POST | `/api/auth/email/verification-notification` | M1 | TESTED | [x] |
-| API-09 | GET | `/api/catalog/products` | M2 | NOT STARTED | [ ] |
-| API-10 | GET | `/api/catalog/featured` | M2 | NOT STARTED | [ ] |
-| API-11 | GET | `/api/catalog/facets` | M2 | NOT STARTED | [ ] |
-| API-12 | GET | `/api/catalog/products/{slug}` | M2 | NOT STARTED | [ ] |
-| API-13 | GET | `/api/categories` | M2 | NOT STARTED | [ ] |
-| API-14 | GET | `/api/brands` | M2 | NOT STARTED | [ ] |
+| API-09 | GET | `/api/catalog/products` | M2 | TESTED | [x] |
+| API-10 | GET | `/api/catalog/featured` | M2 | TESTED | [x] |
+| API-11 | GET | `/api/catalog/facets` | M2 | TESTED | [x] |
+| API-12 | GET | `/api/catalog/products/{slug}` | M2 | TESTED | [x] |
+| API-13 | GET | `/api/categories` | M2 | TESTED | [x] |
+| API-14 | GET | `/api/brands` | M2 | TESTED | [x] |
 | API-15 | GET | `/api/attributes` | M2 | NOT STARTED | [ ] |
 | API-16 | GET | `/api/shipping-methods` | M5 | NOT STARTED | [ ] |
 | API-17 | GET | `/api/products/{product}/reviews` | M6 | NOT STARTED | [ ] |
 | API-18 | POST | `/api/coupons/validate` | M4 | NOT STARTED | [ ] |
-| API-19 | GET | `/api/shops` | M1 | NOT STARTED | [ ] |
-| API-20 | GET | `/api/shops/{shop:slug}` | M1 | NOT STARTED | [ ] |
-| API-21 | GET | `/api/shops/{shop:slug}/products` | M1 | NOT STARTED | [ ] |
+| API-19 | GET | `/api/shops` | M1 | TESTED | [x] |
+| API-20 | GET | `/api/shops/{shop:slug}` | M1 | IN PROGRESS | [ ] |
+| API-21 | GET | `/api/shops/{shop:slug}/products` | M1 | TESTED | [x] |
 | API-22 | GET | `/api/orders/guest/{orderNumber}` | M4 | NOT STARTED | [ ] |
-| API-23 | GET | `/api/cart` | M3 | NOT STARTED | [ ] |
-| API-24 | POST | `/api/cart` | M3 | NOT STARTED | [ ] |
+| API-23 | GET | `/api/cart` | M3 | TESTED | [x] |
+| API-24 | POST | `/api/cart` | M3 | TESTED | [x] |
 | API-25 | PUT | `/api/cart/items/{cartItem}` | M3 | NOT STARTED | [ ] |
 | API-26 | DELETE | `/api/cart/items/{cartItem}` | M3 | NOT STARTED | [ ] |
-| API-27 | DELETE | `/api/cart` | M3 | NOT STARTED | [ ] |
-| API-28 | GET | `/api/cart/totals` | M3 | NOT STARTED | [ ] |
+| API-27 | DELETE | `/api/cart` | M3 | TESTED | [x] |
+| API-28 | GET | `/api/cart/totals` | M3 | TESTED | [x] |
 | API-29 | POST | `/api/checkout` | M3 | NOT STARTED | [ ] |
 | API-30 | POST | `/api/checkout/{orderNumber}/confirm` | M3 | NOT STARTED | [ ] |
 | API-31 | POST | `/api/checkout/{orderNumber}/cancel` | M3 | NOT STARTED | [ ] |
@@ -1009,12 +1017,18 @@ Status values: NOT STARTED / IN PROGRESS / BLOCKED / REVIEW / TESTING / DONE.
 | API-113 | GET | `/api/admin/notifications/unread-count` | M5 | NOT STARTED | [ ] |
 | API-114 | POST | `/api/admin/notifications/{notification}/read` | M5 | NOT STARTED | [ ] |
 | API-115 | DELETE | `/api/admin/notifications/{notification}` | M5 | NOT STARTED | [ ] |
+| API-124 | POST | `/api/catalog/variants/resolve` | M2 | TESTED | [x] |
+| API-125 | POST | `/api/admin/products` | M2 | TESTED | [x] |
+| API-126 | PUT | `/api/admin/products/{product}` | M2 | TESTED | [x] |
+| API-127 | PATCH | `/api/admin/products` (bulk status patch) | M2 | TESTED | [x] |
+
+Variants are intentionally managed through `POST`/`PUT /api/admin/products[/{product}]` (`syncVariants`) rather than dedicated `/variants` routes, so API-116 is satisfied by the routes above.
 
 Endpoints that are planned but not present in `backend/routes/api.php` and must be added by their owner:
 
 | ID | Method | Endpoint | Owner | Priority | Status | Depends On |
 | -- | ------ | -------- | ----- | -------- | ------ | ---------- |
-| API-116 | POST/PUT/DELETE | `/api/admin/products/{product}/variants` (variant CRUD) | M2 | CRITICAL | NOT STARTED | PVA-03 |
+| API-116 | POST/PUT/DELETE | `/api/admin/products/{product}/variants` (variant CRUD) | M2 | CRITICAL | SUPERSEDED - use `PUT /api/admin/products/{product}` | PVA-03 |
 | API-117 | POST/PUT/DELETE | `/api/admin/attributes`, `/api/admin/attributes/{attribute}/values` | M2 | HIGH | NOT STARTED | PVA-01 |
 | API-118 | POST | `/api/admin/inventory/{inventory}/adjust` | M5 | CRITICAL | NOT STARTED | INV-04 |
 | API-119 | POST | `/api/admin/shipments` (create shipment for an order) | M5 | CRITICAL | NOT STARTED | SHP-04 |
@@ -1080,7 +1094,8 @@ Endpoints that are planned but not present in `backend/routes/api.php` and must 
 Evidence for this section, from the current pass:
 
 - SEC-07 is verified for `User`: `role` and `email_verified_at` are no longer mass assignable, `POST /api/auth/register` and `PUT /api/account/profile` ignore a self-assigned role, and `POST /api/addresses` ignores a supplied `user_id`. Every other model still needs the same sweep.
-- SEC-14 covers the auth surface: register 5/min, login 10/min, forgot-password 3/min, reset-password 5/min, verification resend 3/min. The coupon validate throttle is still missing.
+- SEC-14 covers the auth surface: register 5/min, login 10/min, forgot-password 3/min, reset-password 5/min, verification resend 3/min. The coupon validate throttle is still missing. The five public catalog routes were throttled at 120/min in this pass, which is not listed in the SEC-14 scope and should be added to it.
+- SEC-12 now has partial product-media protection: attached image paths must already belong to the product or exist under `images/products/` on the public disk, so a crafted path cannot attach or delete an unrelated file. Mime/extension allowlists, size limits and non-guessable stored filenames are still open, so SEC-12 stays NOT STARTED.
 - SEC-19 has automated 404 probes for addresses and notifications. Order, review and wishlist scoping relies on existing tests and still needs the manual probe from M6.
 
 ---
@@ -1236,24 +1251,32 @@ Rules:
 
 | Bug ID | Feature | Description | Priority | Assigned | Status | Fix |
 | ------ | ------- | ----------- | -------- | -------- | ------ | --- |
-| BUG-001 | - | - | - | - | OPEN | - |
-| BUG-002 | - | - | - | - | OPEN | - |
-| BUG-003 | - | - | - | - | OPEN | - |
-| BUG-004 | - | - | - | - | OPEN | - |
-| BUG-005 | - | - | - | - | OPEN | - |
-| BUG-006 | - | - | - | - | OPEN | - |
-| BUG-007 | - | - | - | - | OPEN | - |
-| BUG-008 | - | - | - | - | OPEN | - |
-| BUG-009 | - | - | - | - | OPEN | - |
-| BUG-010 | - | - | - | - | OPEN | - |
+| BUG-001 | Product images | Admin product write accepted any string in `images`, so a crafted path such as `../../.env` could be attached to a product and then removed through the media endpoint | CRITICAL | M2 | TESTING | Path must already belong to the product or exist under `images/products/` on the public disk; `AdminOpsTest::test_store_rejects_image_paths_that_were_never_uploaded`, `AdminOpsTest::test_store_rejects_a_path_traversal_attempt` |
+| BUG-002 | Product variants | Two variants of one product could not exchange SKUs, because the per-shop unique index rejected the intermediate write | HIGH | M2 | TESTING | Two-phase SKU parking in `AdminProductController::syncVariants`; `AdminOpsTest::test_variants_can_swap_skus_within_the_same_product` |
+| BUG-003 | Products | Creating a product whose slug was already taken hit the unique index instead of de-duplicating | HIGH | M2 | TESTING | `uniqueSlug()` with `Str::slug`; `AdminOpsTest::test_store_deduplicates_a_slug_that_is_already_taken` |
+| BUG-004 | Catalog visibility | The public catalog, the shop product list, reviews and the wishlist returned inactive products and products owned by a suspended shop | HIGH | M2 | TESTING | `Product::scopeActive()` applied in `CatalogService`, `ShopController`, `ReviewController` and `WishlistController`; `CatalogTest::test_hides_products_from_non_active_shops`, `CatalogTest::test_lists_only_active_products_with_meta`, `ReviewTest::test_reviews_of_an_unpublished_product_are_not_readable` |
+| BUG-005 | Cart | The cart accepted a variant whose product was unpublished, whose variant was inactive, or whose shop was not active | HIGH | M3 | TESTING | Active checks in `CartService::add()`; `CartTest::test_cannot_add_a_variant_of_an_unpublished_product`, `CartTest::test_cannot_add_an_inactive_variant` |
+| BUG-006 | Product variants | A variant with no price override serialised as `0` instead of the parent product price | HIGH | M2 | TESTING | Parent-price fallback in `ProductDetailResource` and in the variant resolver; `CatalogTest::test_variant_price_falls_back_to_the_product_price_on_both_endpoints` |
+| BUG-007 | Catalog filtering | Attribute filters used `LIKE`, so `colors=Red` also matched `Crimson Red` | MEDIUM | M2 | TESTING | Exact value match, OR within one attribute and AND across attributes; `CatalogTest::test_attribute_filter_matches_exact_values_only`, `CatalogTest::test_color_and_size_filters_use_and_across_attributes` |
+| BUG-008 | Catalog filtering | Facet counts included inactive products and products of suspended shops, so the sidebar disagreed with the listing | MEDIUM | M2 | TESTING | Counts computed through the active scope; `CatalogTest::test_facet_counts_ignore_inactive_products` |
+| BUG-009 | Products | The bulk status patch reported a count that did not match the rows actually written | MEDIUM | M2 | TESTING | Count taken from the authorised query; `AdminOpsTest::test_bulk_status_reports_the_number_of_rows_actually_updated` |
+| BUG-010 | Product images | Uploading a new cover image left the previous image flagged as cover as well | MEDIUM | M2 | TESTING | Previous cover demoted on promotion; `AdminMediaTest::test_uploading_a_new_cover_demotes_the_previous_cover`, `AdminMediaTest::test_uploading_a_non_cover_keeps_the_existing_cover` |
+| BUG-011 | Product variants | Two variants could share one attribute-value combination, which makes variant resolution ambiguous | MEDIUM | M2 | TESTING | `assertUniqueCombinations()` on create and update; `AdminOpsTest::test_variants_cannot_share_the_same_attribute_combination` |
+| BUG-012 | Catalog API | Public catalog routes had no rate limiting and `perPage` was unbounded, so a client could dump the whole table | MEDIUM | M2 | TESTING | `throttle:120,1` on every catalog route and a `perPage` cap of 48; `CatalogTest::test_rejects_unbounded_or_invalid_pagination`, `CatalogTest::test_caps_page_size_instead_of_dumping_the_whole_table` |
+| BUG-013 | Products | An unsafe slug (spaces, uppercase, path-like characters) was stored verbatim instead of being normalised | MEDIUM | M2 | TESTING | `Str::slug` normalisation plus a generated fallback for non-latin names; `AdminOpsTest::test_store_normalises_an_unsafe_slug`, `AdminOpsTest::test_store_falls_back_to_a_generated_slug_for_non_latin_names` |
+| BUG-014 | Products | Over-long `name`, `sku` or `short_description` reached MySQL and failed as a database error instead of a `422` | MEDIUM | M2 | TESTING | Column-width bounds in `AdminProductRequest`; `AdminOpsTest::test_store_rejects_an_over_long_short_description` |
+| BUG-015 | Catalog search | Catalog search ignored the long `description` field required by PRD-16, and treated `%` and `_` as wildcards | MEDIUM | M2 | TESTING | `LOWER(description)` search with escaped wildcards; `CatalogTest::test_search_matches_long_description_and_treats_wildcards_literally` |
+| BUG-016 | Products | A product SKU that already existed on another product was accepted until the database rejected the insert | MEDIUM | M2 | TESTING | Product-level SKU uniqueness rule; `AdminOpsTest::test_store_rejects_a_product_sku_that_already_exists`, `AdminOpsTest::test_update_rejects_duplicate_sku_against_other_products_but_allows_own` |
+
+All rows are `TESTING` rather than `CLOSED`: the fixes and their regression tests are in place, but M6 has not yet verified them.
 
 ### Bug Summary Counters
 
 | Priority | Open | In Progress | Fixed | Testing | Closed |
 | -------- | ---- | ----------- | ----- | ------- | ------ |
-| CRITICAL | 0 | 0 | 0 | 0 | 0 |
-| HIGH | 0 | 0 | 0 | 0 | 0 |
-| MEDIUM | 0 | 0 | 0 | 0 | 0 |
+| CRITICAL | 0 | 0 | 0 | 1 | 0 |
+| HIGH | 0 | 0 | 0 | 5 | 0 |
+| MEDIUM | 0 | 0 | 0 | 10 | 0 |
 | LOW | 0 | 0 | 0 | 0 | 0 |
 
 ---
@@ -1508,14 +1531,14 @@ Fill this table only after the full test pass. A feature is complete only when e
 | Addresses | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
 | Roles and authorization | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
 | Shops (multi-shop scoping) | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
-| Categories | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
-| Brands | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
-| Products | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
-| Product images | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
-| Attributes and values | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
-| Product variants | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
-| Catalog browsing (filter, sort, search) | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
-| Cart | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
+| Categories | [ ] | [ ] | [x] | [ ] | [x] | IN PROGRESS |
+| Brands | [ ] | [ ] | [x] | [ ] | [x] | IN PROGRESS |
+| Products | [x] | [x] | [x] | [ ] | [x] | IN PROGRESS |
+| Product images | [x] | [x] | [x] | [ ] | [x] | IN PROGRESS |
+| Attributes and values | [x] | [ ] | [ ] | [ ] | [ ] | IN PROGRESS |
+| Product variants | [x] | [x] | [x] | [ ] | [x] | IN PROGRESS |
+| Catalog browsing (filter, sort, search) | [x] | [x] | [x] | [ ] | [x] | IN PROGRESS |
+| Cart | [x] | [x] | [x] | [ ] | [ ] | IN PROGRESS |
 | Wishlist | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
 | Checkout | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
 | Orders | [ ] | [ ] | [ ] | [ ] | [ ] | NOT STARTED |
@@ -1538,17 +1561,20 @@ Fill this table only after the full test pass. A feature is complete only when e
 
 ### Audit Summary
 
+Only the product-area rows above were filled in this pass; every other row still needs its own audit.
+The Frontend column stays unticked throughout because the Section 18.2 page gate has not been run.
+
 | Metric | Value |
 | ------ | ----- |
-| Features audited | 31 |
+| Features audited | 8 of 31 (products area only) |
 | Features complete | 0 |
 | Open CRITICAL bugs | 0 |
 | Open HIGH bugs | 0 |
-| APIs implemented (Section 20) | 115 |
-| APIs tested | 0 |
-| Test pass rate | 0% |
-| Audit date | - |
-| Audited by | - |
+| APIs implemented (Section 20) | 119 |
+| APIs tested | 34 |
+| Test pass rate | 100% (230 tests / 1030 assertions, `php artisan test`) |
+| Audit date | 2026-10-03 |
+| Audited by | M2 product pass (agent-assisted) - needs a second reviewer |
 
 ---
 

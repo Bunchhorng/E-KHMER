@@ -150,4 +150,29 @@ class CartTest extends TestCase
             ->deleteJson('/api/cart')
             ->assertOk();
     }
+
+    public function test_cannot_add_a_variant_of_an_unpublished_product(): void
+    {
+        $product = Product::factory()->withVariant(price: 49.99, stock: 5)->create(['is_active' => false]);
+        $variantId = $product->variants()->first()->id;
+
+        $this->withHeaders(['X-Session-Id' => 'sess-hidden'])
+            ->postJson('/api/cart', ['product_variant_id' => $variantId, 'quantity' => 1])
+            ->assertStatus(422);
+    }
+
+    public function test_cannot_add_an_inactive_variant(): void
+    {
+        [$variantId] = $this->variantWithStock(5);
+
+        $this->withHeaders(['X-Session-Id' => 'sess-inactive'])
+            ->postJson('/api/cart', ['product_variant_id' => $variantId, 'quantity' => 1])
+            ->assertCreated();
+
+        \App\Models\ProductVariant::whereKey($variantId)->update(['is_active' => false]);
+
+        $this->withHeaders(['X-Session-Id' => 'sess-inactive-2'])
+            ->postJson('/api/cart', ['product_variant_id' => $variantId, 'quantity' => 1])
+            ->assertStatus(422);
+    }
 }

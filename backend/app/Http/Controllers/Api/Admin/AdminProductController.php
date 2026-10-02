@@ -15,6 +15,8 @@ use App\Models\VariantAttributeValue;
 use App\Services\InventoryService;
 use App\Services\MediaUploadService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -86,16 +88,39 @@ class AdminProductController extends Controller
 
         $this->authorize('create', Product::class, $data);
 
-        $product = Product::create($data);
+        // products.slug has a unique index and the payload may repeat a slug that
+        // is already taken, so it has to be de-duplicated before the insert.
+        $data['slug'] = $this->uniqueSlug(Product::class, $this->slugForNewProduct($data));
 
-        if ($request->filled('variants')) {
-            $this->assertUniqueSkus($request->input('variants'), null, $product->shop_id);
-            $this->createVariants($product, $request->input('variants'));
+        $variants = $request->input('variants') ?: null;
+
+        if (is_array($variants)) {
+            // Variants inherit the product's branch, so that is the scope the
+            // composite unique index will be checked against.
+            $this->assertUniqueSkus($variants, $this->targetShopId($data));
+            $this->assertUniqueCombinations($variants);
         }
 
-        if ($request->has('images')) {
-            $this->syncImages($product, $request->input('images', []));
+        $images = $request->has('images') ? $request->input('images', []) : null;
+
+        if (is_array($images)) {
+            $this->assertManageableImagePaths(new Product, $images);
         }
+
+        // Variants, stock rows and images must not survive a half-failed insert.
+        $product = DB::transaction(function () use ($data, $variants, $images) {
+            $product = Product::create($data);
+
+            if (is_array($variants)) {
+                $this->createVariants($product, $variants);
+            }
+
+            if (is_array($images)) {
+                $this->syncImages($product, $images);
+            }
+
+            return $product;
+        });
 
         return (new ProductDetailResource(
             $this->loadDetail($product)
@@ -121,8 +146,8 @@ class AdminProductController extends Controller
 
         $shopChanged = array_key_exists('shop_id', $data) && (int) ($data['shop_id'] ?? 0) !== (int) $product->shop_id;
 
-        // Reassigning a product carries its existing variant SKUs into the new
-        // branch, so they have to be validated there before anything is written.
+        // Moving a product carries its variant SKUs into a branch that may already
+        // stock them, which the (shop_id, sku) index would reject as a 500.
         if ($shopChanged) {
             $this->assertExistingSkusAvailableInShop(
                 $product,
@@ -134,26 +159,39 @@ class AdminProductController extends Controller
             $data['slug'] = $this->uniqueSlug(Product::class, $data['slug'], $product->id);
         }
 
-        $product->update($data);
+        $variants = $request->has('variants') ? ($request->input('variants') ?? []) : null;
+        $images = $request->has('images') ? ($request->input('images', []) ?? []) : null;
 
-        // A shop reassignment must cascade to the variants, their stock rows and
-        // the ledger, otherwise branch-scoped inventory, SKU uniqueness and
-        // reports all go stale.
-        if ($shopChanged) {
-            $product->variants()->update(['shop_id' => $product->shop_id]);
-
-            Inventory::whereIn('product_variant_id', $product->variants()->pluck('id'))
-                ->update(['shop_id' => $product->shop_id]);
+        if (is_array($variants)) {
+            $this->assertUniqueSkus($variants, $this->targetShopId($data, $product));
+            $this->assertUniqueCombinations($variants);
         }
 
-        if ($request->has('variants')) {
-            $this->assertUniqueSkus($request->input('variants') ?? [], $product->id, $product->shop_id);
-            $this->syncVariants($product, $request->input('variants') ?? [], $request->user()?->id);
+        if (is_array($images)) {
+            $this->assertManageableImagePaths($product, $images);
         }
 
-        if ($request->has('images')) {
-            $this->syncImages($product, $request->input('images', []));
-        }
+        DB::transaction(function () use ($product, $data, $variants, $images, $shopChanged, $request) {
+            $product->update($data);
+
+            // A shop reassignment must cascade to the variants, their stock rows and
+            // the ledger, otherwise branch-scoped inventory, SKU uniqueness and
+            // reports all go stale.
+            if ($shopChanged) {
+                $product->variants()->update(['shop_id' => $product->shop_id]);
+
+                Inventory::whereIn('product_variant_id', $product->variants()->pluck('id'))
+                    ->update(['shop_id' => $product->shop_id]);
+            }
+
+            if (is_array($variants)) {
+                $this->syncVariants($product, $variants, $request->user()?->id);
+            }
+
+            if (is_array($images)) {
+                $this->syncImages($product, $images);
+            }
+        });
 
         return new ProductDetailResource($this->loadDetail($product));
     }
@@ -201,21 +239,34 @@ class AdminProductController extends Controller
             $this->authorize('update', $product);
         }
 
-        Product::whereIn('id', $data['ids'])->update(['is_active' => $data['is_active']]);
+        Product::whereIn('id', $products->pluck('id'))->update(['is_active' => $data['is_active']]);
 
-        return ['data' => ['updated' => count($data['ids'])]];
+        // Count what was actually written, not what was requested: ids that were
+        // soft-deleted between validation and the write are silently skipped.
+        return ['data' => ['updated' => $products->count()]];
     }
 
-    /**
-     * SKU uniqueness is scoped per branch: two different shops may legitimately
-     * stock the same manufacturer SKU, but one shop may not list it twice.
-     */
-    protected function assertUniqueSkus(array $variants, ?int $exceptProductId = null, ?int $shopId = null): void
+/**
+ * SKU uniqueness is scoped per branch by `product_variants_shop_sku_unique`
+ * (migration 2026_09_27_000002): two shops may stock the same manufacturer SKU,
+ * but one shop may not list it twice.
+ *
+ * Rows referenced by the current payload are excluded from the clash check.
+ * They are about to be rewritten, and excluding them is what lets an admin swap
+ * two SKUs between two variants of the same product instead of tripping the
+ * index on the first UPDATE.
+ */
+protected function assertUniqueSkus(array $variants, ?int $shopId = null): void
     {
         $incoming = [];
+        $referencedIds = [];
 
         foreach ($variants as $variant) {
             $sku = isset($variant['sku']) ? trim((string) $variant['sku']) : '';
+
+            if (! empty($variant['id'])) {
+                $referencedIds[] = (int) $variant['id'];
+            }
 
             if ($sku === '') {
                 continue;
@@ -238,8 +289,9 @@ class AdminProductController extends Controller
 
         $existing = ProductVariant::withTrashed()
             ->whereNotNull('sku')
-            ->when($exceptProductId !== null, fn ($q) => $q->where('product_id', '!=', $exceptProductId))
-            ->when($shopId !== null, fn ($q) => $q->where('shop_id', $shopId))
+            ->whereNotIn('id', $referencedIds ?: [0])
+            // A NULL shop_id is unconstrained in SQL, so mirror that here.
+            ->where(fn ($q) => $shopId === null ? $q->whereNull('shop_id') : $q->where('shop_id', $shopId))
             ->whereIn('sku', array_values($incoming))
             ->pluck('sku');
 
@@ -253,11 +305,141 @@ class AdminProductController extends Controller
     }
 
     /**
-     * Guard a branch reassignment: every SKU the product already uses must be
-     * free in the destination branch, otherwise the composite unique index
-     * would reject the write as an unhandled 500.
+     * PVA-09: a product may not carry two variants with the same attribute
+     * combination, otherwise the shopper has two indistinguishable choices.
      */
-    protected function assertExistingSkusAvailableInShop(Product $product, ?int $targetShopId): void
+    protected function assertUniqueCombinations(array $variants): void
+    {
+        $seen = [];
+
+        foreach ($variants as $index => $variant) {
+            $attributes = $variant['attributes'] ?? null;
+
+            if (! is_array($attributes) || $attributes === []) {
+                continue;
+            }
+
+            $parts = [];
+
+            foreach ($attributes as $entry) {
+                $attribute = isset($entry['attribute']) ? Str::slug(trim((string) $entry['attribute'])) : '';
+                $value = isset($entry['value']) ? mb_strtolower(trim((string) $entry['value'])) : '';
+
+                if ($attribute === '' || $value === '') {
+                    continue;
+                }
+
+                $parts[] = $attribute.'='.$value;
+            }
+
+            if ($parts === []) {
+                continue;
+            }
+
+            sort($parts);
+            $signature = implode('|', $parts);
+
+            if (isset($seen[$signature])) {
+                throw ValidationException::withMessages([
+                    "variants.{$index}.attributes" => 'Two variants cannot share the same attribute combination.',
+                ]);
+            }
+
+            $seen[$signature] = true;
+        }
+    }
+
+    /**
+     * `images` is a list of public URLs, and anything missing from that list gets
+     * its file deleted. Accepting an arbitrary string therefore let a caller
+     * delete another product's upload, or attach a remote URL to the gallery.
+     *
+     * A path is only manageable when it is already attached to this product or
+     * when it points at a freshly uploaded file in the product uploads folder.
+     */
+    protected function assertManageableImagePaths(Product $product, array $paths): void
+    {
+        $paths = array_values(array_filter(array_map('trim', $paths), fn ($p) => $p !== ''));
+
+        if ($paths === []) {
+            return;
+        }
+
+        $owned = $product->exists
+            ? $product->images()->pluck('image_path')->map(fn ($p) => (string) $p)->all()
+            : [];
+
+        foreach ($paths as $index => $path) {
+            if (in_array($path, $owned, true)) {
+                continue;
+            }
+
+            if ($this->isFreshProductUpload($path)) {
+                continue;
+            }
+
+            throw ValidationException::withMessages([
+                "images.{$index}" => 'Image must be uploaded through the media endpoint before it can be attached.',
+            ]);
+        }
+    }
+
+    protected function isFreshProductUpload(string $path): bool
+    {
+        $storageUrl = rtrim((string) config('filesystems.disks.public.url'), '/');
+        $relative = null;
+
+        if ($storageUrl !== '' && str_starts_with($path, $storageUrl)) {
+            $relative = ltrim(substr($path, strlen($storageUrl)), '/');
+        } elseif (str_starts_with($path, '/storage/')) {
+            $relative = ltrim(substr($path, strlen('/storage/')), '/');
+        }
+
+        if ($relative === null || ! str_starts_with($relative, 'images/products/')) {
+            return false;
+        }
+
+        if (str_contains($relative, '..')) {
+            return false;
+        }
+
+        return Storage::disk('public')->exists($relative);
+    }
+
+/**
+ * Fallback slug for a product whose name cannot produce one (for example a
+ * name written entirely in a non-latin script).
+ */
+protected function slugForNewProduct(array $data): string
+    {
+        $slug = trim((string) ($data['slug'] ?? ''));
+
+        if ($slug !== '') {
+            return $slug;
+        }
+
+        return 'product-'.Str::lower(Str::random(10));
+    }
+
+    /**
+     * The branch the product's variants will end up in, which is what the
+     * per-branch SKU index applies to. A shop reassignment is part of the same
+     * payload, so the incoming value wins over the stored one.
+     */
+protected function targetShopId(array $data, ?Product $product = null): ?int
+    {
+        if (array_key_exists('shop_id', $data)) {
+            return $data['shop_id'] === null ? null : (int) $data['shop_id'];
+        }
+
+        return $product?->shop_id === null ? null : (int) $product->shop_id;
+    }
+
+    /**
+ * Guard a branch reassignment: every SKU the product already uses must be free
+ * in the destination branch.
+ */
+protected function assertExistingSkusAvailableInShop(Product $product, ?int $targetShopId): void
     {
         $ownSkus = ProductVariant::withTrashed()
             ->where('product_id', $product->id)
@@ -271,7 +453,7 @@ class AdminProductController extends Controller
         $clashes = ProductVariant::withTrashed()
             ->where('product_id', '!=', $product->id)
             ->whereNotNull('sku')
-            ->when($targetShopId !== null, fn ($q) => $q->where('shop_id', $targetShopId))
+            ->where(fn ($q) => $targetShopId === null ? $q->whereNull('shop_id') : $q->where('shop_id', $targetShopId))
             ->whereIn('sku', $ownSkus)
             ->pluck('sku');
 
@@ -339,6 +521,24 @@ class AdminProductController extends Controller
         $existing = $product->variants()->get();
         $referencedIds = [];
 
+        // Snapshot the SKUs before anything is written: SKU-based row matching and
+        // the "sku omitted" fallback both need the value as it arrived.
+        $originalSku = $existing->mapWithKeys(fn ($variant) => [(int) $variant->id => $variant->sku])->all();
+
+        // Phase 1: park the SKU of every variant this payload touches on a
+        // temporary value. Without this, swapping two SKUs inside one product
+        // trips the global unique index on the first UPDATE, because the other
+        // variant still holds the value being written.
+        foreach ($existing as $variant) {
+            if ($variant->sku === null || ! $this->variantIsReferenced($variant, $variants, $originalSku)) {
+                continue;
+            }
+
+            $variant->forceFill([
+                'sku' => '__swap_'.$variant->id.'_'.Str::lower(Str::random(8)),
+            ])->saveQuietly();
+        }
+
         foreach ($variants as $variantData) {
             $variant = null;
 
@@ -347,7 +547,8 @@ class AdminProductController extends Controller
             }
 
             if ($variant === null && ! empty($variantData['sku'])) {
-                $variant = $existing->first(fn ($v) => $v->sku === $variantData['sku']);
+                $wanted = $variantData['sku'];
+                $variant = $existing->first(fn ($v) => ($originalSku[(int) $v->id] ?? $v->sku) === $wanted);
             }
 
             if ($variant === null) {
@@ -373,7 +574,8 @@ class AdminProductController extends Controller
                 $variant->update([
                     'shop_id' => $product->shop_id,
                     'name' => $variantData['name'] ?? $variant->name,
-                    'sku' => $variantData['sku'] ?? $variant->sku,
+                    // Never let the temporary SKU from phase 1 become the real one.
+                    'sku' => $variantData['sku'] ?? ($originalSku[(int) $variant->id] ?? null),
                     'price' => array_key_exists('price', $variantData) ? $variantData['price'] : $variant->price,
                     'compare_at_price' => array_key_exists('compare_at_price', $variantData) ? $variantData['compare_at_price'] : $variant->compare_at_price,
                     'is_active' => $variantData['is_active'] ?? $variant->is_active,
@@ -407,6 +609,24 @@ class AdminProductController extends Controller
                 $variant->delete();
             }
         }
+    }
+
+    /**
+     * Whether the incoming payload targets this variant, by id or by SKU.
+     */
+    protected function variantIsReferenced(ProductVariant $variant, array $variants, array $originalSku): bool
+    {
+        foreach ($variants as $variantData) {
+            if (! empty($variantData['id']) && (int) $variantData['id'] === (int) $variant->id) {
+                return true;
+            }
+
+            if (! empty($variantData['sku']) && ($originalSku[(int) $variant->id] ?? $variant->sku) === $variantData['sku']) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function syncImages(Product $product, array $paths): void

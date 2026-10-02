@@ -37,7 +37,13 @@ class AdminMediaController extends Controller
     {
         $path = $this->media->storeImage($request->file('image'), 'products');
 
-        $isCover = $request->boolean('is_cover') || !$product->images()->exists();
+        $isCover = $request->boolean('is_cover') || ! $product->images()->where('is_cover', true)->exists();
+
+        // A gallery has exactly one cover, so promoting the new image has to clear
+        // the previous flag. Without this the product rendered two cover images.
+        if ($isCover) {
+            $product->images()->where('is_cover', true)->update(['is_cover' => false]);
+        }
 
         $image = $product->images()->create([
             'image_path' => $path,

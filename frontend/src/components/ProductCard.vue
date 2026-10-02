@@ -4,6 +4,7 @@ import { Heart, ShoppingCart } from 'lucide-vue-next'
 import { useWishlistStore } from '@/stores/wishlist'
 import type { Product } from '@/types'
 import { formatPrice } from '@/utils/format'
+import { swatchColor } from '@/utils/color'
 import StarRating from './StarRating.vue'
 
 const props = withDefaults(
@@ -17,7 +18,6 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'add-to-cart', payload: { product: Product; variantId?: string }): void
   (e: 'wishlist-toggle', productId: string): void
-  (e: 'view', slug: string): void
 }>()
 
 const wishlistStore = useWishlistStore()
@@ -44,16 +44,12 @@ function handleAddToCart(): void {
 function handleWishlistToggle(): void {
   emit('wishlist-toggle', props.product.id)
 }
-
-function handleView(): void {
-  emit('view', props.product.slug)
-}
 </script>
 
 <template>
   <div class="card feature-glow group flex flex-col overflow-hidden transition-shadow duration-300 hover:shadow-lg dark:bg-surface">
     <div class="relative aspect-square overflow-hidden bg-canvas dark:bg-surface-hover/50">
-      <RouterLink :to="`/product/${props.product.slug}`" class="block h-full w-full" @click="handleView">
+      <RouterLink :to="`/product/${props.product.slug}`" class="block h-full w-full">
         <img
           v-if="coverImage"
           :src="coverImage.url"
@@ -88,7 +84,6 @@ function handleView(): void {
       <RouterLink
         :to="`/product/${props.product.slug}`"
         class="mt-1 line-clamp-2 text-sm font-semibold text-ink transition-colors hover:text-primary dark:text-ink"
-        @click="handleView"
       >
         {{ props.product.title }}
       </RouterLink>
@@ -107,7 +102,8 @@ function handleView(): void {
           v-for="color in props.product.colors"
           :key="color"
           class="h-3 w-3 rounded-full ring-1 ring-gray-300 dark:ring-gray-600"
-          :style="{ backgroundColor: color }"
+          :style="{ backgroundColor: swatchColor(null, color) }"
+          :title="color"
         ></li>
       </ul>
       <button
