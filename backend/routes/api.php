@@ -40,10 +40,13 @@ use Illuminate\Support\Facades\Route;
 |--------------------------------------------------------------------------
 */
 
-Route::post('auth/register', [AuthController::class, 'register']);
-Route::post('auth/login', [AuthController::class, 'login']);
-Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword']);
-Route::post('auth/reset-password', [AuthController::class, 'resetPassword']);
+// Throttled because these are the endpoints worth brute forcing or flooding:
+// credential stuffing on login, and abuse of the mail-sending reset/verify
+// routes. 429 responses carry Retry-After / X-RateLimit-* headers.
+Route::post('auth/register', [AuthController::class, 'register'])->middleware('throttle:5,1');
+Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
+Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:3,1');
+Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:5,1');
 Route::get('auth/email/verify/{id}/{hash}', [AuthController::class, 'verify'])
     ->middleware('signed')
     ->name('verification.verify');
@@ -51,7 +54,8 @@ Route::get('auth/email/verify/{id}/{hash}', [AuthController::class, 'verify'])
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('auth/me', [AuthController::class, 'me']);
     Route::post('auth/logout', [AuthController::class, 'logout']);
-    Route::post('auth/email/verification-notification', [AuthController::class, 'sendVerificationEmail']);
+    Route::post('auth/email/verification-notification', [AuthController::class, 'sendVerificationEmail'])
+        ->middleware('throttle:3,1');
 });
 
 Route::prefix('catalog')->group(function () {

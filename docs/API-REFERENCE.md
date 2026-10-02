@@ -77,10 +77,14 @@ This reference was generated from the **live Laravel backend** running inside Do
 
 **Request body**
 ```json
-{ "email": "jane@example.com", "password": "secret123" }
+{ "email": "jane@example.com", "password": "secret123", "remember": true }
 ```
 
-**Validation rules** (`LoginRequest`): `email` required+email, `password` required+string.
+**Validation rules** (`LoginRequest`): `email` required+email+max:255, `password` required+string, `remember` nullable+boolean.
+
+Email is trimmed and lowercased before the lookup, so the stored address always matches.
+
+`remember: true` issues a token that expires in 30 days. Omitting it keeps the previous behaviour and issues a token with no expiry.
 
 **Response `200`**
 ```json
@@ -97,6 +101,8 @@ This reference was generated from the **live Laravel backend** running inside Do
 ```
 
 > Invalid credentials → `422` with `{"message": "The given data was invalid.", "errors": {"email": ["Invalid credentials."]}}`.
+>
+> Too many attempts → `429` with a `Retry-After` header. Login allows 10 attempts per minute.
 
 ### GET /auth/me — Current user
 
@@ -586,13 +592,13 @@ Route constrained to numeric `product`. **Response:** array of wishlist product 
 }
 ```
 
-**Validation:** `label` nullable max:50; `full_name` required max:255; `phone` nullable max:30; `address_line1` required; `address_line2` nullable; `city` required; `state` required; `postal_code` required max:20; `country` nullable max:100; `is_default` nullable boolean.
+**Validation:** `label` nullable max:50; `full_name` required max:255; `phone` nullable max:30; `address_line1` required max:255; `address_line2` nullable max:255; `city` required max:120; `state` required max:120; `postal_code` required max:20; `country` nullable max:100; `is_default` nullable boolean.
 
-**Behavior:** if `is_default` true (or it's the user's first address), unsets other defaults. **Response `201`** `AddressResource`.
+**Behavior:** the user's first address always becomes the default, whatever `is_default` was sent. Afterwards `is_default: true` moves the flag and unsets the previous default. A supplied `user_id` is ignored, and another user's address id returns `404`. **Response `201`** `AddressResource`.
 
 #### PUT /addresses/{address} — Update address
 
-Same fields as create. Setting `is_default: true` unsets others. `AddressResource`.
+Same fields as create. Setting `is_default: true` unsets the others. Clearing the flag on the current default promotes the user's most recent remaining address, so exactly one default always exists (none, once the last address is deleted). `AddressResource`.
 
 #### DELETE /addresses/{address} — Delete address
 
@@ -913,8 +919,8 @@ Pending → Confirmed → Processing → Shipped → Delivered
 
 | Request class | Endpoint(s) | Key rules |
 | --- | --- | --- |
-| `LoginRequest` | auth/login | email required+email, password required |
-| `RegisterRequest` | auth/register | name, email unique, password min:8 confirmed |
+| `LoginRequest` | auth/login | email required+email+max:255, password required+string, remember nullable+boolean |
+| `RegisterRequest` | auth/register | name required+max:120, email unique+max:255, password min:8+max:255 confirmed, newsletter nullable+boolean |
 | `CartAddRequest` | POST /cart | product_variant_id required+exists, quantity 1–99 |
 | `CartUpdateRequest` | PUT /cart/items/{id} | quantity required 1–99 |
 | `CheckoutRequest` | POST /checkout | shipping_method_id, payment_method in:card,cod, address rules |

@@ -11,7 +11,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password', 'role', 'avatar', 'phone', 'newsletter'])]
+#[Fillable(['name', 'email', 'password', 'avatar', 'phone', 'newsletter'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable implements MustVerifyEmail
 {
@@ -21,6 +21,22 @@ class User extends Authenticatable implements MustVerifyEmail
     public const ROLE_CUSTOMER = 'customer';
 
     public const ROLE_ADMIN = 'admin';
+
+    /**
+     * `role` and `email_verified_at` are intentionally absent from $fillable:
+     * a request payload must never be able to promote itself to admin or mark
+     * itself verified. Only trusted code (seeder, factory, artisan commands)
+     * writes them, through forceFill.
+     *
+     * The role default still has to be applied in PHP because the column default
+     * only fires when the attribute is omitted entirely.
+     */
+    protected static function booted(): void
+    {
+        static::creating(function (self $user): void {
+            $user->role ??= self::ROLE_CUSTOMER;
+        });
+    }
 
     /**
      * Get the attributes that should be cast.

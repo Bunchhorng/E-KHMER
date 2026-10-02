@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\User;
+use Database\Seeders\UserSeeder;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Auth\Notifications\VerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -199,6 +200,10 @@ class AuthTest extends TestCase
 
         $user = User::where('email', 'verify@example.com')->firstOrFail();
         $this->assertNull($user->email_verified_at);
+
+        // The mail is deliberately deferred until after the response is flushed so
+        // rendering it cannot push registration past the client timeout. The test
+        // kernel runs the terminating callbacks for us, so it has already been sent.
         Notification::assertSentTo($user, VerifyEmail::class);
     }
 
@@ -287,5 +292,152 @@ class AuthTest extends TestCase
     public function test_verification_link_requires_authentication_for_resend(): void
     {
         $this->postJson('/api/auth/email/verification-notification')->assertStatus(401);
+    }
+
+    public function test_register_ignores_an_attempt_to_self_assign_a_role(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'name' => 'Mallory',
+            'email' => 'mallory@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+            'role' => User::ROLE_ADMIN,
+        ])->assertStatus(201)
+            ->assertJsonPath('data.user.role', User::ROLE_CUSTOMER);
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'mallory@example.com',
+            'role' => User::ROLE_CUSTOMER,
+        ]);
+    }
+
+    public function test_register_never_returns_the_password_or_a_hash(): void
+    {
+        $response = $this->postJson('/api/auth/register', [
+            'name' => 'Jane Doe',
+            'email' => 'jane@example.com',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertStatus(201);
+
+        $response->assertJsonMissingPath('data.user.password');
+
+        $this->postJson('/api/auth/login', [
+            'email' => 'jane@example.com',
+            'password' => 'password123',
+        ])->assertOk()->assertJsonMissingPath('data.user.password');
+
+        $this->actingAs(User::where('email', 'jane@example.com')->firstOrFail(), 'sanctum')
+            ->getJson('/api/auth/me')
+            ->assertOk()
+            ->assertJsonMissingPath('data.password');
+    }
+
+    public function test_email_is_normalised_on_register_and_login(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'name' => 'Jane Doe',
+            'email' => '  Jane.Doe@Example.COM ',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])->assertStatus(201)
+            ->assertJsonPath('data.user.email', 'jane.doe@example.com');
+
+        $this->assertDatabaseHas('users', ['email' => 'jane.doe@example.com']);
+
+        $this->postJson('/api/auth/login', [
+            'email' => 'JANE.DOE@EXAMPLE.COM',
+            'password' => 'password123',
+        ])->assertStatus(200)
+            ->assertJsonPath('data.user.email', 'jane.doe@example.com');
+    }
+
+    public function test_login_is_rate_limited(): void
+    {
+        User::factory()->create(['email' => 'jane@example.com', 'password' => 'secretpass']);
+
+        foreach (range(1, 10) as $attempt) {
+            $this->postJson('/api/auth/login', [
+                'email' => 'jane@example.com',
+                'password' => 'wrongpass',
+            ])->assertStatus(422);
+        }
+
+        $response = $this->postJson('/api/auth/login', [
+            'email' => 'jane@example.com',
+            'password' => 'secretpass',
+        ])->assertStatus(429);
+
+        $response->assertHeader('Retry-After');
+    }
+
+    public function test_password_reset_is_rate_limited(): void
+    {
+        User::factory()->create(['email' => 'reset@example.com']);
+
+        foreach (range(1, 3) as $attempt) {
+            $this->postJson('/api/auth/forgot-password', ['email' => 'reset@example.com'])
+                ->assertOk();
+        }
+
+        $this->postJson('/api/auth/forgot-password', ['email' => 'reset@example.com'])
+            ->assertStatus(429);
+    }
+
+    public function test_remember_me_extends_the_token_lifetime(): void
+    {
+        $user = User::factory()->create(['email' => 'jane@example.com', 'password' => 'secretpass']);
+
+        $this->postJson('/api/auth/login', [
+            'email' => 'jane@example.com',
+            'password' => 'secretpass',
+            'remember' => true,
+        ])->assertOk();
+
+        $token = $user->fresh()->tokens()->latest()->firstOrFail();
+        $this->assertNotNull($token->expires_at);
+        $this->assertTrue($token->expires_at->isFuture());
+        $this->assertGreaterThanOrEqual(29, (int) now()->diffInDays($token->expires_at));
+        $this->assertLessThanOrEqual(30, (int) now()->diffInDays($token->expires_at));
+    }
+
+    public function test_login_without_remember_me_issues_a_token_without_expiry(): void
+    {
+        $user = User::factory()->create(['email' => 'jane@example.com', 'password' => 'secretpass']);
+
+        $this->postJson('/api/auth/login', [
+            'email' => 'jane@example.com',
+            'password' => 'secretpass',
+        ])->assertOk();
+
+        $this->assertNull($user->fresh()->tokens()->latest()->firstOrFail()->expires_at);
+    }
+
+    public function test_user_seeder_creates_a_verified_admin(): void
+    {
+        $this->seed(UserSeeder::class);
+
+        $admin = User::where('role', User::ROLE_ADMIN)->firstOrFail();
+
+        $this->assertNotNull($admin->email_verified_at);
+        $this->assertTrue(Hash::check('password', $admin->password));
+
+        $customers = User::where('role', User::ROLE_CUSTOMER)->get();
+        $this->assertCount(6, $customers);
+        $customers->each(fn (User $customer) => $this->assertNotNull($customer->email_verified_at));
+    }
+
+    public function test_seeded_admin_can_log_in_and_reach_admin_routes(): void
+    {
+        $this->seed(UserSeeder::class);
+
+        $login = $this->postJson('/api/auth/login', [
+            'email' => 'admin@ekhmer.dev',
+            'password' => 'password',
+        ])->assertOk()->assertJsonPath('data.user.role', User::ROLE_ADMIN);
+
+        $this->withToken($login->json('data.token'))
+            ->getJson('/api/admin/dashboard/overview')
+            ->assertOk();
     }
 }

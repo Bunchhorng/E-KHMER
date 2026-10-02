@@ -8,19 +8,21 @@ use Illuminate\Database\Seeder;
 class UserSeeder extends Seeder
 {
     /**
+     * Shared demo password for every seeded account.
+     */
+    private const DEMO_PASSWORD = 'password';
+
+    /**
      * Seed one admin and six customer accounts.
      */
     public function run(): void
     {
-        User::create([
+        $this->createUser([
             'name' => 'Admin',
             'email' => 'admin@ekhmer.dev',
-            'password' => 'password',
-            'role' => 'admin',
             'phone' => '+1 (415) 555-0100',
             'newsletter' => false,
-            'email_verified_at' => now(),
-        ]);
+        ], User::ROLE_ADMIN);
 
         $customers = [
             ['name' => 'Olivia Bennett', 'email' => 'olivia.bennett@example.com', 'phone' => '+1 (415) 555-0123', 'newsletter' => true],
@@ -32,15 +34,28 @@ class UserSeeder extends Seeder
         ];
 
         foreach ($customers as $customer) {
-            User::create([
-                'name' => $customer['name'],
-                'email' => $customer['email'],
-                'password' => 'password',
-                'role' => User::ROLE_CUSTOMER,
-                'phone' => $customer['phone'],
-                'newsletter' => $customer['newsletter'],
-                'email_verified_at' => now(),
-            ]);
+            $this->createUser($customer, User::ROLE_CUSTOMER);
         }
+    }
+
+    /**
+     * `role` and `email_verified_at` are excluded from the User model's
+     * $fillable so that no request payload can set them, which means they have
+     * to be written explicitly here. Going through create() for them would
+     * silently drop both values and produce a shop with no admin account.
+     */
+    private function createUser(array $attributes, string $role): User
+    {
+        $user = User::create(array_merge(
+            ['password' => self::DEMO_PASSWORD],
+            $attributes,
+        ));
+
+        $user->forceFill([
+            'role' => $role,
+            'email_verified_at' => now(),
+        ])->save();
+
+        return $user;
     }
 }

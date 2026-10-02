@@ -2,7 +2,10 @@ import axios from 'axios'
 
 export const apiClient = axios.create({
   baseURL: import.meta.env.VITE_API_URL ?? '/api',
-  timeout: 15000,
+  // Writes on this stack can take several seconds on a cold container (PHP boot,
+  // mail rendering, DB round trips). A 15s ceiling aborted requests that the
+  // server was about to answer with 201.
+  timeout: 30000,
   headers: { Accept: 'application/json' }
 })
 

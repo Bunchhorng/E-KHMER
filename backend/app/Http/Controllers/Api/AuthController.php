@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Services\CartService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Password;
@@ -19,6 +20,12 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    /**
+     * Lifetime applied to a token when the user ticks "remember me" on login.
+     * Tokens issued without it keep the framework default (no expiry).
+     */
+    private const REMEMBERED_TOKEN_LIFETIME_DAYS = 30;
+
     public function __construct(private CartService $carts)
     {
     }
@@ -26,11 +33,11 @@ class AuthController extends Controller
     public function register(RegisterRequest $request)
     {
         $user = DB::transaction(function () use ($request) {
+            // `role` is not mass assignable; the model defaults it to customer.
             return User::create([
                 'name' => $request->name,
                 'email' => $request->email,
                 'password' => $request->password,
-                'role' => User::ROLE_CUSTOMER,
                 'newsletter' => $request->boolean('newsletter'),
             ]);
         });
@@ -40,10 +47,24 @@ class AuthController extends Controller
         // still be able to complete registration rather than seeing a generic failure.
         try {
             if (!$user->hasVerifiedEmail()) {
-                $user->sendEmailVerificationNotification();
+                // Rendering the mail costs several seconds, which used to push the
+                // whole response past the client's request timeout: the browser gave
+                // up while the account was already created, and the retry came back
+                // as "email already taken". Sending it after the response is flushed
+                // keeps registration fast without needing a queue worker.
+                Bus::dispatchAfterResponse(function () use ($user): void {
+                    try {
+                        $user->sendEmailVerificationNotification();
+                    } catch (\Throwable $e) {
+                        Log::warning('Verification email could not be sent after registration.', [
+                            'user_id' => $user->id,
+                            'exception' => $e->getMessage(),
+                        ]);
+                    }
+                });
             }
         } catch (\Throwable $e) {
-            Log::warning('Registration succeeded but verification email failed to send.', [
+            Log::warning('Registration could not schedule the verification email.', [
                 'user_id' => $user->id,
                 'exception' => $e->getMessage(),
             ]);
@@ -96,7 +117,11 @@ class AuthController extends Controller
 
         $this->carts->mergeGuestIntoUser($user, $request->header('X-Session-Id'));
 
-        $token = $user->createToken('api')->plainTextToken;
+        $expiresAt = $request->boolean('remember')
+            ? now()->addDays(self::REMEMBERED_TOKEN_LIFETIME_DAYS)
+            : null;
+
+        $token = $user->createToken('api', ['*'], $expiresAt)->plainTextToken;
 
         return response()->json([
             'data' => [

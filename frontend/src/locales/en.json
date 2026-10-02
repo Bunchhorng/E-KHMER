@@ -249,14 +249,16 @@
   },
   "error": {
     "invalid_credentials": "Invalid email or password. Please try again.",
-    "registration_failed": "Registration failed. That email may already be in use.",
+    "registration_failed": "Registration failed. Please try again.",
     "email_required": "Email is required.",
     "password_required": "Password is required.",
     "name_required": "Please enter your name.",
     "email_invalid": "Please enter a valid email address.",
     "password_short": "Password must be at least 8 characters.",
     "password_mismatch": "Passwords do not match.",
-    "reset_link_invalid": "This password reset link is invalid or has expired. Please request a new one."
+    "reset_link_invalid": "This password reset link is invalid or has expired. Please request a new one.",
+    "reset_request_failed": "We could not send the reset email. Please try again in a moment.",
+    "sign_in_instead": "Sign in instead"
   },
   "footer": {
     "tagline": "Your one-stop destination for electronics, fashion, beauty and more, delivered fast and backed by friendly support.",

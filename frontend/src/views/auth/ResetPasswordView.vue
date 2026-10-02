@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import { CheckCircle2, KeyRound, LoaderCircle } from 'lucide-vue-next'
 import { authApi } from '@/api/auth'
+import { extractErrorMessage } from '@/api/errors'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -41,8 +42,10 @@ function submit() {
     .then(() => {
       reset.value = true
     })
-    .catch(() => {
-      error.value = t('error.reset_link_invalid')
+    .catch((e) => {
+      // 422 means the token/email combination was rejected; 429 means the
+      // attempt was throttled. Both are worth naming precisely.
+      error.value = extractErrorMessage(e, t('error.reset_link_invalid'))
     })
     .finally(() => {
       loading.value = false

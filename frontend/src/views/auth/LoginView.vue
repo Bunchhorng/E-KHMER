@@ -4,13 +4,19 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Eye, EyeOff, LoaderCircle, LogIn } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import { extractErrorMessage } from '@/api/errors'
 
 const auth = useAuthStore()
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
 
-const form = reactive({ email: '', password: '' })
+// The register screen sends a rejected address here so the user does not retype it.
+const form = reactive({
+  email: typeof route.query.email === 'string' ? route.query.email : '',
+  password: '',
+  remember: false
+})
 const showPassword = ref(false)
 const error = ref('')
 
@@ -25,12 +31,12 @@ async function submit() {
     return
   }
   try {
-    const user = await auth.login(form.email, form.password)
+    const user = await auth.login(form.email, form.password, form.remember)
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : undefined
     if (redirect) router.push(redirect)
     else router.push(user?.role === 'admin' ? { name: 'admin-dashboard' } : { name: 'account-dashboard' })
   } catch (e) {
-    error.value = t('error.invalid_credentials')
+    error.value = extractErrorMessage(e, t('error.invalid_credentials'))
   }
 }
 </script>
@@ -80,7 +86,7 @@ async function submit() {
 
         <div class="flex items-center justify-between text-sm">
           <label class="flex items-center gap-2 text-gray-600 dark:text-muted">
-            <input type="checkbox" class="accent-primary" />
+            <input v-model="form.remember" type="checkbox" class="accent-primary" />
             {{ $t('auth.remember_me') }}
           </label>
           <RouterLink to="/auth/forgot-password" class="font-medium text-primary hover:text-primary-dark">

@@ -23,7 +23,10 @@ class AddressController extends Controller
     public function store(AddressRequest $request)
     {
         $data = $request->validated();
-        $isDefault = $data['is_default'] ?? ($request->user()->addresses()->count() === 0);
+
+        // A user's first address is always the default one, otherwise checkout
+        // would have nothing pre-selected.
+        $isDefault = $request->boolean('is_default') || $request->user()->addresses()->doesntExist();
 
         if ($isDefault) {
             $this->unsetDefaults($request->user()->id);
@@ -41,17 +44,24 @@ class AddressController extends Controller
         $this->authorizeOwnership($request, $address);
 
         $data = $request->validated();
-        $isDefault = (bool) ($data['is_default'] ?? false);
 
-        if ($isDefault) {
+        // When is_default is not supplied the current flag is preserved;
+        // demoting the default address would otherwise leave the user with
+        // no default at all.
+        $wasDefault = (bool) $address->is_default;
+        $isDefault = $request->has('is_default') ? $request->boolean('is_default') : $wasDefault;
+
+        if ($isDefault && ! $wasDefault) {
             $this->unsetDefaults($request->user()->id);
-        } elseif (!$address->is_default) {
-            $data['is_default'] = false;
         }
 
-        $address->update($data);
+        $address->update(array_merge($data, ['is_default' => $isDefault]));
 
-        return new AddressResource($address);
+        if ($wasDefault && ! $isDefault) {
+            $this->promoteAnotherDefault($request->user()->id, $address);
+        }
+
+        return new AddressResource($address->refresh());
     }
 
     public function destroy(Request $request, Address $address)
@@ -62,10 +72,7 @@ class AddressController extends Controller
         $address->delete();
 
         if ($wasDefault) {
-            $replacement = $request->user()->addresses()->first();
-            if ($replacement !== null) {
-                $replacement->update(['is_default' => true]);
-            }
+            $this->promoteAnotherDefault($request->user()->id, null);
         }
 
         return response()->json(['data' => ['message' => 'Address deleted.']]);
@@ -91,5 +98,22 @@ class AddressController extends Controller
     protected function unsetDefaults(int $userId): void
     {
         Address::where('user_id', $userId)->where('is_default', true)->update(['is_default' => false]);
+    }
+
+    /**
+     * Keep the "exactly one default" invariant after a default is removed or
+     * demoted. The most recent remaining address is promoted.
+     */
+    protected function promoteAnotherDefault(int $userId, ?Address $exclude): void
+    {
+        $query = Address::where('user_id', $userId);
+
+        if ($exclude !== null) {
+            $query->whereKeyNot($exclude->getKey());
+        }
+
+        $replacement = $query->orderByDesc('id')->first();
+
+        $replacement?->update(['is_default' => true]);
     }
 }

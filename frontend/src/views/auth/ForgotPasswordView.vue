@@ -1,8 +1,9 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { CheckCircle2, LoaderCircle, Mail } from 'lucide-vue-next'
 import { authApi } from '@/api/auth'
+import { extractErrorMessage } from '@/api/errors'
 
 const { t } = useI18n()
 
@@ -10,6 +11,9 @@ const form = reactive({ email: '' })
 const error = ref('')
 const sent = ref(false)
 const loading = ref(false)
+
+// Drop a stale rejection as soon as the address is corrected.
+watch(() => form.email, () => { error.value = '' })
 
 async function submit() {
   error.value = ''
@@ -21,8 +25,11 @@ async function submit() {
   try {
     await authApi.forgotPassword(form.email)
     sent.value = true
-  } catch {
-    sent.value = true
+  } catch (e) {
+    // The API replies 200 even for addresses with no account, so the success
+    // screen must never be shown as a fallback for a failure. Reaching this
+    // branch means a real problem: invalid payload, rate limiting, or network.
+    error.value = extractErrorMessage(e, t('error.reset_request_failed'))
   } finally {
     loading.value = false
   }

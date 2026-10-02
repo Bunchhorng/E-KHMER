@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { reactive, ref } from 'vue'
+import { reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Eye, EyeOff, LoaderCircle, UserPlus } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
+import { extractErrorMessage, extractFieldErrors } from '@/api/errors'
 
 const auth = useAuthStore()
 const router = useRouter()
@@ -19,8 +20,25 @@ const showPassword = ref(false)
 const showConfirm = ref(false)
 const error = ref('')
 const errors = reactive({ name: '', email: '', password: '', confirm: '' })
+const emailRejected = ref(false)
+
+// A server rejection belongs to the value that was rejected. Keeping it pinned to
+// the input made a corrected address still read "email already taken" until the
+// next submit.
+watch(() => form.name, () => { errors.name = '' })
+watch(() => form.email, () => {
+  errors.email = ''
+  emailRejected.value = false
+})
+watch(() => form.password, () => {
+  errors.password = ''
+  errors.confirm = ''
+})
+watch(() => form.confirm, () => { errors.confirm = '' })
 
 async function submit() {
+  if (auth.loading) return
+
   error.value = ''
   errors.name = form.name.trim() ? '' : t('error.name_required')
   errors.email = /.+@.+\..+/.test(form.email) ? '' : t('error.email_invalid')
@@ -37,8 +55,20 @@ async function submit() {
       password_confirmation: form.confirm
     })
     router.push(user?.role === 'admin' ? { name: 'admin-dashboard' } : { name: 'account-dashboard' })
-  } catch {
-    error.value = t('error.registration_failed')
+  } catch (e) {
+    // Surface per-field rejections (duplicate email, weak password) on the input
+    // itself and keep a summary message for everything else.
+    const fieldErrors = extractFieldErrors(e)
+
+    errors.name = fieldErrors.name ?? ''
+    errors.email = fieldErrors.email ?? ''
+    errors.password = fieldErrors.password ?? ''
+    errors.confirm = fieldErrors.password_confirmation ?? ''
+    emailRejected.value = Boolean(fieldErrors.email)
+
+    error.value = Object.keys(fieldErrors).length === 0
+      ? extractErrorMessage(e, t('error.registration_failed'))
+      : ''
   }
 }
 </script>
@@ -75,7 +105,16 @@ async function submit() {
             class="input"
             :class="{ 'input-error': Boolean(errors.email) }"
           />
-          <p v-if="errors.email" class="mt-1 text-xs text-red-500">{{ errors.email }}</p>
+          <p v-if="errors.email" class="mt-1 text-xs text-red-500">
+            {{ errors.email }}
+            <RouterLink
+              v-if="emailRejected"
+              :to="{ path: '/auth/login', query: { email: form.email } }"
+              class="ml-1 font-medium underline"
+            >
+              {{ $t('error.sign_in_instead') }}
+            </RouterLink>
+          </p>
         </div>
 
         <div>
