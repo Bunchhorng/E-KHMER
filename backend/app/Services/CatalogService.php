@@ -6,7 +6,6 @@ use App\Http\Requests\CatalogFilterRequest;
 use App\Models\Attribute;
 use App\Models\AttributeValue;
 use App\Models\Brand;
-use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductVariant;
 use App\Models\Shop;
@@ -17,6 +16,10 @@ use Illuminate\Support\Str;
 
 class CatalogService
 {
+    public function __construct(protected CategoryService $categories)
+    {
+    }
+
     /**
      * Public catalog listing.
      *
@@ -41,7 +44,9 @@ class CatalogService
         }
 
         if ($slug = trim((string) ($filters['category'] ?? ''))) {
-            $query->whereHas('category', fn (Builder $q) => $q->where('slug', $slug));
+            // Selecting a parent category has to include everything filed beneath
+            // it, otherwise a sidebar entry silently returns an empty listing.
+            $query->whereIn('category_id', $this->categories->filterIdsForSlug($slug) ?? []);
         }
 
         if ($slug = trim((string) ($filters['brand'] ?? ''))) {
@@ -120,17 +125,7 @@ class CatalogService
             ])
             ->all();
 
-        $categories = Category::query()
-            ->where('is_active', true)
-            ->withCount(['products' => fn ($q) => $q->active()])
-            ->orderBy('name')
-            ->get()
-            ->map(fn ($cat) => [
-                'slug' => $cat->slug,
-                'name' => $cat->name,
-                'count' => $cat->products_count,
-            ])
-            ->all();
+        $categories = $this->categories->facets();
 
         $attributes = Attribute::query()
             ->where('is_filterable', true)

@@ -163,6 +163,7 @@ Route::prefix('admin')
         Route::put('categories/{category}', [AdminCategoryController::class, 'update']);
         Route::delete('categories/{category}', [AdminCategoryController::class, 'destroy']);
         Route::post('categories/{category}/image', [AdminMediaController::class, 'uploadCategoryImage']);
+        Route::delete('categories/{category}/image', [AdminMediaController::class, 'destroyCategoryImage']);
 
         Route::get('brands', [AdminBrandController::class, 'index']);
         Route::post('brands', [AdminBrandController::class, 'store']);

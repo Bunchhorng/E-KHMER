@@ -13,6 +13,7 @@ services:
     volumes:
       - ./backend:/var/www
       - ./docker/php/opcache.ini:/usr/local/etc/php/conf.d/zz-opcache.ini:ro
+      - ./docker/php/uploads.ini:/usr/local/etc/php/conf.d/zz-uploads.ini:ro
     depends_on:
       - mysql
       - redis

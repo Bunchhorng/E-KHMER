@@ -35,6 +35,9 @@ const errors = reactive<Record<string, string>>({})
 const categories = ref<AdminCategory[]>([])
 const imageFile = ref<File | null>(null)
 const imageInput = ref<HTMLInputElement | null>(null)
+// Set when the admin clears a stored image, so saving can detach it server-side
+// instead of silently keeping the old file.
+const imageRemoved = ref(false)
 
 const categoryId = computed(() => (isEdit.value ? Number(route.params.id) : null))
 
@@ -94,16 +97,38 @@ function parentIndent(option: ParentOption): string {
   return `${'— '.repeat(option.depth)}${option.name}`
 }
 
+// AdminImageUploadRequest caps images at 5 MB; catching it here turns a slow
+// round trip into immediate feedback.
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024
+
 function onImagePicked(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
-  if (!file || !file.type.startsWith('image/')) return
+
+  if (!file) return
+
+  if (!file.type.startsWith('image/')) {
+    input.value = ''
+    showToast(t('admin.categories.toast_image_type'))
+    return
+  }
+
+  if (file.size > MAX_IMAGE_BYTES) {
+    input.value = ''
+    showToast(
+      t('admin.categories.toast_image_too_large', { mb: Math.round(MAX_IMAGE_BYTES / 1024 / 1024) })
+    )
+    return
+  }
+
   imageFile.value = file
+  imageRemoved.value = false
   form.imageUrl = URL.createObjectURL(file)
 }
 
 function removeImagePreview() {
   imageFile.value = null
+  imageRemoved.value = true
   form.imageUrl = null
   if (imageInput.value) imageInput.value.value = ''
 }
@@ -154,11 +179,44 @@ function validate(): boolean {
   return Object.values(errors).every((v) => v === '')
 }
 
+function clearErrors() {
+  for (const key of Object.keys(errors)) delete errors[key]
+}
+
+/**
+ * Copy a 422 body onto the matching inputs so the admin sees which field the
+ * server refused instead of one generic toast.
+ */
+function mapServerErrors(error: unknown) {
+  const payload = (error as { response?: { data?: { errors?: Record<string, string[]> } } })
+    ?.response?.data
+
+  const fieldErrors = payload?.errors
+
+  if (!fieldErrors) return false
+
+  for (const [field, messages] of Object.entries(fieldErrors)) {
+    errors[field] = messages?.[0] ?? ''
+  }
+
+  return true
+}
+
+async function syncImage(categoryId: number) {
+  if (imageRemoved.value) {
+    await mediaApi.deleteCategoryImage(categoryId)
+  } else if (imageFile.value) {
+    await mediaApi.uploadCategoryImage(categoryId, imageFile.value)
+  }
+}
+
 async function save() {
   if (!validate()) {
     showToast(t('admin.categories.toast_enter_name'))
     return
   }
+
+  clearErrors()
 
   const name = form.name.trim()
   const slug = form.slug.trim() || slugify(name)
@@ -178,15 +236,11 @@ async function save() {
 
     if (isEdit.value && targetId) {
       await adminApi.updateCategory(targetId, payload)
-      if (imageFile.value) {
-        await mediaApi.uploadCategoryImage(targetId, imageFile.value)
-      }
+      await syncImage(targetId)
       showToast(t('admin.categories.toast_updated', { name }))
     } else {
       const { data: resp } = await adminApi.createCategory(payload)
-      if (imageFile.value) {
-        await mediaApi.uploadCategoryImage(resp.data.id, imageFile.value)
-      }
+      await syncImage(resp.data.id)
       showToast(
         route.query.parent
           ? t('admin.categories.toast_added_child', { name })
@@ -194,8 +248,10 @@ async function save() {
       )
     }
     router.push({ name: 'admin-categories' })
-  } catch {
-    showToast(t('admin.categories.toast_save_error'))
+  } catch (error) {
+    if (!mapServerErrors(error)) {
+      showToast(t('admin.categories.toast_save_error'))
+    }
   } finally {
     saving.value = false
   }
@@ -237,10 +293,11 @@ async function save() {
 
         <div>
           <label class="label" for="cat-parent">{{ $t('admin.categories.parent_label') }}</label>
-          <select id="cat-parent" v-model="form.parentId" class="select">
+          <select id="cat-parent" v-model="form.parentId" class="select" :class="{ 'input-error': errors.parent_id }">
             <option :value="null">{{ $t('admin.categories.parent_none') }}</option>
             <option v-for="opt in parentOptions" :key="opt.id" :value="opt.id">{{ parentIndent(opt) }}</option>
           </select>
+          <p v-if="errors.parent_id" class="mt-1 text-xs text-red-600">{{ errors.parent_id }}</p>
         </div>
 
         <div>
@@ -253,12 +310,14 @@ async function save() {
 
         <div>
           <label class="label" for="cat-slug">{{ $t('admin.categories.slug_label') }}</label>
-          <input id="cat-slug" v-model="form.slug" class="input" :placeholder="$t('admin.categories.slug_placeholder')" />
+          <input id="cat-slug" v-model="form.slug" class="input" :class="{ 'input-error': errors.slug }" :placeholder="$t('admin.categories.slug_placeholder')" />
+          <p v-if="errors.slug" class="mt-1 text-xs text-red-600">{{ errors.slug }}</p>
         </div>
 
         <div>
           <label class="label" for="cat-sort-order">{{ $t('admin.categories.sort_order_label') }}</label>
-          <input id="cat-sort-order" v-model.number="form.sortOrder" class="input" type="number" min="0" placeholder="0" />
+          <input id="cat-sort-order" v-model.number="form.sortOrder" class="input" :class="{ 'input-error': errors.sort_order }" type="number" min="0" placeholder="0" />
+          <p v-if="errors.sort_order" class="mt-1 text-xs text-red-600">{{ errors.sort_order }}</p>
         </div>
 
         <div class="sm:col-span-2">
@@ -267,9 +326,11 @@ async function save() {
             id="cat-description"
             v-model="form.description"
             class="textarea"
+            :class="{ 'input-error': errors.description }"
             rows="4"
             :placeholder="$t('admin.categories.description_placeholder')"
           ></textarea>
+          <p v-if="errors.description" class="mt-1 text-xs text-red-600">{{ errors.description }}</p>
         </div>
       </div>
     </div>
@@ -295,6 +356,7 @@ async function save() {
         </div>
         <input ref="imageInput" type="file" accept="image/*" class="hidden" @change="onImagePicked" />
       </div>
+      <p v-if="errors.image" class="mt-2 text-xs text-red-600">{{ errors.image }}</p>
     </div>
 
     <div class="flex flex-wrap items-center justify-end gap-2">

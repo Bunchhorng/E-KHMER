@@ -48,5 +48,9 @@ export const mediaApi = {
       `/admin/categories/${categoryId}/image`,
       toFormData(file)
     )
+  },
+
+  deleteCategoryImage(categoryId: number) {
+    return apiClient.delete<{ data: { message: string } }>(`/admin/categories/${categoryId}/image`)
   }
 }

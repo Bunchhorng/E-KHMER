@@ -9,8 +9,10 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Product;
 use App\Models\ProductImage;
+use App\Services\CategoryService;
 use App\Services\MediaUploadService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class AdminMediaController extends Controller
 {
@@ -84,6 +86,9 @@ class AdminMediaController extends Controller
 
         $brand->update(['logo' => $logo]);
 
+        // The storefront brand list is cached, so the swap has to invalidate it.
+        Cache::forget('brands:active');
+
         return response()->json(['data' => ['logo' => $logo]]);
     }
 
@@ -98,6 +103,24 @@ class AdminMediaController extends Controller
 
         $category->update(['image' => $image]);
 
+        // Same reason: the public category tree is cached for a day.
+        Cache::forget(CategoryService::TREE_CACHE_KEY);
+
         return response()->json(['data' => ['image' => $image]]);
+    }
+
+    /**
+     * Detach and delete a category image.
+     */
+    public function destroyCategoryImage(Category $category)
+    {
+        if ($category->image) {
+            $this->media->deleteImage($category->image);
+            $category->update(['image' => null]);
+        }
+
+        Cache::forget(CategoryService::TREE_CACHE_KEY);
+
+        return response()->json(['data' => ['message' => 'Image removed.']]);
     }
 }

@@ -19,12 +19,15 @@ class CategoryResource extends JsonResource
             'slug' => $this->slug,
             'description' => $this->description,
             'image' => $this->image,
-            'sort_order' => $this->sort_order,
+            'sort_order' => (int) $this->sort_order,
             'is_active' => (bool) $this->is_active,
             'parent_id' => $this->parent_id,
-            'children' => $this->whenLoaded('children', function () {
-                return self::collection($this->children->filter(fn ($child) => $child->is_active)->values());
-            }),
+            // Absent unless the caller eager-loaded the count, which the admin
+            // manager does because the tree view renders it.
+            'products_count' => $this->whenCounted('products'),
+            // Only serialised for a nested model response; the trees come from
+            // CategoryService, which walks the hierarchy at any depth.
+            'children' => $this->whenLoaded('children', fn () => self::collection($this->children->values())),
         ];
     }
 }
