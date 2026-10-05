@@ -34,6 +34,17 @@ class AdminBrandController extends Controller
 
     public function destroy(Brand $brand)
     {
+        // products.brand_id is nullOnDelete. Deleting a brand that is still in
+        // use would therefore silently remove meaningful catalog metadata from
+        // its products. Make reassignment an explicit admin action instead.
+        if ($productCount = $brand->products()->count()) {
+            $noun = $productCount === 1 ? 'product' : 'products';
+
+            return response()->json([
+                'data' => ['message' => "Move its {$productCount} {$noun} to another brand first."],
+            ], 422);
+        }
+
         $brand->delete();
         Cache::forget('brands:active');
 

@@ -284,7 +284,7 @@ async function save() {
     const imagePaths = await resolveImagePaths()
 
     if (isEdit.value) {
-      const variantsPayload = variants.value.map((v) => ({
+      let variantsPayload: Array<Record<string, unknown>> = variants.value.map((v) => ({
         ...(v.backendId ? { id: v.backendId } : {}),
         name: v.attributes.map((a) => `${a.name}: ${a.value}`).join(', '),
         sku: v.sku,
@@ -297,13 +297,29 @@ async function save() {
           : { attributes: v.attributes.map((a) => ({ attribute: a.name, value: a.value })) })
       }))
 
+      // A simple product still needs one concrete inventory-bearing variant:
+      // the cart and checkout intentionally transact against variants only.
+      // Without this fallback, the visible base-stock field was discarded and
+      // products saved without generated options could never be purchased.
+      if (variantsPayload.length === 0) {
+        variantsPayload = [{
+          name: 'Default',
+          sku: form.sku || null,
+          price: form.price,
+          compare_at_price: form.compareAt || null,
+          quantity: form.baseStock,
+          is_active: true,
+          attributes: []
+        }]
+      }
+
       await adminApi.updateProduct(productId, { ...payload, variants: variantsPayload, images: imagePaths })
       showToast(t('admin.products.toast_updated', { title: form.title, price: formatPrice(form.price) }))
       router.push({ name: 'admin-products' })
       return
     }
 
-    const variantsPayload = variants.value
+    let variantsPayload: Array<Record<string, unknown>> = variants.value
       .filter((x) => x.enabled)
       .map((v) => ({
         name: v.attributes.map((a) => `${a.name}: ${a.value}`).join(', '),
@@ -314,6 +330,18 @@ async function save() {
         is_active: true,
         attributes: v.attributes.map((a) => ({ attribute: a.name, value: a.value }))
       }))
+
+    if (variantsPayload.length === 0) {
+      variantsPayload = [{
+        name: 'Default',
+        sku: form.sku || null,
+        price: form.price,
+        compare_at_price: form.compareAt || null,
+        quantity: form.baseStock,
+        is_active: true,
+        attributes: []
+      }]
+    }
 
     await adminApi.createProduct({
       ...payload,

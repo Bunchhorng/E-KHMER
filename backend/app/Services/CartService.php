@@ -179,16 +179,39 @@ class CartService
 
         DB::transaction(function () use ($userCart, $guestCart): void {
             foreach ($guestCart->items as $item) {
-                $existing = $userCart->items()->where('product_variant_id', $item->product_variant_id)->first();
+                // A guest cart can become stale while the customer is signing in:
+                // products may be unpublished, variants deactivated, or stock
+                // consumed. Never migrate an item that the customer could not add
+                // today, and always cap merged quantities at live availability.
+                $variant = ProductVariant::query()
+                    ->whereKey($item->product_variant_id)
+                    ->where('is_active', true)
+                    ->whereHas('product', fn ($q) => $q->active())
+                    ->first();
+
+                if ($variant === null) {
+                    continue;
+                }
+
+                $available = $this->inventory->available($variant->id);
+
+                if ($available <= 0) {
+                    continue;
+                }
+
+                $existing = $userCart->items()
+                    ->where('product_variant_id', $variant->id)
+                    ->lockForUpdate()
+                    ->first();
 
                 if ($existing === null) {
                     $userCart->items()->create([
-                        'product_variant_id' => $item->product_variant_id,
-                        'quantity' => $item->quantity,
+                        'product_variant_id' => $variant->id,
+                        'quantity' => min((int) $item->quantity, $available),
                     ]);
                 } else {
                     $existing->update([
-                        'quantity' => (int) $existing->quantity + (int) $item->quantity,
+                        'quantity' => min((int) $existing->quantity + (int) $item->quantity, $available),
                     ]);
                 }
             }

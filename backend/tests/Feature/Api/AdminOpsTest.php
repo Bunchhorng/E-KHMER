@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Inventory;
+use App\Models\Brand;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentTransaction;
@@ -351,6 +352,33 @@ class AdminOpsTest extends TestCase
         $this->actingAs($this->admin(), 'sanctum')
             ->patchJson('/api/admin/products', ['ids' => [], 'is_active' => true])
             ->assertStatus(422);
+    }
+
+    public function test_brand_with_products_cannot_be_deleted(): void
+    {
+        $brand = Brand::factory()->create();
+        $product = Product::factory()->create(['brand_id' => $brand->id]);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->deleteJson("/api/admin/brands/{$brand->id}")
+            ->assertStatus(422)
+            ->assertJsonPath('data.message', 'Move its 1 product to another brand first.');
+
+        $this->assertDatabaseHas('brands', ['id' => $brand->id]);
+        $this->assertSame($brand->id, $product->fresh()->brand_id);
+    }
+
+    public function test_brand_slug_must_be_unique(): void
+    {
+        Brand::factory()->create(['slug' => 'acme']);
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/brands', [
+                'name' => 'Another Acme',
+                'slug' => 'ACME',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('slug');
     }
 
     public function test_deleted_products_can_be_listed_and_restored(): void

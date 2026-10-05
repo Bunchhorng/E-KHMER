@@ -139,6 +139,45 @@ class CartTest extends TestCase
             ->assertJsonPath('data.items.0.quantity', 2);
     }
 
+    public function test_guest_cart_merge_caps_quantity_at_live_stock(): void
+    {
+        $user = User::factory()->create();
+        [$variantId] = $this->variantWithStock(5);
+        $headers = ['X-Session-Id' => 'sess-merge-stock'];
+
+        $userCart = Cart::create(['user_id' => $user->id]);
+        $userCart->items()->create(['product_variant_id' => $variantId, 'quantity' => 4]);
+
+        $this->withHeaders($headers)
+            ->postJson('/api/cart', ['product_variant_id' => $variantId, 'quantity' => 3])
+            ->assertCreated();
+
+        $this->withHeaders($headers)
+            ->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertOk();
+
+        $this->assertSame(5, (int) $userCart->fresh()->items()->sole()->quantity);
+    }
+
+    public function test_guest_cart_merge_skips_a_variant_that_becomes_unavailable(): void
+    {
+        $user = User::factory()->create();
+        [$variantId] = $this->variantWithStock(5);
+        $headers = ['X-Session-Id' => 'sess-merge-unavailable'];
+
+        $this->withHeaders($headers)
+            ->postJson('/api/cart', ['product_variant_id' => $variantId, 'quantity' => 1])
+            ->assertCreated();
+
+        \App\Models\ProductVariant::whereKey($variantId)->update(['is_active' => false]);
+
+        $this->withHeaders($headers)
+            ->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])
+            ->assertOk();
+
+        $this->assertSame(0, Cart::where('user_id', $user->id)->firstOrFail()->items()->count());
+    }
+
     public function test_clear_empties_the_cart(): void
     {
         [$variantId] = $this->variantWithStock(10);
