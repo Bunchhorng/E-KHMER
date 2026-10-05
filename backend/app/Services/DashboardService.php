@@ -12,64 +12,83 @@ use App\Models\ProductVariant;
 use App\Models\Review;
 use App\Models\User;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
+    /**
+     * Memoised `GROUP BY status` aggregate. Both `metrics()` and
+     * `orderStatusDistribution()` need the exact same result, and both run on
+     * the same instance during one overview request.
+     *
+     * @var Collection<string,int>|null
+     */
+    protected ?Collection $orderCountsByStatus = null;
+
     public function metrics(): array
     {
-        $paidOrders = fn ($query) => $query->where('payment_status', Order::PAYMENT_PAID);
-
         $now = Carbon::now();
         $monthStart = $now->copy()->startOfMonth();
         $prevMonthStart = $monthStart->copy()->subMonth();
         $prevMonthEnd = $monthStart->copy()->subSecond();
         $weekStart = $now->copy()->startOfWeek();
+        $todayStart = $now->copy()->startOfDay();
 
-        $revenue = fn ($from, $to) => $paidOrders(Order::query()
-            ->where('placed_at', '>=', $from)
-            ->where('placed_at', '<=', $to))
-            ->sum('total');
+        // Every revenue figure the KPI cards need, in one conditional
+        // aggregation instead of five separate SUM() round-trips. The month
+        // figure is read twice by the response (as `month_revenue` and as the
+        // numerator of `revenue_delta`), so the old code also ran the same SUM
+        // a second time.
+        $revenue = Order::query()
+            ->where('payment_status', Order::PAYMENT_PAID)
+            ->selectRaw(
+                'COALESCE(SUM(total), 0) as total_revenue,
+                 COALESCE(SUM(CASE WHEN placed_at >= ? THEN total ELSE 0 END), 0) as today_revenue,
+                 COALESCE(SUM(CASE WHEN placed_at >= ? THEN total ELSE 0 END), 0) as week_revenue,
+                 COALESCE(SUM(CASE WHEN placed_at >= ? AND placed_at <= ? THEN total ELSE 0 END), 0) as month_revenue,
+                 COALESCE(SUM(CASE WHEN placed_at >= ? AND placed_at <= ? THEN total ELSE 0 END), 0) as prev_month_revenue',
+                [$todayStart, $weekStart, $monthStart, $now, $prevMonthStart, $prevMonthEnd]
+            )
+            ->first();
 
-        $ordersPerStatus = Order::query()
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status');
+        $monthRevenue = (float) $revenue->month_revenue;
 
-        $thisMonthOrders = Order::where('placed_at', '>=', $monthStart)->count();
-        $lastMonthOrders = Order::where('placed_at', '>=', $prevMonthStart)
-            ->where('placed_at', '<=', $prevMonthEnd)
-            ->count();
+        // Order + customer month-over-month counts, one query per table.
+        $orderCounts = Order::query()
+            ->selectRaw(
+                'COUNT(*) as total,
+                 SUM(CASE WHEN placed_at >= ? THEN 1 ELSE 0 END) as this_month,
+                 SUM(CASE WHEN placed_at >= ? AND placed_at <= ? THEN 1 ELSE 0 END) as last_month',
+                [$monthStart, $prevMonthStart, $prevMonthEnd]
+            )
+            ->first();
 
-        $thisMonthCustomers = User::where('role', User::ROLE_CUSTOMER)
-            ->where('created_at', '>=', $monthStart)
-            ->count();
-        $lastMonthCustomers = User::where('role', User::ROLE_CUSTOMER)
-            ->where('created_at', '>=', $prevMonthStart)
-            ->where('created_at', '<=', $prevMonthEnd)
-            ->count();
+        $customerCounts = User::where('role', User::ROLE_CUSTOMER)
+            ->selectRaw(
+                'COUNT(*) as total,
+                 SUM(CASE WHEN created_at >= ? THEN 1 ELSE 0 END) as this_month,
+                 SUM(CASE WHEN created_at >= ? AND created_at <= ? THEN 1 ELSE 0 END) as last_month',
+                [$monthStart, $prevMonthStart, $prevMonthEnd]
+            )
+            ->first();
 
-        $revenueDelta = $this->percentChange(
-            $revenue($monthStart, $now),
-            $revenue($prevMonthStart, $prevMonthEnd)
-        );
-
-        $monthRevenue = $revenue($monthStart, $now);
+        $ordersPerStatus = $this->orderCountsByStatus();
 
         return [
-            'total_revenue' => round($paidOrders(Order::query())->sum('total'), 2),
-            'today_revenue' => round($revenue($now->copy()->startOfDay(), $now), 2),
-            'week_revenue' => round($revenue($weekStart, $now), 2),
+            'total_revenue' => round((float) $revenue->total_revenue, 2),
+            'today_revenue' => round((float) $revenue->today_revenue, 2),
+            'week_revenue' => round((float) $revenue->week_revenue, 2),
             'month_revenue' => round($monthRevenue, 2),
-            'revenue_delta' => $revenueDelta,
+            'revenue_delta' => $this->percentChange($monthRevenue, (float) $revenue->prev_month_revenue),
             'orders_count' => (int) $ordersPerStatus->sum(),
-            'orders_delta' => $this->percentChange($thisMonthOrders, $lastMonthOrders),
+            'orders_delta' => $this->percentChange((int) $orderCounts->this_month, (int) $orderCounts->last_month),
             'pending_orders' => (int) ($ordersPerStatus[Order::STATUS_PENDING] ?? 0),
             'processing_orders' => (int) ($ordersPerStatus[Order::STATUS_PROCESSING] ?? 0),
             'completed_orders' => (int) ($ordersPerStatus[Order::STATUS_DELIVERED] ?? 0),
             'cancelled_orders' => (int) ($ordersPerStatus[Order::STATUS_CANCELLED] ?? 0),
-            'customers_count' => User::where('role', User::ROLE_CUSTOMER)->count(),
-            'customers_delta' => $this->percentChange($thisMonthCustomers, $lastMonthCustomers),
+            'customers_count' => (int) $customerCounts->total,
+            'customers_delta' => $this->percentChange((int) $customerCounts->this_month, (int) $customerCounts->last_month),
             'total_products' => Product::count(),
             'total_categories' => Category::count(),
             'total_brands' => Brand::count(),
@@ -140,10 +159,7 @@ class DashboardService
 
     public function orderStatusDistribution(): array
     {
-        return Order::query()
-            ->selectRaw('status, COUNT(*) as count')
-            ->groupBy('status')
-            ->pluck('count', 'status')
+        return $this->orderCountsByStatus()
             ->map(fn ($count, $status) => [
                 'status' => $status,
                 'count' => (int) $count,
@@ -300,6 +316,19 @@ class DashboardService
     {
         return Inventory::query()
             ->whereRaw('quantity - reserved_quantity <= low_stock_threshold');
+    }
+
+    /**
+     * Order counts grouped by status, run at most once per instance.
+     *
+     * @return Collection<string,int>
+     */
+    protected function orderCountsByStatus(): Collection
+    {
+        return $this->orderCountsByStatus ??= Order::query()
+            ->selectRaw('status, COUNT(*) as count')
+            ->groupBy('status')
+            ->pluck('count', 'status');
     }
 
     protected function percentChange(float $current, float $previous): ?float

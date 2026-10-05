@@ -127,18 +127,26 @@ class CatalogService
 
         $categories = $this->categories->facets();
 
+        // `color`/`size` are loaded even when they are not filterable, because the
+        // swatch rail below has always reported them regardless of that flag.
         $attributes = Attribute::query()
-            ->where('is_filterable', true)
-            ->orderBy('name')
-            ->get()
-            ->map(fn (Attribute $attribute) => [
-                'slug' => $attribute->slug,
-                'name' => $attribute->name,
-                'type' => $attribute->type,
-                'values' => $this->valuesFor($attribute),
+            ->where(fn (Builder $q) => $q->where('is_filterable', true)->orWhereIn('slug', ['color', 'size']))
+            // One query for the attributes, one for every value, one for the
+            // counts. Previously each value issued its own COUNT and `color`
+            // /`size` were recomputed from scratch, which made this endpoint
+            // cost 55 queries; it is now 6 regardless of how many values exist.
+            ->with(['values' => fn ($q) => $q
+                ->orderBy('value')
+                ->withCount(['variants' => fn ($q) => $q
+                    ->where('is_active', true)
+                    ->whereHas('product', fn (Builder $p) => $p->active()),
+                ]),
             ])
-            ->values()
-            ->all();
+            ->orderBy('name')
+            ->get();
+
+        $valuesBySlug = $attributes
+            ->mapWithKeys(fn (Attribute $attribute) => [$attribute->slug => $this->shapeValues($attribute->values)]);
 
         $priceRange = Product::query()->active()->selectRaw('MIN(price) as min_price, MAX(price) as max_price')->first();
 
@@ -146,9 +154,18 @@ class CatalogService
             'brands' => $brands,
             'categories' => $categories,
             // Retained for the existing color/size swatch UI in the frontend.
-            'colors' => $this->valuesForSlug('color'),
-            'sizes' => $this->valuesForSlug('size'),
-            'attributes' => $attributes,
+            'colors' => $valuesBySlug->get('color', []),
+            'sizes' => $valuesBySlug->get('size', []),
+            'attributes' => $attributes
+                ->filter(fn (Attribute $attribute) => (bool) $attribute->is_filterable)
+                ->map(fn (Attribute $attribute) => [
+                    'slug' => $attribute->slug,
+                    'name' => $attribute->name,
+                    'type' => $attribute->type,
+                    'values' => $valuesBySlug->get($attribute->slug, []),
+                ])
+                ->values()
+                ->all(),
             'price_range' => [
                 'min' => $priceRange?->min_price,
                 'max' => $priceRange?->max_price,
@@ -206,14 +223,17 @@ class CatalogService
     }
 
     /**
-     * Facet values for one attribute, counting only reachable products.
+     * Shape one attribute's facet values for the sidebar response.
+     *
+     * `variants_count` is pre-aggregated by the eager-loading `withCount` in
+     * {@see facets()}; this method performs no queries of its own.
+     *
+     * @param  \Illuminate\Support\Collection<int,AttributeValue>  $values
+     * @return array<int,array<string,mixed>>
      */
-    protected function valuesFor(Attribute $attribute): array
+    protected function shapeValues(Collection $values): array
     {
-        return AttributeValue::query()
-            ->where('attribute_id', $attribute->id)
-            ->orderBy('value')
-            ->get()
+        return $values
             ->map(fn (AttributeValue $value) => [
                 'slug' => Str::slug($value->value),
                 // `value` is what the catalog filter matches on (exact, case
@@ -221,22 +241,10 @@ class CatalogService
                 'value' => $value->value,
                 'name' => $value->value,
                 'swatch_color' => $value->swatch_color,
-                'count' => $value->variants()
-                    ->where('is_active', true)
-                    ->whereHas('product', fn ($q) => $q->active())
-                    ->count(),
+                'count' => (int) $value->variants_count,
             ])
             ->values()
             ->all();
-    }
-
-    protected function valuesForSlug(string $attributeSlug): array
-    {
-        $attribute = Attribute::query()
-            ->where('slug', $attributeSlug)
-            ->first();
-
-        return $attribute === null ? [] : $this->valuesFor($attribute);
     }
 
     protected function applyPriceRange(Builder $query, array $filters): void
