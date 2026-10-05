@@ -162,6 +162,19 @@ class AddressTest extends TestCase
         $this->assertTrue($other->fresh()->is_default);
     }
 
+    public function test_deleting_the_only_default_address_leaves_no_default_address(): void
+    {
+        $user = User::factory()->create();
+        $address = Address::factory()->for($user)->create(['is_default' => true]);
+
+        $this->actingAs($user, 'sanctum')
+            ->deleteJson("/api/addresses/{$address->id}")
+            ->assertOk();
+
+        $this->assertSame(0, $user->addresses()->count());
+        $this->assertSame(0, $user->addresses()->where('is_default', true)->count());
+    }
+
     public function test_set_default_moves_the_flag(): void
     {
         $user = User::factory()->create();

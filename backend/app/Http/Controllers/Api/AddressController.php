@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\AddressRequest;
 use App\Http\Resources\AddressResource;
 use App\Models\Address;
+use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AddressController extends Controller
 {
@@ -24,17 +26,21 @@ class AddressController extends Controller
     {
         $data = $request->validated();
 
-        // A user's first address is always the default one, otherwise checkout
-        // would have nothing pre-selected.
-        $isDefault = $request->boolean('is_default') || $request->user()->addresses()->doesntExist();
+        $address = DB::transaction(function () use ($request, $data): Address {
+            $user = $this->lockOwner($request);
 
-        if ($isDefault) {
-            $this->unsetDefaults($request->user()->id);
-        }
+            // A user's first address is always the default one, otherwise checkout
+            // would have nothing pre-selected.
+            $isDefault = $request->boolean('is_default') || $user->addresses()->doesntExist();
 
-        $address = $request->user()->addresses()->create(array_merge($data, [
-            'is_default' => $isDefault,
-        ]));
+            if ($isDefault) {
+                $this->unsetDefaults($user->id);
+            }
+
+            return $user->addresses()->create(array_merge($data, [
+                'is_default' => $isDefault,
+            ]));
+        });
 
         return (new AddressResource($address))->response()->setStatusCode(201);
     }
@@ -43,37 +49,47 @@ class AddressController extends Controller
     {
         $this->authorizeOwnership($request, $address);
 
-        $data = $request->validated();
+        $address = DB::transaction(function () use ($request, $address): Address {
+            $user = $this->lockOwner($request);
+            $address = $user->addresses()->lockForUpdate()->findOrFail($address->id);
+            $data = $request->validated();
 
-        // When is_default is not supplied the current flag is preserved;
-        // demoting the default address would otherwise leave the user with
-        // no default at all.
-        $wasDefault = (bool) $address->is_default;
-        $isDefault = $request->has('is_default') ? $request->boolean('is_default') : $wasDefault;
+            // When is_default is not supplied the current flag is preserved;
+            // demoting the default address would otherwise leave the user with
+            // no default at all.
+            $wasDefault = (bool) $address->is_default;
+            $isDefault = $request->has('is_default') ? $request->boolean('is_default') : $wasDefault;
 
-        if ($isDefault && ! $wasDefault) {
-            $this->unsetDefaults($request->user()->id);
-        }
+            if ($isDefault && ! $wasDefault) {
+                $this->unsetDefaults($user->id);
+            }
 
-        $address->update(array_merge($data, ['is_default' => $isDefault]));
+            $address->update(array_merge($data, ['is_default' => $isDefault]));
 
-        if ($wasDefault && ! $isDefault) {
-            $this->promoteAnotherDefault($request->user()->id, $address);
-        }
+            if ($wasDefault && ! $isDefault) {
+                $this->promoteAnotherDefault($user->id, $address);
+            }
 
-        return new AddressResource($address->refresh());
+            return $address->refresh();
+        });
+
+        return new AddressResource($address);
     }
 
     public function destroy(Request $request, Address $address)
     {
         $this->authorizeOwnership($request, $address);
 
-        $wasDefault = (bool) $address->is_default;
-        $address->delete();
+        DB::transaction(function () use ($request, $address): void {
+            $user = $this->lockOwner($request);
+            $address = $user->addresses()->lockForUpdate()->findOrFail($address->id);
+            $wasDefault = (bool) $address->is_default;
+            $address->delete();
 
-        if ($wasDefault) {
-            $this->promoteAnotherDefault($request->user()->id, null);
-        }
+            if ($wasDefault) {
+                $this->promoteAnotherDefault($user->id, null);
+            }
+        });
 
         return response()->json(['data' => ['message' => 'Address deleted.']]);
     }
@@ -82,8 +98,15 @@ class AddressController extends Controller
     {
         $this->authorizeOwnership($request, $address);
 
-        $this->unsetDefaults($request->user()->id);
-        $address->update(['is_default' => true]);
+        $address = DB::transaction(function () use ($request, $address): Address {
+            $user = $this->lockOwner($request);
+            $address = $user->addresses()->lockForUpdate()->findOrFail($address->id);
+
+            $this->unsetDefaults($user->id);
+            $address->update(['is_default' => true]);
+
+            return $address->refresh();
+        });
 
         return new AddressResource($address);
     }
@@ -98,6 +121,16 @@ class AddressController extends Controller
     protected function unsetDefaults(int $userId): void
     {
         Address::where('user_id', $userId)->where('is_default', true)->update(['is_default' => false]);
+    }
+
+    /**
+     * Serialise default-address changes for one customer. Locking the owner also
+     * covers the no-address-yet case, where locking address rows alone cannot
+     * prevent two first-address requests from both becoming the default.
+     */
+    protected function lockOwner(Request $request): User
+    {
+        return User::query()->lockForUpdate()->findOrFail($request->user()->id);
     }
 
     /**

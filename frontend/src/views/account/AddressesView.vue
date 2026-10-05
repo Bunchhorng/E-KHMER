@@ -13,6 +13,7 @@ const router = useRouter()
 const addresses = ref<Address[]>([])
 const loading = ref(true)
 const deleteError = ref('')
+const deletingId = ref<string | null>(null)
 
 function mapAddress(raw: { id: number; label: string | null; full_name: string; phone: string | null; address_line1: string; address_line2: string | null; city: string; state: string; postal_code: string; country: string; is_default: boolean }): Address {
   return {
@@ -43,13 +44,17 @@ async function fetchAddresses() {
 onMounted(fetchAddresses)
 
 async function removeAddress(address: Address) {
-  if (address.isDefault) {
-    deleteError.value = t('account.cannot_delete_default_address')
-    return
-  }
+  if (deletingId.value) return
   deleteError.value = ''
-  await addressesApi.remove(Number(address.id))
-  await fetchAddresses()
+  deletingId.value = address.id
+  try {
+    await addressesApi.remove(Number(address.id))
+    await fetchAddresses()
+  } catch {
+    deleteError.value = t('account.toast_load_error')
+  } finally {
+    deletingId.value = null
+  }
 }
 </script>
 
@@ -104,10 +109,11 @@ async function removeAddress(address: Address) {
           <button
             type="button"
             class="btn-ghost btn-sm text-red-500 hover:text-red-600"
+            :disabled="deletingId !== null"
             @click="removeAddress(a)"
           >
             <Trash2 class="h-4 w-4" />
-            {{ $t('actions.delete') }}
+            {{ deletingId === a.id ? $t('common.loading') : $t('actions.delete') }}
           </button>
         </div>
       </div>
