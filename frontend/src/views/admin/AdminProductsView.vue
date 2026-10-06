@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router'
 import { AlertTriangle, CheckCircle2, Package, Plus, XCircle } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
+import BaseModal from '@/components/BaseModal.vue'
 import type { TableColumn, TableRow } from '@/types'
 import { adminApi } from '@/api/admin'
 import type { AdminProduct } from '@/api/admin'
@@ -15,6 +16,8 @@ const loading = ref(true)
 const products = ref<AdminProduct[]>([])
 const totalCount = ref(0)
 const showDeleted = ref(false)
+const pendingDelete = ref<{ ids: number[]; title?: string } | null>(null)
+const deleting = ref(false)
 
 const productMetrics = computed(() => {
   const active = products.value.filter((p) => p.is_active).length
@@ -122,27 +125,14 @@ function onRowAction(payload: { action: string; row: TableRow }) {
     })
   } else if (payload.action === 'delete') {
     const id = Number(payload.row.id)
-    adminApi.deleteProduct(id).then(() => {
-      products.value = products.value.filter((p) => p.id !== id)
-      totalCount.value--
-      showToast(t('admin.products.toast_deleted', { name: String(payload.row.title) }))
-    }).catch(() => {
-      showToast(t('admin.products.toast_delete_error'))
-    })
+    if (id) pendingDelete.value = { ids: [id], title: String(payload.row.title) }
   }
 }
 
 function onBulkAction(payload: { action: string; ids: string[] }) {
   if (payload.action === 'delete') {
-    Promise.all(payload.ids.map((id) => adminApi.deleteProduct(Number(id))))
-      .then(() => {
-        products.value = products.value.filter((p) => !payload.ids.includes(String(p.id)))
-        totalCount.value -= payload.ids.length
-        showToast(t('admin.products.toast_deleted_count', { count: payload.ids.length }))
-      })
-      .catch(() => {
-        showToast(t('admin.products.toast_delete_error'))
-      })
+    const ids = payload.ids.map((id) => Number(id)).filter(Boolean)
+    if (ids.length) pendingDelete.value = { ids }
   } else if (payload.action === 'activate' || payload.action === 'deactivate') {
     const ids = payload.ids.map((id) => Number(id))
     adminApi.updateProductStatus(ids, payload.action === 'activate').then(() => {
@@ -154,6 +144,23 @@ function onBulkAction(payload: { action: string; ids: string[] }) {
   } else if (payload.action === 'export') {
     showToast(t('admin.products.toast_exported_csv', { count: payload.ids.length }))
   }
+}
+
+async function confirmDelete() {
+  const target = pendingDelete.value
+  if (!target || deleting.value) return
+  deleting.value = true
+  try {
+    await Promise.all(target.ids.map((id) => adminApi.deleteProduct(id)))
+    products.value = products.value.filter((p) => !target.ids.includes(p.id))
+    totalCount.value = Math.max(0, totalCount.value - target.ids.length)
+    showToast(target.ids.length === 1
+      ? t('admin.products.toast_deleted', { name: target.title ?? 'Product' })
+      : t('admin.products.toast_deleted_count', { count: target.ids.length }))
+    pendingDelete.value = null
+  } catch {
+    showToast(t('admin.products.toast_delete_error'))
+  } finally { deleting.value = false }
 }
 
 onMounted(loadProducts)
@@ -195,6 +202,11 @@ onMounted(loadProducts)
         @row-action="onRowAction"
         @bulk-action="onBulkAction"
       /></section>
+
+    <BaseModal :model-value="pendingDelete !== null" size="sm" title="Delete product" @update:model-value="pendingDelete = null">
+      <p class="text-sm text-gray-600 dark:text-muted">Are you sure you want to delete <strong class="text-ink">{{ pendingDelete?.ids.length === 1 ? pendingDelete.title : `${pendingDelete?.ids.length} products` }}</strong>? You can restore deleted products later.</p>
+      <template #footer><div class="flex justify-end gap-2"><button type="button" class="btn-secondary btn-sm" :disabled="deleting" @click="pendingDelete = null">Cancel</button><button type="button" class="btn-danger btn-sm" :disabled="deleting" @click="confirmDelete">{{ deleting ? 'Deleting...' : 'Delete product' }}</button></div></template>
+    </BaseModal>
 
     <transition name="fade">
       <div
