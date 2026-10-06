@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\ShippingMethodController;
 use App\Http\Controllers\Api\ShopController;
+use App\Http\Controllers\Api\ShopApplicationController;
 use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\Admin\AdminBrandController;
 use App\Http\Controllers\Api\Admin\AdminCategoryController;
@@ -52,6 +53,8 @@ Route::get('auth/email/verify/{id}/{hash}', [AuthController::class, 'verify'])
     ->name('verification.verify');
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('seller/application', [ShopApplicationController::class, 'show']);
+    Route::post('seller/application', [ShopApplicationController::class, 'store']);
     Route::get('auth/me', [AuthController::class, 'me']);
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::post('auth/email/verification-notification', [AuthController::class, 'sendVerificationEmail'])

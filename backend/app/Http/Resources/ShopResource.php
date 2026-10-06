@@ -29,6 +29,7 @@ class ShopResource extends JsonResource
             'latitude' => $this->latitude,
             'longitude' => $this->longitude,
             'status' => $this->status,
+            'rejection_reason' => $this->rejection_reason,
             'is_default' => $this->is_default,
             'commission_rate' => $this->commission_rate,
             'products_count' => $this->whenCounted('products'),

@@ -84,13 +84,23 @@ class AdminShopController extends Controller
                 Shop::STATUS_REJECTED,
                 Shop::STATUS_CLOSED,
             ])],
+            'rejection_reason' => ['nullable', 'string', 'max:2000'],
         ]);
 
         if ($shop->is_default && $data['status'] !== Shop::STATUS_ACTIVE) {
             return response()->json(['message' => 'The default shop must stay active.'], 422);
         }
 
-        $shop->update(['status' => $data['status']]);
+        if ($data['status'] === Shop::STATUS_REJECTED && empty($data['rejection_reason'])) {
+            return response()->json(['message' => 'A rejection reason is required.'], 422);
+        }
+
+        $shop->update([
+            'status' => $data['status'],
+            'rejection_reason' => $data['status'] === Shop::STATUS_REJECTED
+                ? $data['rejection_reason']
+                : null,
+        ]);
 
         return new ShopResource($shop->refresh());
     }
