@@ -34,6 +34,7 @@ import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import { accountApi } from '@/api'
 import type { ApiNotification } from '@/api/account'
 import { formatDateTime } from '@/utils/format'
+import eKhmerLogo from '@/assets/E-KHMER-LOGO.jpg'
 
 interface NavItem {
   labelKey: string
@@ -128,14 +129,14 @@ async function signOut() {
     >
       <div class="flex h-16 items-center border-b border-border-gray p-4" :class="expanded ? '' : 'justify-center'">
         <RouterLink v-if="expanded" to="/admin" class="flex items-center gap-2.5">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-extrabold text-white">EK</div>
+          <img :src="eKhmerLogo" alt="E-KHMER" class="h-9 w-9 rounded-lg object-cover" />
           <div class="flex flex-col items-start leading-none">
             <span class="text-base font-extrabold tracking-tight text-ink">E-KHMER</span>
             <span class="chip mt-1 !px-2 !py-0 text-[10px] uppercase tracking-wide">{{ $t('admin.nav.admin_label') }}</span>
           </div>
         </RouterLink>
         <RouterLink v-else to="/admin" :title="$t('admin.nav.admin_label')">
-          <div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-sm font-extrabold text-white">EK</div>
+          <img :src="eKhmerLogo" alt="E-KHMER" class="h-9 w-9 rounded-lg object-cover" />
         </RouterLink>
       </div>
 

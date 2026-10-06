@@ -22,6 +22,7 @@ import { useRouter } from 'vue-router'
 import { ref, computed, onMounted } from 'vue'
 import { accountApi } from '@/api'
 import type { Component } from 'vue'
+import eKhmerLogo from '@/assets/E-KHMER-LOGO.jpg'
 
 interface NavItem {
   nameKey: string
@@ -122,7 +123,7 @@ async function signOut() {
       <div class="absolute inset-0 bg-black/50" @click="mobileOpen = false"></div>
       <div class="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-surface shadow-2xl dark:shadow-black/40">
         <div class="flex h-16 shrink-0 items-center gap-2.5 border-b border-border-gray px-4">
-          <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-extrabold text-white">EK</div>
+          <img :src="eKhmerLogo" alt="E-KHMER" class="h-9 w-9 shrink-0 rounded-lg object-cover" />
           <div class="flex flex-col items-start leading-none">
             <span class="text-base font-extrabold tracking-tight text-ink">E-KHMER</span>
             <span class="chip mt-1 !px-2 !py-0 text-[10px] uppercase tracking-wide">{{ $t('account.my_account') }}</span>
@@ -192,7 +193,7 @@ async function signOut() {
 
     <aside class="sticky top-0 hidden h-screen max-h-screen w-72 shrink-0 self-start flex-col overflow-hidden border-r border-border-gray bg-surface lg:flex">
       <div class="flex h-16 shrink-0 items-center gap-2.5 border-b border-border-gray px-4">
-        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary text-sm font-extrabold text-white">EK</div>
+        <img :src="eKhmerLogo" alt="E-KHMER" class="h-9 w-9 shrink-0 rounded-lg object-cover" />
         <div class="flex flex-col items-start leading-none">
           <span class="text-base font-extrabold tracking-tight text-ink">E-KHMER</span>
           <span class="chip mt-1 !px-2 !py-0 text-[10px] uppercase tracking-wide">{{ $t('account.my_account') }}</span>

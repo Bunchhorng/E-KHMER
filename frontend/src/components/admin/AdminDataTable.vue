@@ -8,6 +8,7 @@ import DataTableSkeleton from '@/components/DataTableSkeleton.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import type { TableColumn, TableRow } from '@/types'
 import { formatPrice, formatDate } from '@/utils/format'
+import eKhmerLogo from '@/assets/E-KHMER-LOGO.jpg'
 
 interface Props {
   columns: TableColumn[]
@@ -171,6 +172,10 @@ function cellValue(row: TableRow, col: TableColumn): string {
   if (v === null || v === undefined) return ''
   return String(v)
 }
+
+function imageSource(value: unknown): string {
+  return typeof value === 'string' && value.trim() ? value : eKhmerLogo
+}
 </script>
 
 <template>
@@ -238,7 +243,7 @@ function cellValue(row: TableRow, col: TableColumn): string {
               </td>
               <template v-for="col in props.columns" :key="col.key">
                 <td v-if="col.type === 'image'" class="px-4 py-3 align-middle">
-                  <img :src="String(row[col.key])" class="h-10 w-10 rounded-lg object-cover" alt="" />
+                  <img :src="imageSource(row[col.key])" class="h-10 w-10 rounded-lg object-cover" alt="" @error="($event.currentTarget as HTMLImageElement).src = eKhmerLogo" />
                 </td>
                 <td v-else-if="col.type === 'status'" class="px-4 py-3 align-middle">
                   <StatusTag :status="String(row[col.key])" />
