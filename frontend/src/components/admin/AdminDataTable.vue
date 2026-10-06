@@ -182,7 +182,7 @@ function cellValue(row: TableRow, col: TableColumn): string {
     <DataTableSkeleton v-if="props.loading" :rows="props.pageSize" :columns="props.columns.length" />
 
     <template v-else-if="filtered.length">
-      <div class="max-h-[520px] overflow-auto">
+      <div class="scrollbar-none max-h-[520px] overflow-auto">
         <table class="w-full min-w-[640px] text-sm">
           <thead class="sticky top-0 z-10 bg-canvas">
             <tr class="border-b border-border-gray">
