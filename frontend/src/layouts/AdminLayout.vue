@@ -139,7 +139,7 @@ async function signOut() {
         </RouterLink>
       </div>
 
-      <nav class="flex-1 space-y-1 overflow-y-auto p-3">
+      <nav class="scrollbar-none flex-1 space-y-1 overflow-y-auto p-3">
         <template v-for="group in navGroups" :key="group.titleKey">
           <div v-if="expanded" class="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
             {{ $t(group.titleKey) }}
@@ -249,7 +249,7 @@ async function signOut() {
         </div>
       </header>
 
-      <main class="flex-1 overflow-y-auto p-4 sm:p-6">
+      <main class="scrollbar-none flex-1 overflow-y-auto p-4 sm:p-6">
         <router-view />
       </main>
     </div>

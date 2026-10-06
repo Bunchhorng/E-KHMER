@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   Plus,
   X,
@@ -366,10 +366,6 @@ async function save() {
   }
 }
 
-function saveDraft() {
-  showToast(t('admin.products.toast_draft_saved'))
-}
-
 const toast = ref('')
 let toastTimer: ReturnType<typeof setTimeout> | undefined
 function showToast(msg: string) {
@@ -408,18 +404,18 @@ onMounted(async () => {
 </script>
 
 <template>
-  <form class="space-y-6 pb-16" @submit.prevent="save()">
-    <div class="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+  <form class="mx-auto max-w-[1400px] space-y-5 pb-16" @submit.prevent="save()">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <div class="section-eyebrow">{{ $t('admin.products.catalog') }}</div>
-        <h1 class="text-xl font-bold text-ink">{{ isEdit ? $t('admin.products.edit_product') : $t('admin.products.add_new_product') }}</h1>
+        <div class="mb-1 text-xs text-gray-400 dark:text-gray-500"><RouterLink :to="{ name: 'admin-products' }" class="hover:text-primary">Products</RouterLink><span class="mx-2">›</span>{{ isEdit ? 'Edit Product' : 'Create Product' }}</div>
+        <h1 class="text-2xl font-bold tracking-tight text-ink">{{ isEdit ? 'Edit Product' : 'Create Product' }}</h1>
+        <p class="mt-1 text-sm text-gray-500 dark:text-muted">{{ isEdit ? 'Update your product information, images, and inventory.' : 'Add a new product to your shop.' }}</p>
       </div>
       <div class="flex flex-wrap gap-2">
         <button class="btn-secondary btn-sm" type="button" @click="router.push({ name: 'admin-products' })">{{ $t('actions.cancel') }}</button>
-        <button class="btn-ghost btn-sm" type="button" @click="saveDraft()">{{ $t('admin.products.save_draft') }}</button>
         <button class="btn-primary btn-sm" type="submit" :disabled="saving">
           <Save class="h-4 w-4" />
-          {{ $t('admin.products.save_product') }}
+          {{ isEdit ? 'Update Product' : 'Save Product' }}
         </button>
       </div>
     </div>

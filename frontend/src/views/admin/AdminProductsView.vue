@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { Plus } from 'lucide-vue-next'
+import { AlertTriangle, CheckCircle2, Package, Plus, XCircle } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import type { TableColumn, TableRow } from '@/types'
@@ -15,6 +15,20 @@ const loading = ref(true)
 const products = ref<AdminProduct[]>([])
 const totalCount = ref(0)
 const showDeleted = ref(false)
+
+const productMetrics = computed(() => {
+  const active = products.value.filter((p) => p.is_active).length
+  const lowStock = products.value.filter((p) => {
+    const stock = p.variants?.reduce((sum, variant) => sum + variant.available_quantity, 0) ?? 0
+    return p.is_active && stock > 0 && stock <= 5
+  }).length
+  return [
+    { label: 'Total Products', value: totalCount.value, icon: Package, tone: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300', note: 'Across your catalog' },
+    { label: 'Active Products', value: active, icon: CheckCircle2, tone: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300', note: 'Visible to customers' },
+    { label: 'Inactive Products', value: Math.max(totalCount.value - active, 0), icon: XCircle, tone: 'bg-rose-50 text-rose-500 dark:bg-rose-500/15 dark:text-rose-300', note: 'Draft or unavailable' },
+    { label: 'Low Stock', value: lowStock, icon: AlertTriangle, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300', note: 'Needs attention' }
+  ]
+})
 
 const columns = computed<TableColumn[]>(() => [
   { key: 'image', label: t('admin.products.column_image'), type: 'image', sortable: true },
@@ -146,12 +160,9 @@ onMounted(loadProducts)
 </script>
 
 <template>
-  <div class="space-y-6">
+  <div class="mx-auto max-w-[1600px] space-y-4 sm:space-y-5">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex items-center gap-3">
-        <h1 class="text-2xl font-bold text-ink">{{ $t('admin.products.title') }}</h1>
-        <span class="chip">{{ $t('admin.products.total_count', { count: totalCount }) }}</span>
-      </div>
+      <div><h1 class="text-2xl font-bold tracking-tight text-ink sm:text-[27px]">{{ $t('admin.products.title') }}</h1><p class="mt-1 text-sm text-gray-500 dark:text-muted">Manage your products, add new items, and keep inventory up to date.</p></div>
       <div class="flex items-center gap-2">
         <button
           type="button"
@@ -160,25 +171,29 @@ onMounted(loadProducts)
         >
           {{ showDeleted ? $t('admin.products.show_active') : $t('admin.products.show_deleted') }}
         </button>
-        <router-link :to="{ name: 'admin-product-create' }" class="btn-primary btn-sm">
+        <router-link :to="{ name: 'admin-product-create' }" class="btn-primary !px-4 !py-2">
           <Plus class="h-4 w-4" />
-          {{ $t('admin.products.add_product') }}
+          Add New Product
         </router-link>
       </div>
     </div>
 
-    <AdminDataTable
-      :columns="columns"
-      :rows="rows"
-      :loading="loading"
-      :search-keys="['title', 'brand', 'sku']"
-      :search-placeholder="$t('admin.products.search_placeholder')"
-      :page-size="8"
-      :bulk-actions="bulkActions"
-      :row-actions="rowActions"
-      @row-action="onRowAction"
-      @bulk-action="onBulkAction"
-    />
+    <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <article v-for="metric in productMetrics" :key="metric.label" class="card p-4"><div class="flex items-start gap-3"><div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" :class="metric.tone"><component :is="metric.icon" class="h-5 w-5" /></div><div><p class="text-xs font-medium text-gray-500 dark:text-muted">{{ metric.label }}</p><p class="mt-1 text-xl font-bold text-ink">{{ metric.value }}</p><p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">{{ metric.note }}</p></div></div></article>
+    </section>
+
+    <section class="card overflow-hidden p-0"><div class="border-b border-border-gray px-4 py-3"><p class="text-sm font-semibold text-ink">Product Catalog <span class="ml-1 text-xs font-normal text-gray-400">{{ totalCount }} products</span></p></div><AdminDataTable
+        :columns="columns"
+        :rows="rows"
+        :loading="loading"
+        :search-keys="['title', 'brand', 'sku']"
+        :search-placeholder="$t('admin.products.search_placeholder')"
+        :page-size="8"
+        :bulk-actions="bulkActions"
+        :row-actions="rowActions"
+        @row-action="onRowAction"
+        @bulk-action="onBulkAction"
+      /></section>
 
     <transition name="fade">
       <div
