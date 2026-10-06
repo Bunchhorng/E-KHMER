@@ -148,4 +148,32 @@ class ReviewTest extends TestCase
 
         $this->assertSame($review->id, Review::query()->firstOrFail()->id);
     }
+
+    public function test_customer_can_delete_only_their_own_review_and_public_rating_is_recalculated(): void
+    {
+        $owner = User::factory()->create();
+        $otherUser = User::factory()->create();
+        $product = $this->product();
+
+        $review = Review::create([
+            'user_id' => $owner->id,
+            'product_id' => $product->id,
+            'rating' => 5,
+            'status' => Review::STATUS_APPROVED,
+            'verified' => true,
+        ]);
+        $product->update(['rating_count' => 1, 'rating_avg' => 5]);
+
+        $this->actingAs($otherUser, 'sanctum')
+            ->deleteJson("/api/reviews/{$review->id}")
+            ->assertNotFound();
+
+        $this->actingAs($owner, 'sanctum')
+            ->deleteJson("/api/reviews/{$review->id}")
+            ->assertNoContent();
+
+        $this->assertDatabaseMissing('reviews', ['id' => $review->id]);
+        $this->assertSame(0, (int) $product->fresh()->rating_count);
+        $this->assertSame(0.0, (float) $product->fresh()->rating_avg);
+    }
 }

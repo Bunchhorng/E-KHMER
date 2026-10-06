@@ -18,6 +18,7 @@ const authStore = useAuthStore()
 const order = ref<Order | null>(null)
 const loading = ref(true)
 const downloadingReceipt = ref(false)
+const receiptError = ref('')
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -27,11 +28,12 @@ async function downloadReceipt() {
   const orderNumber = route.params.orderId as string
   if (!orderNumber || downloadingReceipt.value) return
   downloadingReceipt.value = true
+  receiptError.value = ''
   try {
     const response = await ordersApi.receipt(orderNumber)
     downloadResponse(response, `receipt-${orderNumber}.pdf`)
   } catch {
-    // Keep the page functional even if the receipt endpoint fails.
+    receiptError.value = 'The receipt could not be downloaded. Please try again.'
   } finally {
     downloadingReceipt.value = false
   }
@@ -62,7 +64,7 @@ function mapOrderFromApi(raw: ApiOrder): Order {
     total: raw.total,
     status: capitalize(raw.status) as OrderStatus,
     placedAt: raw.placed_at ?? '',
-    estimatedDelivery: raw.placed_at ?? '',
+    estimatedDelivery: raw.shipment?.delivered_at ?? '',
     trackingEvents: [{ status: capitalize(raw.status) as OrderStatus, at: raw.placed_at ?? '' }],
     shippingAddress: {
       id: '0',
@@ -145,8 +147,8 @@ onMounted(async () => {
         <p class="mt-1 font-semibold text-ink">{{ order.number }}</p>
       </div>
       <div class="card p-5">
-        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ $t('order.estimated_delivery') }}</p>
-        <p class="mt-1 font-semibold text-ink">{{ formatDate(order.estimatedDelivery) }}</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ order.estimatedDelivery ? 'Delivered' : 'Delivery update' }}</p>
+        <p class="mt-1 font-semibold text-ink">{{ order.estimatedDelivery ? formatDate(order.estimatedDelivery) : 'Available once the carrier confirms shipment' }}</p>
       </div>
       <div class="card p-5">
         <p class="text-xs font-semibold uppercase tracking-wide text-gray-400">{{ $t('order.payment_method') }}</p>
@@ -202,6 +204,7 @@ onMounted(async () => {
     <p class="mt-6 text-xs text-gray-500">
       {{ $t('order.email_sent', { email: authStore.user?.email ?? '' }) }}
     </p>
+    <p v-if="receiptError" class="mt-3 text-xs font-medium text-red-600">{{ receiptError }}</p>
   </div>
 
   <div v-else class="container-app mx-auto max-w-md py-16">

@@ -44,15 +44,9 @@ function mapOrderFromApi(raw: ApiOrder): Order {
     at: e.at
   }))
 
-  const estimatedDelivery = (() => {
-    if (raw.shipment?.delivered_at) return raw.shipment.delivered_at
-    if (raw.placed_at) {
-      const d = new Date(raw.placed_at)
-      d.setDate(d.getDate() + 5)
-      return d.toISOString()
-    }
-    return ''
-  })()
+  // The API currently supplies an actual delivery timestamp, not a carrier ETA.
+  // Do not manufacture a date from the order timestamp: that misleads customers.
+  const estimatedDelivery = raw.shipment?.delivered_at ?? ''
 
   return {
     id: raw.order_number,
@@ -125,7 +119,8 @@ onMounted(async () => {
         <div>
           <h1 class="text-2xl font-bold text-ink dark:text-ink">{{ $t('order.track_title', { number: order.number }) }}</h1>
           <p class="mt-1 text-sm text-gray-500 dark:text-muted dark:text-gray-500">
-            {{ $t('order.track_subtitle', { placed: formatDate(order.placedAt), arrives: formatDate(order.estimatedDelivery) }) }}
+            <template v-if="order.estimatedDelivery">{{ $t('order.track_subtitle', { placed: formatDate(order.placedAt), arrives: formatDate(order.estimatedDelivery) }) }}</template>
+            <template v-else>Placed {{ formatDate(order.placedAt) }} · Delivery date will appear when the carrier confirms it.</template>
           </p>
         </div>
         <StatusTag :status="order.status" />
@@ -205,12 +200,12 @@ onMounted(async () => {
       </div>
     </div>
 
-    <div class="card mt-6 flex items-center gap-4 p-6">
+    <div v-if="order.estimatedDelivery" class="card mt-6 flex items-center gap-4 p-6">
       <div class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
         <Package class="h-6 w-6" />
       </div>
       <div>
-        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{{ $t('order.estimated_delivery') }}</p>
+        <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-gray-500">{{ order.status === 'Delivered' ? 'Delivered' : $t('order.estimated_delivery') }}</p>
         <p class="font-semibold text-ink dark:text-ink">{{ formatDate(order.estimatedDelivery) }}</p>
       </div>
     </div>

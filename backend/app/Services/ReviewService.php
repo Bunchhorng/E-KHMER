@@ -59,13 +59,53 @@ class ReviewService
             abort(404, 'Review not found.');
         }
 
-        $review->update(array_filter([
-            'rating' => isset($data['rating']) ? (int) $data['rating'] : null,
-            'title' => array_key_exists('title', $data) ? $data['title'] : $review->title,
-            'body' => array_key_exists('body', $data) ? $data['body'] : $review->body,
-        ], fn ($v) => $v !== null));
+        $updates = [];
+
+        if (array_key_exists('rating', $data) && $data['rating'] !== null) {
+            $updates['rating'] = (int) $data['rating'];
+        }
+
+        // Nullable text fields must be allowed to be cleared by the customer.
+        foreach (['title', 'body'] as $field) {
+            if (array_key_exists($field, $data)) {
+                $updates[$field] = $data[$field];
+            }
+        }
+
+        if ($updates === []) {
+            return $review->fresh();
+        }
+
+        $wasApproved = $review->status === Review::STATUS_APPROVED;
+        if ($wasApproved) {
+            // An edited published review must be moderated again; its old score
+            // must no longer contribute to the public product aggregate.
+            $updates['status'] = Review::STATUS_PENDING;
+        }
+
+        $review->update($updates);
+
+        if ($wasApproved) {
+            $this->recalculateProductRating($review->product_id);
+        }
 
         return $review->fresh();
+    }
+
+    public function delete(User $user, Review $review): void
+    {
+        if ((int) $review->user_id !== (int) $user->id) {
+            abort(404, 'Review not found.');
+        }
+
+        $wasApproved = $review->status === Review::STATUS_APPROVED;
+        $productId = (int) $review->product_id;
+
+        $review->delete();
+
+        if ($wasApproved) {
+            $this->recalculateProductRating($productId);
+        }
     }
 
     public function approve(Review $review): void

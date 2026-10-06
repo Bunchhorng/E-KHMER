@@ -7,6 +7,7 @@ import EmptyState from '@/components/EmptyState.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { formatDate, formatPrice } from '@/utils/format'
 import { onMounted, ref } from 'vue'
+import { extractErrorMessage } from '@/api/errors'
 
 interface OrderRow {
   id: string
@@ -22,13 +23,15 @@ const { t } = useI18n()
 
 const orders = ref<OrderRow[]>([])
 const loading = ref(true)
+const error = ref('')
 
 function capitalizeStatus(status: string): string {
   return status.charAt(0).toUpperCase() + status.slice(1)
 }
 
-onMounted(async () => {
+async function loadOrders() {
   loading.value = true
+  error.value = ''
   try {
     const res = await ordersApi.list()
     orders.value = (res.data.data ?? []).map((o) => ({
@@ -39,10 +42,14 @@ onMounted(async () => {
       status: capitalizeStatus(o.status),
       itemsCount: o.items_count
     }))
+  } catch (requestError) {
+    error.value = extractErrorMessage(requestError, 'Could not load your orders.')
   } finally {
     loading.value = false
   }
-})
+}
+
+onMounted(loadOrders)
 </script>
 
 <template>
@@ -54,6 +61,11 @@ onMounted(async () => {
 
     <div v-if="loading" class="card p-10 text-center">
       <p class="text-sm text-gray-500 dark:text-muted">{{ $t('common.loading') }}</p>
+    </div>
+
+    <div v-else-if="error" class="card p-10 text-center">
+      <p class="text-sm text-red-600">{{ error }}</p>
+      <button type="button" class="btn-secondary btn-sm mt-4" @click="loadOrders">{{ $t('actions.retry') }}</button>
     </div>
 
     <div v-else-if="orders.length" class="card overflow-x-auto p-0">

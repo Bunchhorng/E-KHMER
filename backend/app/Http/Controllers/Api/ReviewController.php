@@ -43,6 +43,13 @@ class ReviewController extends Controller
     {
         $review = $this->reviews->update($request->user(), $review, $request->validated());
 
-        return new ReviewResource($review);
+        return new ReviewResource($review->load(['user', 'product']));
+    }
+
+    public function destroy(Request $request, Review $review)
+    {
+        $this->reviews->delete($request->user(), $review);
+
+        return response()->noContent();
     }
 }

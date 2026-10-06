@@ -56,5 +56,9 @@ export const accountApi = {
 
   markAllNotificationsRead() {
     return apiClient.post<{ data: { message: string } }>('/account/notifications/all/read')
+  },
+
+  deleteNotification(id: string) {
+    return apiClient.delete(`/account/notifications/${id}`)
   }
 }

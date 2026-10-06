@@ -124,6 +124,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     Route::post('reviews', [ReviewController::class, 'store']);
     Route::put('reviews/{review}', [ReviewController::class, 'update']);
+    Route::delete('reviews/{review}', [ReviewController::class, 'destroy']);
 
     Route::get('account/dashboard', [AccountController::class, 'profile']);
     Route::put('account/profile', [AccountController::class, 'updateProfile']);
@@ -131,6 +132,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('account/password', [AccountController::class, 'changePassword']);
     Route::get('account/reviews', [AccountController::class, 'reviews']);
     Route::get('account/notifications', [AccountController::class, 'notifications']);
+    Route::post('account/notifications/all/read', [AccountController::class, 'markRead']);
     Route::post('account/notifications/{notification}/read', [AccountController::class, 'markRead']);
     Route::delete('account/notifications/{notification}', [AccountController::class, 'destroyNotification']);
 });

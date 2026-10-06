@@ -27,7 +27,11 @@ export const reviewsApi = {
     return apiClient.post<{ data: ApiReview }>('/reviews', payload)
   },
 
-  update(id: number, payload: { rating?: number; title?: string; body?: string }) {
+  update(id: number, payload: { rating?: number; title?: string | null; body?: string | null }) {
     return apiClient.put<{ data: ApiReview }>(`/reviews/${id}`, payload)
+  },
+
+  remove(id: number) {
+    return apiClient.delete(`/reviews/${id}`)
   }
 }
