@@ -30,7 +30,7 @@ class CartController extends Controller
     {
         $cart = $this->carts->forUser($this->user($request), $this->sessionId($request));
 
-        return $cart->load(['items.variant.product.images', 'items.variant.inventory']);
+        return $cart->load(['items.variant.product.images', 'items.variant.inventory', 'items.variant.attributeValues.value.attribute']);
     }
 
     protected function sessionId(Request $request): ?string
@@ -56,7 +56,9 @@ class CartController extends Controller
         $cart = $this->carts->forUser($this->user($request), $this->sessionId($request));
         $this->carts->add($cart, (int) $request->product_variant_id, (int) $request->quantity);
 
-        return new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory']));
+        return (new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory', 'items.variant.attributeValues.value.attribute'])))
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function update(CartUpdateRequest $request, int $cartItem)
@@ -64,7 +66,7 @@ class CartController extends Controller
         $cart = $this->carts->forUser($this->user($request), $this->sessionId($request));
         $this->carts->update($cart, (int) $cartItem, (int) $request->quantity);
 
-        return new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory']));
+        return new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory', 'items.variant.attributeValues.value.attribute']));
     }
 
     public function remove(Request $request, int $cartItem)
@@ -72,7 +74,7 @@ class CartController extends Controller
         $cart = $this->carts->forUser($this->user($request), $this->sessionId($request));
         $this->carts->remove($cart, (int) $cartItem);
 
-        return new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory']));
+        return new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory', 'items.variant.attributeValues.value.attribute']));
     }
 
     public function clear(Request $request)
@@ -80,7 +82,7 @@ class CartController extends Controller
         $cart = $this->carts->forUser($this->user($request), $this->sessionId($request));
         $this->carts->clear($cart);
 
-        return new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory']));
+        return new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory', 'items.variant.attributeValues.value.attribute']));
     }
 
     public function totals(Request $request)

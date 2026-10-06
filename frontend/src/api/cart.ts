@@ -10,6 +10,7 @@ export interface ApiCartItem {
     price: number
     compare_at_price: number | null
     in_stock: boolean
+    attributes: { name: string; value: string }[]
     product: {
       id: number
       slug: string

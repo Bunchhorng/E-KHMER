@@ -35,9 +35,9 @@ function toDisplayItem(api: ApiCartItem): CartItem {
     image: variant.product?.cover_image ?? '',
     unitPrice: variant.price ?? 0,
     quantity: api.quantity,
-    variant: {
-      variantId: String(variant.id),
-      attributes: [],
+      variant: {
+        variantId: String(variant.id),
+      attributes: variant.attributes ?? [],
       sku: variant.sku
     },
     variantName: variant.name
@@ -67,10 +67,12 @@ export const useCartStore = defineStore('cart', {
       return round2(Math.min(state.appliedCoupon.value, this.totals.subtotal))
     },
     taxAmount(): number {
-      return this.totals.tax_amount
+      // Checkout taxes the post-discount amount, so keep the cart estimate in
+      // lockstep with the server-side checkout calculation.
+      return round2(Math.max(this.totals.subtotal - this.discountAmount, 0) * TAX_RATE)
     },
     totalAmount(): number {
-      return round2(Math.max(this.totals.total - this.discountAmount, 0))
+      return round2(Math.max(this.totals.subtotal - this.discountAmount, 0) + this.taxAmount)
     },
     totalItemCount(): number {
       return this.totals.items_count
@@ -122,16 +124,11 @@ export const useCartStore = defineStore('cart', {
     },
 
     async clear(): Promise<void> {
-      this.items = []
-      this.totals = { ...EMPTY_TOTALS }
+      const { data } = await cartApi.clear()
+      this.applyCart(data.data)
       this.appliedCoupon = null
       this.couponSuccess = ''
       this.couponError = ''
-      try {
-        await cartApi.clear()
-      } catch {
-        /* clear locally even if the request fails */
-      }
     },
 
     async applyCoupon(code: string): Promise<boolean> {

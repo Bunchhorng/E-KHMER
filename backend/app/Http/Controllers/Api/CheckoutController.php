@@ -68,7 +68,9 @@ class CheckoutController extends Controller
         return (new OrderResource($order))
             ->additional([
                 'reservation_expires_at' => $order->placed_at?->addMinutes((int) config('ecommerce.reservation_minutes', 15))->toISOString(),
-            ]);
+            ])
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function confirm(Request $request, string $orderNumber)

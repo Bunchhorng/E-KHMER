@@ -69,15 +69,14 @@ class CartTest extends TestCase
             ->assertJsonCount(0, 'data.items');
     }
 
-    public function test_quantity_capped_at_available_stock(): void
+    public function test_quantity_above_available_stock_is_rejected(): void
     {
         [$variantId] = $this->variantWithStock(10);
 
         $this->withHeaders(['X-Session-Id' => 'sess-2'])
             ->postJson('/api/cart', ['product_variant_id' => $variantId, 'quantity' => 99])
-            ->assertCreated()
-            ->assertJsonCount(1, 'data.items')
-            ->assertJsonPath('data.items.0.quantity', 10);
+            ->assertStatus(422)
+            ->assertJsonPath('errors.quantity.0', 'Only 10 item(s) are currently available.');
     }
 
     public function test_out_of_stock_variant_is_rejected(): void

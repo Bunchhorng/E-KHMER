@@ -64,19 +64,31 @@ class CartService
             throw ValidationException::withMessages(['message' => 'Variant is out of stock']);
         }
 
-        $addQty = min(max($quantity, 0), $available);
+        if ($quantity > $available) {
+            throw ValidationException::withMessages([
+                'quantity' => ["Only {$available} item(s) are currently available."],
+            ]);
+        }
 
-        DB::transaction(function () use ($cart, $variantId, $addQty): void {
-            $item = $cart->items()->where('product_variant_id', $variantId)->first();
+        DB::transaction(function () use ($cart, $variantId, $quantity): void {
+            $item = $cart->items()->where('product_variant_id', $variantId)->lockForUpdate()->first();
 
             if ($item === null) {
                 $cart->items()->create([
                     'product_variant_id' => $variantId,
-                    'quantity' => $addQty,
+                    'quantity' => $quantity,
                 ]);
             } else {
-                $newQty = min((int) $item->quantity + $addQty, $this->inventory->available($variantId));
-                $item->update(['quantity' => max($newQty, 1)]);
+                $available = $this->inventory->available($variantId);
+                $newQty = (int) $item->quantity + $quantity;
+
+                if ($newQty > $available) {
+                    throw ValidationException::withMessages([
+                        'quantity' => ["Only {$available} item(s) are currently available."],
+                    ]);
+                }
+
+                $item->update(['quantity' => $newQty]);
             }
         });
 
@@ -100,8 +112,26 @@ class CartService
             return $cart->load('items.variant.product.images');
         }
 
+        $variant = ProductVariant::query()
+            ->whereKey($item->product_variant_id)
+            ->where('is_active', true)
+            ->whereHas('product', fn ($q) => $q->active())
+            ->first();
+
+        if ($variant === null) {
+            throw ValidationException::withMessages([
+                'message' => ['This product is no longer available. Remove it from your cart to continue.'],
+            ]);
+        }
+
         $available = $this->inventory->available((int) $item->product_variant_id);
-        $item->update(['quantity' => min($quantity, $available)]);
+        if ($quantity > $available) {
+            throw ValidationException::withMessages([
+                'quantity' => ["Only {$available} item(s) are currently available."],
+            ]);
+        }
+
+        $item->update(['quantity' => $quantity]);
 
         return $cart->load('items.variant.product.images');
     }

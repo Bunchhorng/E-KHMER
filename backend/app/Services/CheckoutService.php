@@ -60,8 +60,30 @@ class CheckoutService
             $taxAmount = round(($subtotal - $discount) * 0.10, 2);
             $total = round($subtotal - $discount + $taxAmount + $shippingAmount, 2);
 
+            // Re-read cart rows under the checkout transaction. A cart can go
+            // stale after it is displayed: products may be unpublished,
+            // variants disabled, or stock consumed by another checkout.
+            $cartItems = $cart->items()
+                ->with('variant.product')
+                ->lockForUpdate()
+                ->get();
+
             $reservations = [];
-            foreach ($cart->items as $item) {
+            foreach ($cartItems as $item) {
+                $variant = $item->variant;
+
+                $purchasable = $variant !== null && ProductVariant::query()
+                    ->whereKey($variant->id)
+                    ->where('is_active', true)
+                    ->whereHas('product', fn ($query) => $query->active())
+                    ->exists();
+
+                if (! $purchasable || (int) $item->quantity < 1) {
+                    throw ValidationException::withMessages([
+                        'cart' => ['One or more items in your cart are no longer available.'],
+                    ]);
+                }
+
                 $reservations[(int) $item->product_variant_id] = (int) $item->quantity;
             }
 
@@ -104,7 +126,7 @@ class CheckoutService
                 'description' => 'Order placed',
             ]);
 
-            foreach ($cart->items as $item) {
+            foreach ($cartItems as $item) {
                 $variant = $item->variant()->with(['product.images', 'attributeValues.value.attribute'])->first();
                 $product = $variant?->product;
 
@@ -130,7 +152,12 @@ class CheckoutService
                 'method' => $payload['payment_method'] ?? 'card',
                 'status' => Payment::STATUS_PENDING,
                 'amount' => $total,
-                'provider_data' => ['session_id' => $payload['session_token'] ?? null],
+                'provider_data' => [
+                    'session_id' => $payload['session_token'] ?? null,
+                    // Allows confirm() to clear the exact guest or user cart
+                    // without trusting a client-supplied cart identifier.
+                    'cart_id' => $cart->id,
+                ],
             ]);
 
             Shipment::create([
@@ -207,7 +234,11 @@ class CheckoutService
             if ($order->user_id !== null) {
                 $user = $order->user()->first();
                 $user->notify(new OrderPlacedNotification($order));
-                $this->cart->clear($this->cart->forUser($user, null));
+            }
+
+            $cartId = $payment->provider_data['cart_id'] ?? null;
+            if (is_numeric($cartId)) {
+                \App\Models\Cart::find((int) $cartId)?->items()->delete();
             }
 
             return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);

@@ -16,7 +16,9 @@ class CartResource extends JsonResource
             foreach ($this->items as $item) {
                 $price = 0.0;
                 if ($item->relationLoaded('variant') && $item->variant !== null) {
-                    $price = $item->variant->price !== null ? (float) $item->variant->price : 0.0;
+                    $price = $item->variant->price !== null
+                        ? (float) $item->variant->price
+                        : (float) ($item->variant->product?->price ?? 0);
                 }
                 $subtotal += $price * (int) $item->quantity;
                 $itemsCount += (int) $item->quantity;

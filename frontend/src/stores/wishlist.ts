@@ -59,24 +59,38 @@ export const useWishlistStore = defineStore('wishlist', {
     async toggle(productId: string) {
       const numId = Number(productId)
       const idx = this.productIds.indexOf(numId)
-      if (idx >= 0) {
-        this.productIds.splice(idx, 1)
-        try { await wishlistApi.remove(numId) } catch { /* ignore */ }
-      } else {
-        this.productIds.push(numId)
-        try { await wishlistApi.add(numId) } catch { /* ignore */ }
+      const previous = [...this.productIds]
+
+      try {
+        const response = idx >= 0
+          ? await wishlistApi.remove(numId)
+          : await wishlistApi.add(numId)
+
+        // Treat the API response as authoritative. Optimistic local-only state
+        // previously made an item appear saved even after a rejected request.
+        this.productIds = response.data.data
+        save(this.productIds)
+        await this.fetchProducts()
+        return idx < 0
+      } catch {
+        this.productIds = previous
+        save(this.productIds)
+        return idx < 0 ? false : true
       }
-      save(this.productIds)
-      await this.fetchProducts()
-      return !this.isWishlisted(productId)
     },
 
     async remove(productId: string) {
       const numId = Number(productId)
-      this.productIds = this.productIds.filter((id) => id !== numId)
-      save(this.productIds)
-      try { await wishlistApi.remove(numId) } catch { /* ignore */ }
-      await this.fetchProducts()
+      const previous = [...this.productIds]
+      try {
+        const { data } = await wishlistApi.remove(numId)
+        this.productIds = data.data
+        save(this.productIds)
+        await this.fetchProducts()
+      } catch {
+        this.productIds = previous
+        save(this.productIds)
+      }
     },
 
     clear() {

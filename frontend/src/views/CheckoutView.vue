@@ -20,6 +20,7 @@ import { useCartStore } from '@/stores/cart'
 import BaseModal from '@/components/BaseModal.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { formatPrice } from '@/utils/format'
+import { extractErrorMessage } from '@/api/errors'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -66,6 +67,7 @@ const paymentOptions = [
 const paymentMethod = ref<PaymentMethod>('cod')
 
 const placing = ref(false)
+const checkoutError = ref('')
 
 const selectedAddress = computed(
   () => addresses.value.find((a) => a.id === selectedAddressId.value) ?? addresses.value[0]
@@ -188,6 +190,7 @@ async function saveAddress() {
 async function placeOrder() {
   if (!selectedAddress.value || !selectedShipping.value || placing.value) return
   placing.value = true
+  checkoutError.value = ''
   try {
     const { data } = await checkoutApi.begin({
       shipping_method_id: Number(selectedShipping.value.id),
@@ -196,10 +199,13 @@ async function placeOrder() {
       address_id: Number(selectedAddress.value.id)
     })
     await checkoutApi.confirm(data.data.order_number)
-    await cartStore.clear()
+    // Confirmation clears the cart on the server. Refresh instead of issuing a
+    // second destructive request, so a transient refresh failure cannot make a
+    // successful order look failed to the customer.
+    await cartStore.fetch()
     router.push({ name: 'order-success', params: { orderId: data.data.order_number } })
-  } catch {
-    /* handle silently */
+  } catch (error) {
+    checkoutError.value = extractErrorMessage(error, 'We could not place your order. Your cart has been kept so you can review it.')
   } finally {
     placing.value = false
   }
@@ -516,6 +522,7 @@ async function placeOrder() {
               <Lock class="h-4 w-4" />
               {{ placing ? 'Placing order…' : `Place Order · ${formatPrice(totalWithShipping)}` }}
             </button>
+            <p v-if="checkoutError" class="text-center text-sm text-red-600" role="alert">{{ checkoutError }}</p>
           </template>
         </div>
 

@@ -21,10 +21,10 @@ const count = computed(() => wishlist.count)
 
 const products = computed(() => wishlist.products.map(mapCatalogProduct))
 
-function addToCart(product: Product, payload: AddToCartPayload) {
+async function addToCart(product: Product, payload: AddToCartPayload) {
   if (!payload.variantId) return
-  cartStore.addItem({ variantId: payload.variantId, quantity: 1 })
-  wishlist.remove(product.id)
+  await cartStore.addItem({ variantId: payload.variantId, quantity: 1 })
+  await wishlist.remove(product.id)
 }
 </script>
 

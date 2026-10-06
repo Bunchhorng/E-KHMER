@@ -25,6 +25,17 @@ class CartItemResource extends JsonResource
                 'price' => $this->variant->price !== null ? (float) $this->variant->price : null,
                 'compare_at_price' => $this->variant->compare_at_price !== null ? (float) $this->variant->compare_at_price : null,
                 'in_stock' => $this->resolveVariantInStock($this->variant),
+                'attributes' => $this->variant->relationLoaded('attributeValues')
+                    ? $this->variant->attributeValues->map(function ($link) {
+                        $value = $link->value;
+                        $attribute = $value?->attribute;
+
+                        return $value === null ? null : [
+                            'name' => $attribute?->name ?? 'Option',
+                            'value' => $value->value,
+                        ];
+                    })->filter()->values()->all()
+                    : [],
                 'product' => $product !== null ? [
                     'id' => $product->id,
                     'slug' => $product->slug,

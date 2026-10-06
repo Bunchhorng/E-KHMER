@@ -28,6 +28,11 @@ class WishlistController extends Controller
             'product_id' => ['required', 'integer', 'exists:products,id'],
         ]);
 
+        $product = Product::active()->find((int) $request->product_id);
+        if ($product === null) {
+            abort(404, 'Product not found.');
+        }
+
         $wishlist = $this->wishlistFor($request->user());
         $wishlist->items()->firstOrCreate([
             'product_id' => (int) $request->product_id,

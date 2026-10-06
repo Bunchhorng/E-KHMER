@@ -186,9 +186,31 @@ class CheckoutTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', 'confirmed');
 
+        $this->withHeaders(['X-Session-Id' => $session])
+            ->getJson('/api/cart')
+            ->assertOk()
+            ->assertJsonCount(0, 'data.items');
+
         $this->withHeaders(['X-Session-Id' => 'some-other-session'])
             ->postJson("/api/checkout/$orderNumber/cancel")
             ->assertStatus(404);
+    }
+
+    public function test_checkout_rejects_a_variant_deactivated_after_it_was_added_to_cart(): void
+    {
+        $user = User::factory()->create();
+        $this->productWithStock(10, 100.00);
+        $this->authAs($user);
+
+        $this->postJson('/api/cart', ['product_variant_id' => $this->variantId, 'quantity' => 1])
+            ->assertCreated();
+        \App\Models\ProductVariant::whereKey($this->variantId)->update(['is_active' => false]);
+
+        $this->beginCheckout()
+            ->assertStatus(422)
+            ->assertJsonPath('errors.cart.0', 'One or more items in your cart are no longer available.');
+
+        $this->assertDatabaseCount('orders', 0);
     }
 
     public function test_orders_list_is_scoped_to_own_orders(): void
