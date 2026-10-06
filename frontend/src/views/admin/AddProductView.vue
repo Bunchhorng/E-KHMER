@@ -18,6 +18,7 @@ import type { AdminBrand, AdminCategory, AdminProduct } from '@/api/admin'
 import { mediaApi } from '@/api/uploads'
 import { extractErrorMessage } from '@/api/errors'
 import { formatPrice } from '@/utils/format'
+import RichTextEditor from '@/components/RichTextEditor.vue'
 
 const { t } = useI18n()
 
@@ -470,13 +471,7 @@ onMounted(async () => {
 
         <div class="sm:col-span-2">
           <label class="label" for="p-description">{{ $t('product.description') }}</label>
-          <textarea
-            id="p-description"
-            v-model="form.description"
-            class="textarea"
-            rows="4"
-            :placeholder="$t('admin.products.description_placeholder')"
-          ></textarea>
+          <RichTextEditor v-model="form.description" :placeholder="$t('admin.products.description_placeholder')" />
         </div>
       </div>
     </div>

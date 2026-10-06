@@ -182,13 +182,14 @@ onMounted(loadProducts)
       <article v-for="metric in productMetrics" :key="metric.label" class="card p-4"><div class="flex items-start gap-3"><div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" :class="metric.tone"><component :is="metric.icon" class="h-5 w-5" /></div><div><p class="text-xs font-medium text-gray-500 dark:text-muted">{{ metric.label }}</p><p class="mt-1 text-xl font-bold text-ink">{{ metric.value }}</p><p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">{{ metric.note }}</p></div></div></article>
     </section>
 
-    <section class="card overflow-hidden p-0"><div class="border-b border-border-gray px-4 py-3"><p class="text-sm font-semibold text-ink">Product Catalog <span class="ml-1 text-xs font-normal text-gray-400">{{ totalCount }} products</span></p></div><AdminDataTable
+    <section class="card overflow-hidden rounded-none p-0"><div class="border-b border-border-gray px-4 py-3"><p class="text-sm font-semibold text-ink">Product Catalog <span class="ml-1 text-xs font-normal text-gray-400">{{ totalCount }} products</span></p></div><AdminDataTable
         :columns="columns"
         :rows="rows"
         :loading="loading"
         :search-keys="['title', 'brand', 'sku']"
         :search-placeholder="$t('admin.products.search_placeholder')"
         :page-size="8"
+        flat
         :bulk-actions="bulkActions"
         :row-actions="rowActions"
         @row-action="onRowAction"

@@ -22,6 +22,7 @@ interface Props {
   rowActions?: { label: string; value: string }[]
   emptyTitle?: string
   emptyDescription?: string
+  flat?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -35,7 +36,8 @@ const props = withDefaults(defineProps<Props>(), {
   bulkActions: () => [],
   rowActions: () => [],
   searchPlaceholder: '',
-  emptyTitle: ''
+  emptyTitle: '',
+  flat: false
 })
 
 const emit = defineEmits<{
@@ -163,7 +165,7 @@ function cellValue(row: TableRow, col: TableColumn): string {
 </script>
 
 <template>
-  <div class="card overflow-hidden">
+  <div class="card overflow-hidden" :class="{ 'rounded-none': props.flat }">
     <div class="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div class="relative w-full max-w-xs">
         <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
