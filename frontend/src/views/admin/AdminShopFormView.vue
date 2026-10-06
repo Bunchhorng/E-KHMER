@@ -48,7 +48,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="max-w-4xl space-y-6">
+  <div class="w-full space-y-6">
     <div class="flex items-end justify-between"><div><p class="text-sm font-semibold text-primary">MARKETPLACE</p><h1 class="mt-1 text-2xl font-bold text-ink">{{ editing ? 'Edit shop' : 'Create shop' }}</h1><p class="mt-1 text-sm text-gray-500">Set the shop profile, contact details, location, and marketplace status.</p></div><RouterLink :to="{ name: 'admin-shops' }" class="btn-secondary">Back</RouterLink></div>
     <div v-if="loading" class="card p-10 text-center">Loading...</div>
     <form v-else class="card grid gap-4 p-6 sm:grid-cols-2" @submit.prevent="save">
