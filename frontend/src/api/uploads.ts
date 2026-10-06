@@ -22,7 +22,7 @@ function toFormData(file: File, extra: Record<string, string | number | boolean>
 }
 
 export const mediaApi = {
-  uploadImage(file: File, context: 'products' | 'brands' | 'categories' = 'products') {
+  uploadImage(file: File, context: 'products' | 'brands' | 'categories' | 'shops' = 'products') {
     return apiClient.post<{ data: UploadedImage }>('/admin/uploads/image', toFormData(file, { context }))
   },
 

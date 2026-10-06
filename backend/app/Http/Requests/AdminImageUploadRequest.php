@@ -15,7 +15,7 @@ class AdminImageUploadRequest extends FormRequest
     {
         return [
             'image' => ['required', 'file', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
-            'context' => ['sometimes', 'in:products,brands,categories'],
+            'context' => ['sometimes', 'in:products,brands,categories,shops'],
         ];
     }
 }

@@ -8,7 +8,7 @@ use RuntimeException;
 
 class MediaUploadService
 {
-    private const CONTEXTS = ['products', 'brands', 'categories', 'avatars'];
+    private const CONTEXTS = ['products', 'brands', 'categories', 'shops', 'avatars'];
 
     /**
      * Store an uploaded image on the public disk and return its public URL.
