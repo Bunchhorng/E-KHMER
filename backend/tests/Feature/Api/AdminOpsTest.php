@@ -154,7 +154,7 @@ class AdminOpsTest extends TestCase
     public function test_shipments_can_be_listed_be_filtered_and_updated(): void
     {
         $shipping = ShippingMethod::factory()->create();
-        $order = $this->order(['shipping_amount' => 5]);
+        $order = $this->order(['shipping_amount' => 5, 'status' => Order::STATUS_PROCESSING]);
 
         $shipment = Shipment::create([
             'order_id' => $order->id,
@@ -183,11 +183,16 @@ class AdminOpsTest extends TestCase
         $auth()->putJson("/api/admin/shipments/{$shipment->id}", [
             'tracking_number' => 'TRACK-2',
             'carrier' => 'FedEx',
-            'status' => Shipment::STATUS_DELIVERED,
+            'status' => Shipment::STATUS_SHIPPED,
         ])->assertOk()
-            ->assertJsonPath('data.status', 'delivered')
+            ->assertJsonPath('data.status', 'shipped')
             ->assertJsonPath('data.tracking_number', 'TRACK-2')
             ->assertJsonPath('data.carrier', 'FedEx');
+
+        $auth()->putJson("/api/admin/shipments/{$shipment->id}", [
+            'status' => Shipment::STATUS_DELIVERED,
+        ])->assertOk()
+            ->assertJsonPath('data.status', 'delivered');
 
         $this->assertNotNull($shipment->fresh()->shipped_at);
         $this->assertNotNull($shipment->fresh()->delivered_at);
@@ -201,7 +206,7 @@ class AdminOpsTest extends TestCase
     {
         $shipping = ShippingMethod::factory()->create();
         $shipment = Shipment::create([
-            'order_id' => $this->order()->id,
+            'order_id' => $this->order(['status' => Order::STATUS_PROCESSING])->id,
             'shipping_method_id' => $shipping->id,
             'status' => Shipment::STATUS_PENDING,
             'address_snapshot' => [],
@@ -218,9 +223,9 @@ class AdminOpsTest extends TestCase
         $this->actingAs($this->admin(), 'sanctum')
             ->putJson("/api/admin/shipments/{$shipment->id}", [
                 'status' => Shipment::STATUS_PENDING,
-            ])->assertOk();
+            ])->assertStatus(422);
 
-        $this->assertNull($shipment->fresh()->shipped_at);
+        $this->assertNotNull($shipment->fresh()->shipped_at);
     }
 
     public function test_notifications_can_be_listed_marked_read_and_deleted(): void

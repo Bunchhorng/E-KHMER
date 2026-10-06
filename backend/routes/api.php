@@ -132,6 +132,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('account/reviews', [AccountController::class, 'reviews']);
     Route::get('account/notifications', [AccountController::class, 'notifications']);
     Route::post('account/notifications/{notification}/read', [AccountController::class, 'markRead']);
+    Route::delete('account/notifications/{notification}', [AccountController::class, 'destroyNotification']);
 });
 
 Route::prefix('admin')

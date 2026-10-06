@@ -5,11 +5,16 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ShipmentResource;
 use App\Models\Shipment;
+use App\Services\ShipmentService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class AdminShipmentController extends Controller
 {
+    public function __construct(private ShipmentService $shipments)
+    {
+    }
+
     public function index(Request $request)
     {
         $query = Shipment::with(['order.user', 'method'])->orderByDesc('created_at');
@@ -59,14 +64,6 @@ class AdminShipmentController extends Controller
             ])],
         ]);
 
-        $data['shipped_at'] = in_array($data['status'], [Shipment::STATUS_SHIPPED, Shipment::STATUS_IN_TRANSIT, Shipment::STATUS_DELIVERED], true)
-            ? ($shipment->shipped_at ?? now())
-            : null;
-
-        $data['delivered_at'] = $data['status'] === Shipment::STATUS_DELIVERED ? ($shipment->delivered_at ?? now()) : null;
-
-        $shipment->update($data);
-
-        return new ShipmentResource($shipment->load(['order.user', 'method']));
+        return new ShipmentResource($this->shipments->update($shipment, $data, $request->user()?->id));
     }
 }

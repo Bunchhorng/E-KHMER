@@ -139,4 +139,17 @@ class AccountController extends Controller
 
         return response()->json(['data' => ['message' => 'Notification marked as read.']]);
     }
+
+    public function destroyNotification(Request $request, string $notificationId)
+    {
+        $notification = $request->user()->notifications()->whereKey($notificationId)->first();
+
+        if ($notification === null) {
+            abort(404, 'Notification not found.');
+        }
+
+        $notification->delete();
+
+        return response()->noContent();
+    }
 }

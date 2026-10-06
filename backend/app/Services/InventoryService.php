@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Notifications\LowStockNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Notification;
+use Illuminate\Validation\ValidationException;
 
 class InventoryService
 {
@@ -133,10 +134,11 @@ class InventoryService
 
             $inventory = $this->syncShop($inventory);
 
-            $inventory->reserved_quantity = max((int) $inventory->reserved_quantity - $quantity, 0);
+            $released = min((int) $inventory->reserved_quantity, $quantity);
+            $inventory->reserved_quantity = (int) $inventory->reserved_quantity - $released;
             $inventory->save();
 
-            $this->log($inventory, 'release', $quantity, (int) $inventory->quantity - (int) $inventory->reserved_quantity, 'VARIANT:'.$variantId, 'Reservation released');
+            $this->log($inventory, 'release', $released, (int) $inventory->quantity - (int) $inventory->reserved_quantity, 'VARIANT:'.$variantId, 'Reservation released');
         });
     }
 
@@ -169,6 +171,12 @@ class InventoryService
             }
 
             $inventory = $this->syncShop($inventory);
+
+            if ($quantity > (int) $inventory->reserved_quantity || $quantity > (int) $inventory->quantity) {
+                throw ValidationException::withMessages([
+                    'inventory' => ['Stock reservation is no longer valid for this order.'],
+                ]);
+            }
 
             $inventory->quantity = max((int) $inventory->quantity - $quantity, 0);
             $inventory->reserved_quantity = max((int) $inventory->reserved_quantity - $quantity, 0);
