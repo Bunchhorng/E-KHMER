@@ -69,7 +69,7 @@ class AdminOrderController extends Controller
     {
         $this->authorize('view', $order);
 
-        $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
+        $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
 
         $this->restrictItemsToActorShop($order, request());
 
@@ -80,7 +80,7 @@ class AdminOrderController extends Controller
     {
         $this->authorize('view', $order);
 
-        $order = $this->orders->transition($order, $request->status);
+        $order = $this->orders->transition($order, $request->status, $request->user()?->id, $request->input('note'));
 
         return new OrderResource($order);
     }

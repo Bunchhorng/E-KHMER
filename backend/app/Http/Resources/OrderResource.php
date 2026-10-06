@@ -29,8 +29,13 @@ class OrderResource extends JsonResource
             'placed_at' => $this->placed_at?->toISOString(),
             'tracking_events' => $this->whenLoaded('trackingEvents', function () {
                 return $this->trackingEvents->map(fn ($e) => [
+                    'from_status' => $e->from_status,
                     'status' => $e->status,
                     'description' => $e->description,
+                    'changed_by' => $e->relationLoaded('changedBy') && $e->changedBy !== null ? [
+                        'id' => (int) $e->changedBy->id,
+                        'name' => $e->changedBy->name,
+                    ] : null,
                     'at' => $e->created_at?->toISOString(),
                 ])->values();
             }),

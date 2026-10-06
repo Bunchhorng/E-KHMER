@@ -30,7 +30,7 @@ class OrderService
     public function listFor(User $user, ?string $status = null): LengthAwarePaginator
     {
         return $user->orders()
-            ->with(['items', 'payment', 'shipments', 'trackingEvents'])
+            ->with(['items', 'payment', 'shipments', 'trackingEvents.changedBy'])
             ->when($status !== null, fn ($q) => $q->where('status', $status))
             ->latest('placed_at')
             ->paginate(10);
@@ -41,7 +41,7 @@ class OrderService
      */
     public function findByNumber(User $user, string $orderNumber): Order
     {
-        $order = $user->orders()->with(['items', 'payment', 'shipments', 'trackingEvents'])->where('order_number', $orderNumber)->first();
+        $order = $user->orders()->with(['items', 'payment', 'shipments', 'trackingEvents.changedBy'])->where('order_number', $orderNumber)->first();
 
         if ($order === null) {
             throw new NotFoundHttpException();
@@ -67,10 +67,11 @@ class OrderService
     /**
      * Transition an order through the strict state machine.
      */
-    public function transition(Order $order, string $to): Order
+    public function transition(Order $order, string $to, ?int $changedBy = null, ?string $note = null): Order
     {
-        return DB::transaction(function () use ($order, $to): Order {
+        return DB::transaction(function () use ($order, $to, $changedBy, $note): Order {
             $order = Order::with(['items', 'payment'])->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+            $from = $order->status;
 
             $allowed = $this->transitions()[$order->status] ?? [];
 
@@ -115,14 +116,14 @@ class OrderService
             $order->status = $to;
             $order->save();
 
-            $this->recordTrackingEvent($order, $to);
+            $this->recordTrackingEvent($order, $from, $to, $changedBy, $note);
             $this->notifyStatusChange($order, $to);
 
-            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
         });
     }
 
-    private function recordTrackingEvent(Order $order, string $to): void
+    private function recordTrackingEvent(Order $order, ?string $from, string $to, ?int $changedBy = null, ?string $note = null): void
     {
         $descriptions = [
             Order::STATUS_CONFIRMED => 'Order confirmed',
@@ -134,8 +135,10 @@ class OrderService
         ];
 
         $order->trackingEvents()->create([
+            'from_status' => $from,
             'status' => $to,
-            'description' => $descriptions[$to] ?? 'Status changed to '.$to,
+            'description' => $note ?: ($descriptions[$to] ?? 'Status changed to '.$to),
+            'changed_by' => $changedBy,
         ]);
     }
 
@@ -214,10 +217,11 @@ class OrderService
      * Cancel an order by the customer or admin, releasing active reservations,
      * refunding paid orders and restoring any deducted stock.
      */
-    public function cancelOwn(Order $order): Order
+    public function cancelOwn(Order $order, ?int $changedBy = null): Order
     {
-        return DB::transaction(function () use ($order): Order {
+        return DB::transaction(function () use ($order, $changedBy): Order {
             $order = Order::with(['items', 'payment'])->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+            $from = $order->status;
 
             $allowed = [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PROCESSING];
 
@@ -233,10 +237,10 @@ class OrderService
             $order->note = trim(($order->note ? $order->note.' ' : '').'cancelled');
             $order->save();
 
-            $this->recordTrackingEvent($order, Order::STATUS_CANCELLED);
+            $this->recordTrackingEvent($order, $from, Order::STATUS_CANCELLED, $changedBy);
             $this->notifyStatusChange($order, Order::STATUS_CANCELLED);
 
-            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
         });
     }
 }

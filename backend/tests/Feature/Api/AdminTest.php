@@ -75,6 +75,30 @@ class AdminTest extends TestCase
         $this->assertNotNull($shipment->fresh()->delivered_at);
     }
 
+    public function test_order_status_history_records_actor_and_previous_status(): void
+    {
+        $admin = $this->admin();
+        $order = $this->orderFixture('pending', 'unpaid');
+
+        $this->actingAs($admin, 'sanctum')
+            ->putJson("/api/admin/orders/{$order->id}/transition", [
+                'status' => 'confirmed',
+                'note' => 'Payment verified by support',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.tracking_events.0.from_status', 'pending')
+            ->assertJsonPath('data.tracking_events.0.status', 'confirmed')
+            ->assertJsonPath('data.tracking_events.0.changed_by.id', $admin->id);
+
+        $this->assertDatabaseHas('tracking_events', [
+            'order_id' => $order->id,
+            'from_status' => 'pending',
+            'status' => 'confirmed',
+            'changed_by' => $admin->id,
+            'description' => 'Payment verified by support',
+        ]);
+    }
+
     public function test_refund_sets_payment_refunded(): void
     {
         $user = $this->admin();

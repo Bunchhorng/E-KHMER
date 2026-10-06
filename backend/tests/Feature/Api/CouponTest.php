@@ -95,4 +95,18 @@ class CouponTest extends TestCase
                 'subtotal' => 100,
             ])->assertStatus(422);
     }
+
+    public function test_admin_cannot_create_an_invalid_percentage_coupon(): void
+    {
+        $admin = User::factory()->admin()->create();
+
+        $this->actingAs($admin, 'sanctum')
+            ->postJson('/api/admin/coupons', [
+                'code' => 'TOO-MUCH',
+                'type' => 'percentage',
+                'value' => 101,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('value');
+    }
 }

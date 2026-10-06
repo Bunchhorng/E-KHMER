@@ -171,7 +171,7 @@ class CheckoutService
                 $this->coupon->applyUsage($coupon, $order, $user);
             }
 
-            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
         });
     }
 
@@ -182,6 +182,7 @@ class CheckoutService
     {
         return DB::transaction(function () use ($order, $transactionId): Order {
             $order = Order::with(['items', 'payment'])->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+            $fromStatus = $order->status;
 
             if ($order->payment_status !== Order::PAYMENT_UNPAID || $order->status !== Order::STATUS_PENDING) {
                 throw ValidationException::withMessages(['message' => 'Order already settled']);
@@ -227,6 +228,7 @@ class CheckoutService
             $order->save();
 
             $order->trackingEvents()->create([
+                'from_status' => $fromStatus,
                 'status' => Order::STATUS_CONFIRMED,
                 'description' => trim(($order->payment_status === Order::PAYMENT_PAID ? 'Payment received' : 'Order confirmed').'.'),
             ]);
@@ -241,7 +243,7 @@ class CheckoutService
                 \App\Models\Cart::find((int) $cartId)?->items()->delete();
             }
 
-            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
         });
     }
 
@@ -252,6 +254,7 @@ class CheckoutService
     {
         DB::transaction(function () use ($order): void {
             $order = Order::with(['items', 'payment'])->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
+            $fromStatus = $order->status;
 
             if ($order->payment_status !== Order::PAYMENT_UNPAID || $order->status !== Order::STATUS_PENDING) {
                 return;
@@ -269,6 +272,7 @@ class CheckoutService
             $order->save();
 
             $order->trackingEvents()->create([
+                'from_status' => $fromStatus,
                 'status' => Order::STATUS_CANCELLED,
                 'description' => 'Order cancelled',
             ]);

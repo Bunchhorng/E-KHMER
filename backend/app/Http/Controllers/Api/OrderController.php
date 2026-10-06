@@ -57,7 +57,7 @@ class OrderController extends Controller
             abort(404, 'Order not found.');
         }
 
-        return new OrderResource($order->load(['items.shop', 'payment', 'shipments', 'trackingEvents']));
+        return new OrderResource($order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']));
     }
 
     public function receipt(Request $request, string $orderNumber)
@@ -72,7 +72,7 @@ class OrderController extends Controller
     public function cancel(Request $request, string $orderNumber)
     {
         $order = $this->resolveForUser($request->user(), $orderNumber);
-        $order = $this->orders->cancelOwn($order);
+        $order = $this->orders->cancelOwn($order, $request->user()?->id);
 
         return new OrderResource($order);
     }

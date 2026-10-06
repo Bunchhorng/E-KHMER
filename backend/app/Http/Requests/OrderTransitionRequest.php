@@ -15,6 +15,7 @@ class OrderTransitionRequest extends FormRequest
     {
         return [
             'status' => ['required', 'in:pending,confirmed,processing,shipped,delivered,cancelled,refunded'],
+            'note' => ['nullable', 'string', 'max:1000'],
         ];
     }
 }

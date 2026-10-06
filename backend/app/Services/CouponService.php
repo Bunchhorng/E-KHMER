@@ -17,7 +17,44 @@ class CouponService
             ->whereRaw('UPPER(code) = ?', [mb_strtoupper(trim($code))])
             ->first();
 
-        if ($coupon === null || !$coupon->is_active) {
+        if ($coupon === null) {
+            throw ValidationException::withMessages([
+                'code' => ['This coupon is not valid.'],
+            ]);
+        }
+
+        $this->assertRedeemable($coupon, $user, $subtotal);
+
+        return $coupon;
+    }
+
+    /**
+     * Create one redemption while holding the coupon row lock. This is called
+     * inside checkout's order transaction so usage limits cannot be exceeded
+     * by two simultaneous orders that both saw the last remaining use.
+     */
+    public function applyUsage(Coupon $coupon, Order $order, ?User $user): void
+    {
+        $lockedCoupon = Coupon::query()->lockForUpdate()->findOrFail($coupon->id);
+
+        if (CouponUsage::where('order_id', $order->id)->exists()) {
+            return;
+        }
+
+        $this->assertRedeemable($lockedCoupon, $user, (float) $order->subtotal);
+        $lockedCoupon->increment('used_count');
+
+        $lockedCoupon->usages()->create([
+            'coupon_id' => $lockedCoupon->id,
+            'user_id' => $user?->id,
+            'order_id' => $order->id,
+            'redeemed_at' => now(),
+        ]);
+    }
+
+    private function assertRedeemable(Coupon $coupon, ?User $user, float $subtotal): void
+    {
+        if (! $coupon->is_active) {
             throw ValidationException::withMessages([
                 'code' => ['This coupon is not valid.'],
             ]);
@@ -56,7 +93,6 @@ class CouponService
             }
         }
 
-        return $coupon;
     }
 
     public function discountFor(Coupon $coupon, float $subtotal): float
@@ -71,18 +107,6 @@ class CouponService
         }
 
         return min((float) $coupon->value, $subtotal);
-    }
-
-    public function applyUsage(Coupon $coupon, Order $order, ?User $user): void
-    {
-        $coupon->increment('used_count');
-
-        $coupon->usages()->create([
-            'coupon_id' => $coupon->id,
-            'user_id' => $user?->id,
-            'order_id' => $order->id,
-            'redeemed_at' => now(),
-        ]);
     }
 
     /**
