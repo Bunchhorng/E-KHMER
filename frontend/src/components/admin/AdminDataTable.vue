@@ -54,6 +54,7 @@ const sortDir = ref<'asc' | 'desc'>('asc')
 const currentPage = ref(props.page)
 const bulkAction = ref('')
 const menuOpenId = ref<string | null>(null)
+const menuPosition = ref({ top: 0, left: 0 })
 
 watch(
   () => props.page,
@@ -143,8 +144,16 @@ function handleBulkApply() {
   selectedIds.value = []
 }
 
-function openMenu(row: TableRow) {
-  menuOpenId.value = menuOpenId.value === String(row.id) ? null : String(row.id)
+function openMenu(event: MouseEvent, row: TableRow) {
+  const id = String(row.id)
+  if (menuOpenId.value === id) {
+    menuOpenId.value = null
+    return
+  }
+
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  menuPosition.value = { top: rect.bottom + 6, left: Math.max(12, rect.right - 176) }
+  menuOpenId.value = id
 }
 
 function runRowAction(action: string, row: TableRow) {
@@ -248,22 +257,10 @@ function cellValue(row: TableRow, col: TableColumn): string {
                 </td>
                 <td v-else-if="col.type === 'actions'" class="px-4 py-3 align-middle text-right">
                   <div class="relative">
-                    <button class="btn-icon h-8 w-8" @click="openMenu(row)">
+                    <button class="btn-icon h-8 w-8" @click="openMenu($event, row)">
                       <MoreHorizontal class="h-4 w-4" />
                     </button>
-                    <div
-                      v-if="menuOpenId === String(row.id) && props.rowActions.length"
-                      class="absolute right-0 top-9 z-20 w-44 overflow-hidden rounded-xl border border-border-gray bg-surface py-1 shadow-popover"
-                    >
-                      <button
-                        v-for="a in props.rowActions"
-                        :key="a.value"
-                        class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 hover:text-ink dark:text-muted dark:hover:bg-surface-hover dark:hover:text-ink"
-                        @click="runRowAction(a.value, row)"
-                      >
-                        {{ a.label }}
-                      </button>
-                    </div>
+                    <Teleport to="body"><div v-if="menuOpenId === String(row.id) && props.rowActions.length" class="fixed z-[100] w-44 overflow-hidden rounded-xl border border-border-gray bg-surface py-1 shadow-popover" :style="{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }"><button v-for="a in props.rowActions" :key="a.value" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 hover:text-ink dark:text-muted dark:hover:bg-surface-hover dark:hover:text-ink" @click="runRowAction(a.value, row)">{{ a.label }}</button></div></Teleport>
                   </div>
                 </td>
                 <td v-else class="px-4 py-3 align-middle text-ink opacity-90">
