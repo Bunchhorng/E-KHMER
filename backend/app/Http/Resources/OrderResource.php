@@ -40,6 +40,21 @@ class OrderResource extends JsonResource
                 ])->values();
             }),
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
+            'shop_orders' => $this->whenLoaded('shopOrders', fn () => $this->shopOrders->map(fn ($shopOrder) => [
+                'shop_order_number' => $shopOrder->shop_order_number,
+                'status' => $shopOrder->status,
+                'subtotal' => (float) $shopOrder->subtotal,
+                'discount_amount' => (float) $shopOrder->discount_amount,
+                'tax_amount' => (float) $shopOrder->tax_amount,
+                'shipping_amount' => (float) $shopOrder->shipping_amount,
+                'total' => (float) $shopOrder->total,
+                'shop' => $shopOrder->relationLoaded('shop') ? [
+                    'id' => $shopOrder->shop?->id,
+                    'name' => $shopOrder->shop?->name,
+                    'slug' => $shopOrder->shop?->slug,
+                ] : null,
+                'items' => $shopOrder->relationLoaded('items') ? OrderItemResource::collection($shopOrder->items) : [],
+            ])->values()),
             'payment' => $this->whenLoaded('payment', function () {
                 if ($this->payment === null) {
                     return null;

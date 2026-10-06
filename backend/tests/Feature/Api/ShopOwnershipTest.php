@@ -116,6 +116,18 @@ class ShopOwnershipTest extends TestCase
 
         $this->assertSame($shopA->id, $lines[$productA->id], 'Product A line must be owned by shop A.');
         $this->assertSame($shopB->id, $lines[$productB->id], 'Product B line must be owned by shop B.');
+
+        $this->assertDatabaseHas('shop_orders', [
+            'order_id' => $order->id,
+            'shop_id' => $shopA->id,
+            'subtotal' => 50,
+        ]);
+        $this->assertDatabaseHas('shop_orders', [
+            'order_id' => $order->id,
+            'shop_id' => $shopB->id,
+            'subtotal' => 100,
+        ]);
+        $this->assertSame(2, $order->shopOrders()->count());
     }
 
     /**

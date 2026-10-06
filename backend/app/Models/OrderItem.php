@@ -5,7 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 
-#[Fillable(['order_id', 'product_id', 'product_variant_id', 'shop_id', 'product_name', 'variant_label', 'sku', 'image_path', 'unit_price', 'quantity', 'line_total'])]
+#[Fillable(['order_id', 'shop_order_id', 'product_id', 'product_variant_id', 'shop_id', 'product_name', 'variant_label', 'sku', 'image_path', 'unit_price', 'quantity', 'line_total'])]
 class OrderItem extends Model
 {
     protected function casts(): array
@@ -24,6 +24,11 @@ class OrderItem extends Model
     public function order()
     {
         return $this->belongsTo(Order::class);
+    }
+
+    public function shopOrder()
+    {
+        return $this->belongsTo(ShopOrder::class);
     }
 
     public function product()

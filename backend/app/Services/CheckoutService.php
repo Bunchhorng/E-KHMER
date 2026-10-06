@@ -24,6 +24,7 @@ class CheckoutService
         private CartService $cart,
         private InventoryService $inventory,
         private CouponService $coupon,
+        private ShopOrderService $shopOrders,
         private OrderNumberGenerator $orderNumber,
     ) {}
 
@@ -147,6 +148,8 @@ class CheckoutService
                 ]);
             }
 
+            $this->shopOrders->split($order);
+
             Payment::create([
                 'order_id' => $order->id,
                 'method' => $payload['payment_method'] ?? 'card',
@@ -171,7 +174,7 @@ class CheckoutService
                 $this->coupon->applyUsage($coupon, $order, $user);
             }
 
-            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
+            return $order->load(['items.shop', 'shopOrders.shop.items', 'payment', 'shipments', 'trackingEvents.changedBy']);
         });
     }
 
