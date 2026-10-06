@@ -175,7 +175,6 @@ async function signOut() {
         <button class="btn-icon" :title="$t('admin.nav.toggle_sidebar')" @click="uiStore.toggleAdminSidebar()">
           <Menu class="h-5 w-5" />
         </button>
-        <h1 class="text-base font-semibold text-ink sm:text-lg">{{ route.meta.title }}</h1>
         <div class="flex-1"></div>
 
         <div class="relative hidden md:block">
