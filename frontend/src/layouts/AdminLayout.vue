@@ -24,7 +24,8 @@ import {
   PanelLeftClose,
   PanelLeftOpen,
   LogOut,
-  Settings
+  Settings,
+  Store
 } from 'lucide-vue-next'
 import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
@@ -67,7 +68,7 @@ onMounted(async () => {
 const navGroups: NavGroup[] = [
   {
     titleKey: 'admin.nav.group_overview',
-    items: [{ labelKey: 'nav.dashboard', route: { name: 'admin-dashboard' }, icon: LayoutDashboard }]
+    items: [{ labelKey: 'nav.dashboard', route: { name: 'admin-dashboard' }, icon: LayoutDashboard }, { labelKey: 'Shops', route: { name: 'admin-shops' }, icon: Store }]
   },
   {
     titleKey: 'admin.nav.group_catalog',

@@ -60,6 +60,9 @@ const router = createRouter({
       redirect: { name: 'admin-dashboard' },
       children: [
         { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/AdminDashboardView.vue'), meta: { title: 'Dashboard' } },
+        { path: 'shops', name: 'admin-shops', component: () => import('@/views/admin/AdminShopsView.vue'), meta: { title: 'Marketplace Shops' } },
+        { path: 'shops/new', name: 'admin-shop-create', component: () => import('@/views/admin/AdminShopFormView.vue'), meta: { title: 'Create Shop' } },
+        { path: 'shops/:id/edit', name: 'admin-shop-edit', component: () => import('@/views/admin/AdminShopFormView.vue'), meta: { title: 'Edit Shop' } },
         { path: 'products', name: 'admin-products', component: () => import('@/views/admin/AdminProductsView.vue'), meta: { title: 'Products' } },
         { path: 'products/new', name: 'admin-product-create', component: () => import('@/views/admin/AddProductView.vue'), meta: { title: 'Add Product' } },
         { path: 'products/:id/edit', name: 'admin-product-edit', component: () => import('@/views/admin/AddProductView.vue'), meta: { title: 'Edit Product' } },

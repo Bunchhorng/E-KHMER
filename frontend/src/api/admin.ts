@@ -76,6 +76,34 @@ export interface AdminProduct extends CatalogProduct {
   }[]
 }
 
+export interface AdminShop {
+  id: number
+  name: string
+  slug: string
+  code: string
+  description: string | null
+  logo: string | null
+  email: string | null
+  phone: string | null
+  branch_type?: string | null
+  banner?: string | null
+  address_line?: string | null
+  mall?: string | null
+  city: string | null
+  province?: string | null
+  postal_code?: string | null
+  country?: string | null
+  latitude?: number | null
+  longitude?: number | null
+  commission_rate?: number | null
+  is_default?: boolean
+  status: 'pending' | 'active' | 'suspended' | 'rejected' | 'closed'
+  rejection_reason: string | null
+  products_count?: number
+  inventories_count?: number
+  created_at: string
+}
+
 export interface AdminCategory {
   id: number
   name: string
@@ -447,6 +475,30 @@ export const adminApi = {
 
   listInventoryTransactions(inventoryId: number, params: { type?: string; page?: number } = {}) {
     return apiClient.get<PaginatedResponse<InventoryTransaction>>(`/admin/inventory/${inventoryId}/transactions`, { params })
+  },
+
+  listShops(params: { q?: string; status?: string; page?: number } = {}) {
+    return apiClient.get<PaginatedResponse<AdminShop>>('/admin/shops', { params })
+  },
+
+  getShop(id: number) {
+    return apiClient.get<{ data: AdminShop }>(`/admin/shops/${id}`)
+  },
+
+  createShop(payload: Partial<AdminShop>) {
+    return apiClient.post<{ data: AdminShop }>('/admin/shops', payload)
+  },
+
+  updateShop(id: number, payload: Partial<AdminShop>) {
+    return apiClient.put<{ data: AdminShop }>(`/admin/shops/${id}`, payload)
+  },
+
+  deleteShop(id: number) {
+    return apiClient.delete<{ message: string }>(`/admin/shops/${id}`)
+  },
+
+  updateShopStatus(id: number, status: AdminShop['status'], rejection_reason?: string) {
+    return apiClient.patch<{ data: AdminShop }>(`/admin/shops/${id}/status`, { status, rejection_reason })
   },
 
   adjustInventory(inventoryId: number, quantity: number) {
