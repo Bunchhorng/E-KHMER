@@ -80,3 +80,19 @@ Shop membership is already stored in `shop_users` with roles such as `owner`, `m
 - `/account/*` requires customer authentication.
 - Future `/seller/*` routes must require an active `shop_users` membership and scope all data to the authorized shop.
 - Public shop pages must expose active shops and active products only.
+
+
+
+----------------------------------------------------
+Role	Route	Status
+Super Admin	http://localhost:5174/admin	Available
+Super Admin Dashboard	http://localhost:5174/admin/dashboard	Available
+Super Admin Shops	http://localhost:5174/admin/shops	Available
+Customer Home	http://localhost:5174/	Available
+Customer Shop / Products	http://localhost:5174/shop	Available
+Customer Cart	http://localhost:5174/cart	Available
+Customer Checkout	http://localhost:5174/checkout	Available
+Customer Account	http://localhost:5174/account	Available after login
+Customer Orders	http://localhost:5174/account/orders	Available after login
+Customer Wishlist	http://localhost:5174/account/wishlist	Available after login
+Customer Reviews	http://localhost:5174/account/reviews	Available after login
