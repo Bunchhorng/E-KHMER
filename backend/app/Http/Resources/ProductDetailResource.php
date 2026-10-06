@@ -43,8 +43,12 @@ class ProductDetailResource extends JsonResource
                 'name' => $this->category->name,
             ]),
             'gallery' => $this->resolveGallery(),
-            'attributes' => $this->resolveAttributes(),
-            'variants' => $this->resolveVariants(),
+            // The admin editor must receive inactive variants too. Otherwise it
+            // submits only the active rows and syncVariants() interprets every
+            // omitted inactive row as a deletion. Storefront responses remain
+            // limited to sellable variants.
+            'attributes' => $this->resolveAttributes($request->is('api/admin/*')),
+            'variants' => $this->resolveVariants($request->is('api/admin/*')),
         ];
     }
 
@@ -109,11 +113,11 @@ class ProductDetailResource extends JsonResource
         return (int) $inventory->quantity - (int) $inventory->reserved_quantity;
     }
 
-    protected function resolveAttributes(): array
+    protected function resolveAttributes(bool $includeInactive = false): array
     {
         $grouped = [];
 
-        foreach ($this->resolveActiveVariants() as $variant) {
+        foreach ($this->resolveVariantsForResponse($includeInactive) as $variant) {
             foreach ($variant->attributeValues as $vav) {
                 if ($vav->value === null) {
                     continue;
@@ -146,9 +150,9 @@ class ProductDetailResource extends JsonResource
         return array_values($grouped);
     }
 
-    protected function resolveVariants(): array
+    protected function resolveVariants(bool $includeInactive = false): array
     {
-        return $this->resolveActiveVariants()
+        return $this->resolveVariantsForResponse($includeInactive)
             ->map(function ($variant) {
                 $attributes = [];
                 foreach ($variant->attributeValues as $vav) {
@@ -177,5 +181,14 @@ class ProductDetailResource extends JsonResource
             })
             ->values()
             ->all();
+    }
+
+    protected function resolveVariantsForResponse(bool $includeInactive)
+    {
+        $variants = $this->relationLoaded('variants') ? $this->variants : $this->variants()->get();
+
+        return $includeInactive
+            ? $variants->values()
+            : $variants->filter(fn ($variant) => (bool) $variant->is_active)->values();
     }
 }

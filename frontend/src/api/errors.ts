@@ -85,5 +85,12 @@ function firstFieldError(data: ValidationErrors | undefined): string | null {
     if (message) return message
   }
 
+  // Product forms (and most non-auth forms) use different field names. Show
+  // their first server-side validation error rather than falling through to
+  // Laravel's unhelpful "The given data was invalid." summary.
+  for (const messages of Object.values(data.errors)) {
+    if (messages[0]) return messages[0]
+  }
+
   return null
 }

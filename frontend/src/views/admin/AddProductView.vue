@@ -16,6 +16,7 @@ import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/api/admin'
 import type { AdminBrand, AdminCategory, AdminProduct } from '@/api/admin'
 import { mediaApi } from '@/api/uploads'
+import { extractErrorMessage } from '@/api/errors'
 import { formatPrice } from '@/utils/format'
 
 const { t } = useI18n()
@@ -183,13 +184,18 @@ function scrollToId(id: string) {
 
 function validate(): boolean {
   errors.title = form.title.trim() ? '' : t('admin.products.error_title_required')
-  errors.price = form.price > 0 ? '' : t('admin.products.error_price_required')
-  errors.brand = form.brand ? '' : t('admin.products.error_brand_required')
-  errors.category = form.category ? '' : t('admin.products.error_category_required')
-  errors.images = images.value.length ? '' : t('admin.products.error_images_required')
+  // These fields are deliberately optional in AdminProductRequest. Requiring
+  // them only in the browser meant older/simple products (and free products)
+  // could never be edited, despite the API accepting the update.
+  errors.price = Number.isFinite(Number(form.price)) && Number(form.price) >= 0
+    ? ''
+    : t('admin.products.error_price_required')
+  errors.brand = ''
+  errors.category = ''
+  errors.images = ''
 
   if (variants.value.length) {
-    const bad = variants.value.filter((v) => v.enabled && (v.sku.trim() === '' || v.stock < 0))
+    const bad = variants.value.filter((v) => v.enabled && (!Number.isInteger(Number(v.stock)) || v.stock < 0))
     errors.variants = bad.length
       ? t('admin.products.error_variants', { count: bad.length })
       : ''
@@ -351,8 +357,10 @@ async function save() {
 
     showToast(t('admin.products.toast_saved', { title: form.title, price: formatPrice(form.price) }))
     router.push({ name: 'admin-products' })
-  } catch {
-    showToast(t('admin.products.toast_save_error'))
+  } catch (error) {
+    // Surface Laravel's 422 details (duplicate SKU, image ownership, etc.) so
+    // an actionable API rejection is not mistaken for a broken update button.
+    showToast(extractErrorMessage(error, t('admin.products.toast_save_error')))
   } finally {
     saving.value = false
   }

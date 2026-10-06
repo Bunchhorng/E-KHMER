@@ -182,6 +182,40 @@ class AdminTest extends TestCase
         $this->assertStringStartsWith('%PDF', (string) $response->getContent());
     }
 
+    public function test_product_edit_response_includes_inactive_variants(): void
+    {
+        $admin = $this->admin();
+        $product = Product::factory()->withVariant()->create();
+        $variant = $product->variants()->firstOrFail();
+        $variant->update(['is_active' => false]);
+
+        $this->actingAs($admin, 'sanctum')
+            ->getJson("/api/admin/products/{$product->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data.variants')
+            ->assertJsonPath('data.variants.0.id', $variant->id)
+            ->assertJsonPath('data.variants.0.is_active', false);
+
+        // The edit screen resubmits every variant it receives. Confirm that an
+        // inactive row is retained rather than being treated as an omission.
+        $this->actingAs($admin, 'sanctum')
+            ->putJson("/api/admin/products/{$product->id}", [
+                'name' => 'Updated product',
+                'variants' => [[
+                    'id' => $variant->id,
+                    'is_active' => false,
+                ]],
+            ])
+            ->assertOk();
+
+        $this->assertDatabaseHas('product_variants', [
+            'id' => $variant->id,
+            'product_id' => $product->id,
+            'is_active' => false,
+            'deleted_at' => null,
+        ]);
+    }
+
     private function orderFixture(string $status, string $paymentStatus): Order
     {
         $user = User::factory()->create();
