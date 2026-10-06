@@ -11,6 +11,7 @@ use App\Models\InventoryTransaction;
 use App\Models\Product;
 use App\Models\ProductImage;
 use App\Models\ProductVariant;
+use App\Models\Shop;
 use App\Models\User;
 use App\Models\VariantAttributeValue;
 use Illuminate\Database\Seeder;
@@ -37,6 +38,10 @@ class CatalogSeeder extends Seeder
             ['Beauty', 'beauty', 'Skincare and cosmetics that pull their weight.'],
             ['Accessories', 'accessories', 'Bags, carry, and finishing touches.'],
             ['Home', 'home', 'Lighting, decor, and home comforts.'],
+            ['Sports', 'sports', 'Fitness and outdoor essentials.'],
+            ['Books', 'books', 'Books and stationery.'],
+            ['Toys', 'toys', 'Toys and games for every age.'],
+            ['Groceries', 'groceries', 'Pantry and everyday essentials.'],
         ];
 
         foreach ($categories as $i => [$name, $slug, $description]) {
@@ -60,6 +65,9 @@ class CatalogSeeder extends Seeder
             ['Voltex', 'voltex', 'Performance action cameras and adventure tech.'],
             ['Northpeek', 'northpeek', 'Thoughtful bags and carry goods for work, travel, and everyday.'],
             ['Hearth & Home', 'hearth-home', 'Warm, sculptural pieces for the modern home.'],
+            ['Peak Motion', 'peak-motion', 'Sports and movement essentials.'],
+            ['Paper & Co', 'paper-co', 'Books and thoughtful stationery.'],
+            ['Daily Harvest', 'daily-harvest', 'Everyday grocery staples.'],
         ];
 
         foreach ($brands as [$name, $slug, $description]) {
@@ -83,10 +91,18 @@ class CatalogSeeder extends Seeder
     {
         $brand = Brand::where('slug', $spec['brand'])->firstOrFail();
         $category = Category::where('slug', $spec['category'])->firstOrFail();
+        $shopCode = match ($spec['category']) {
+            'electronics', 'home', 'accessories' => 'TECHHUB',
+            'fashion', 'shoes' => 'STYLEHSE',
+            'beauty' => 'GLOWGO',
+            default => 'EKHMER',
+        };
+        $shop = Shop::where('code', $shopCode)->firstOrFail();
 
         $product = Product::create([
             'category_id' => $category->id,
             'brand_id' => $brand->id,
+            'shop_id' => $shop->id,
             'name' => $spec['name'],
             'slug' => $spec['slug'],
             'description' => $spec['description'],
@@ -121,6 +137,7 @@ class CatalogSeeder extends Seeder
             $variant = ProductVariant::create([
                 'product_id' => $product->id,
                 'image_id' => $cover->id,
+                'shop_id' => $shop->id,
                 'name' => $variantSpec['name'],
                 'sku' => $variantSpec['sku'],
                 'price' => $variantSpec['price'],
@@ -140,6 +157,7 @@ class CatalogSeeder extends Seeder
             $quantity = $variantSpec['quantity'];
             $inventory = Inventory::create([
                 'product_variant_id' => $variant->id,
+                'shop_id' => $shop->id,
                 'quantity' => $quantity,
                 'reserved_quantity' => 0,
                 'low_stock_threshold' => 5,
@@ -148,6 +166,7 @@ class CatalogSeeder extends Seeder
 
             InventoryTransaction::create([
                 'inventory_id' => $inventory->id,
+                'shop_id' => $shop->id,
                 'created_by' => $this->adminId(),
                 'type' => 'in',
                 'quantity' => $quantity,

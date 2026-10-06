@@ -28,6 +28,7 @@ class DatabaseSeeder extends Seeder
 
         $this->call([
             UserSeeder::class,
+            ShopSeeder::class,
             AddressSeeder::class,
             CatalogSeeder::class,
             ShippingMethodSeeder::class,
@@ -36,6 +37,7 @@ class DatabaseSeeder extends Seeder
             ReviewSeeder::class,
             WishlistSeeder::class,
             CartSeeder::class,
+            NotificationSeeder::class,
         ]);
 
         Model::reguard();
@@ -50,10 +52,13 @@ class DatabaseSeeder extends Seeder
     {
         return [
             'coupon_usages',
+            'tracking_events',
+            'notifications',
             'reviews',
             'shipments',
             'payment_transactions',
             'payments',
+            'shop_orders',
             'order_items',
             'orders',
             'wishlist_items',
@@ -68,6 +73,8 @@ class DatabaseSeeder extends Seeder
             'products',
             'coupons',
             'shipping_methods',
+            'shop_users',
+            'shops',
             'addresses',
             'attribute_values',
             'attributes',

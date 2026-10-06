@@ -33,11 +33,11 @@ class ReviewSeeder extends Seeder
 
         $linked = 0;
         foreach ($reviews as $spec) {
-            $user = User::where('email', $spec['user'])->firstOrFail();
+            $user = User::where('email', 'customer@ekhmer.dev')->firstOrFail();
             $product = Product::whereHas('variants', fn ($q) => $q->where('sku', $spec['sku']))->firstOrFail();
 
             $sourceOrder = null;
-            if ($spec['status'] === Review::STATUS_PENDING && $spec['user'] === 'priya.shah@example.com') {
+            if ($spec['status'] === Review::STATUS_PENDING && $spec['sku'] === 'nova-beige-m') {
                 $sourceOrder = Order::where('user_id', $user->id)
                     ->where('status', Order::STATUS_PROCESSING)
                     ->whereHas('items', fn ($q) => $q->where('product_id', $product->id))
@@ -52,6 +52,7 @@ class ReviewSeeder extends Seeder
             Review::create([
                 'user_id' => $user->id,
                 'product_id' => $product->id,
+                'shop_id' => $product->shop_id,
                 'order_id' => $sourceOrder?->id,
                 'rating' => $spec['rating'],
                 'title' => $spec['title'],

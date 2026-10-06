@@ -13,6 +13,7 @@ use App\Models\ProductVariant;
 use App\Models\Shipment;
 use App\Models\ShippingMethod;
 use App\Models\User;
+use App\Services\ShopOrderService;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -33,7 +34,7 @@ class OrderSeeder extends Seeder
     private function createOrder(array $spec): void
     {
         DB::transaction(function () use ($spec) {
-            $user = User::where('email', $spec['email'])->firstOrFail();
+            $user = User::where('email', 'customer@ekhmer.dev')->firstOrFail();
             $address = $user->addresses()->where('is_default', true)->firstOrFail();
 
             $method = ShippingMethod::where('code', $spec['shipping'])->firstOrFail();
@@ -46,6 +47,7 @@ class OrderSeeder extends Seeder
                 $lines[] = [
                     'product_id' => $product->id,
                     'product_variant_id' => $variant->id,
+                    'shop_id' => $product->shop_id,
                     'product_name' => $product->name,
                     'variant_label' => $variant->name,
                     'sku' => $variant->sku,
@@ -113,6 +115,14 @@ class OrderSeeder extends Seeder
                 OrderItem::create($line + ['order_id' => $order->id]);
             }
 
+            app(ShopOrderService::class)->split($order);
+            $order->shopOrders()->update(['status' => $spec['status']]);
+            $order->trackingEvents()->create([
+                'status' => Order::STATUS_PENDING,
+                'description' => 'Order placed',
+                'created_at' => $placedAt,
+            ]);
+
             if ($coupon !== null && $discount > 0) {
                 CouponUsage::create([
                     'coupon_id' => $coupon->id,
@@ -156,7 +166,7 @@ class OrderSeeder extends Seeder
                 }
             }
 
-            if (in_array($spec['status'], [Order::STATUS_SHIPPED, Order::STATUS_DELIVERED, Order::STATUS_REFUNDED], true)) {
+            if (in_array($spec['status'], [Order::STATUS_CONFIRMED, Order::STATUS_PROCESSING, Order::STATUS_SHIPPED, Order::STATUS_DELIVERED, Order::STATUS_REFUNDED], true)) {
                 $shipStatus = $spec['status'] === Order::STATUS_DELIVERED ? Shipment::STATUS_DELIVERED : Shipment::STATUS_SHIPPED;
                 $shippedAt = $placedAt->copy()->addDays(max($spec['days_ago'] >= 7 ? 1 : 0, 1));
                 Shipment::create([

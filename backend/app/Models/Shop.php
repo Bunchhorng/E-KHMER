@@ -26,7 +26,7 @@ class Shop extends Model
         'name', 'slug', 'code', 'branch_type', 'description', 'logo', 'banner',
         'phone', 'email', 'address_line', 'mall', 'city', 'province',
         'postal_code', 'country', 'latitude', 'longitude',
-        'status', 'is_default', 'commission_rate',
+        'status', 'rejection_reason', 'is_default', 'commission_rate',
     ];
 
     protected function casts(): array
