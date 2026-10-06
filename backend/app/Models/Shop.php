@@ -114,7 +114,16 @@ class Shop extends Model
     {
         static::creating(function (Shop $shop) {
             if (empty($shop->slug)) {
-                $shop->slug = Str::slug($shop->name ?: $shop->code);
+                $baseSlug = Str::slug($shop->name ?: $shop->code) ?: 'shop';
+                $slug = $baseSlug;
+                $suffix = 2;
+
+                while (static::withTrashed()->where('slug', $slug)->exists()) {
+                    $slug = "{$baseSlug}-{$suffix}";
+                    $suffix++;
+                }
+
+                $shop->slug = $slug;
             }
             if (empty($shop->code)) {
                 $shop->code = strtoupper(Str::slug($shop->name ?: $shop->slug, ''));

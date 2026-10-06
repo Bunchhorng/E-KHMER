@@ -30,7 +30,9 @@ async function save() {
   if (!form.value.name?.trim() || saving.value) return
   saving.value = true; error.value = ''
   try {
-    const payload = { ...form.value, name: form.value.name.trim(), slug: form.value.slug?.trim(), country: form.value.country?.toUpperCase() }
+    const payload = { ...form.value, name: form.value.name.trim(), country: form.value.country?.toUpperCase() }
+    if (!payload.slug?.trim()) delete payload.slug
+    else payload.slug = payload.slug.trim()
     const { data } = editing.value ? await adminApi.updateShop(id.value, payload) : await adminApi.createShop(payload)
     router.replace({ name: 'admin-shop-edit', params: { id: data.data.id } })
   } catch (e) { error.value = extractErrorMessage(e, 'Could not save the shop.') } finally { saving.value = false }

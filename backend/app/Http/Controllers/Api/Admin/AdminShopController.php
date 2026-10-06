@@ -109,8 +109,8 @@ class AdminShopController extends Controller
     {
         return [
             'name' => [$shop ? 'sometimes' : 'required', 'string', 'max:190'],
-            'slug' => ['nullable', 'string', 'max:190', Rule::unique('shops', 'slug', $shop?->id)],
-            'code' => [$shop ? 'sometimes' : 'nullable', 'string', 'max:30', Rule::unique('shops', 'code', $shop?->id)],
+            'slug' => ['nullable', 'string', 'max:190', Rule::unique('shops', 'slug')->ignore($shop?->id)],
+            'code' => [$shop ? 'sometimes' : 'nullable', 'string', 'max:30', Rule::unique('shops', 'code')->ignore($shop?->id)],
             'branch_type' => ['nullable', 'string', 'max:30'],
             'description' => ['nullable', 'string'],
             'logo' => ['nullable', 'string', 'max:255'],
