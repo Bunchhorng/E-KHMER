@@ -3,9 +3,11 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AdminInventoryAdjustRequest;
 use App\Http\Resources\InventoryResource;
 use App\Http\Resources\InventoryTransactionResource;
 use App\Models\Inventory;
+use App\Services\InventoryService;
 use Illuminate\Http\Request;
 
 class AdminInventoryController extends Controller
@@ -77,5 +79,24 @@ class AdminInventoryController extends Controller
                 'total' => $paginator->total(),
             ],
         ];
+    }
+
+    public function adjust(AdminInventoryAdjustRequest $request, Inventory $inventory, InventoryService $inventoryService)
+    {
+        $this->authorize('update', $inventory);
+
+        $inventoryService->adjust(
+            (int) $inventory->product_variant_id,
+            (int) $request->validated('quantity'),
+            (int) $request->user()->id,
+        );
+
+        $inventory->refresh()->load([
+            'shop',
+            'variant.product',
+            'variant.attributeValues.value.attribute',
+        ]);
+
+        return new InventoryResource($inventory);
     }
 }

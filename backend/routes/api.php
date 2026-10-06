@@ -187,6 +187,8 @@ Route::prefix('admin')
         Route::get('inventory', [AdminInventoryController::class, 'index']);
         Route::get('inventory/{inventory}/transactions', [AdminInventoryController::class, 'transactions'])
             ->whereNumber('inventory');
+        Route::post('inventory/{inventory}/adjust', [AdminInventoryController::class, 'adjust'])
+            ->whereNumber('inventory');
 
         Route::get('coupons', [AdminCouponController::class, 'index']);
         Route::post('coupons', [AdminCouponController::class, 'store']);

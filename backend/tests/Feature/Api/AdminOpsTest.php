@@ -99,6 +99,30 @@ class AdminOpsTest extends TestCase
             ->assertJsonPath('data.range', 'custom');
     }
 
+    public function test_inventory_can_be_adjusted_with_an_audited_ledger_entry(): void
+    {
+        $product = Product::factory()->withVariant(stock: 10)->create();
+        $inventory = Inventory::where('product_variant_id', $product->variants()->firstOrFail()->id)->firstOrFail();
+
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson("/api/admin/inventory/{$inventory->id}/adjust", ['quantity' => 18])
+            ->assertOk()
+            ->assertJsonPath('data.quantity', 18)
+            ->assertJsonPath('data.available_quantity', 18);
+
+        $this->assertDatabaseHas('inventory_transactions', [
+            'inventory_id' => $inventory->id,
+            'type' => 'adjust',
+            'quantity' => 8,
+        ]);
+
+        $inventory->update(['reserved_quantity' => 4]);
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson("/api/admin/inventory/{$inventory->id}/adjust", ['quantity' => 3])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('quantity');
+    }
+
     public function test_payments_index_filters_and_show_returns_transactions(): void
     {
         $completed = $this->order(['payment_status' => Order::PAYMENT_PAID]);

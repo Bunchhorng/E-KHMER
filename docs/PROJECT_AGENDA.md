@@ -1030,11 +1030,11 @@ Endpoints that are planned but not present in `backend/routes/api.php` and must 
 | -- | ------ | -------- | ----- | -------- | ------ | ---------- |
 | API-116 | POST/PUT/DELETE | `/api/admin/products/{product}/variants` (variant CRUD) | M2 | CRITICAL | SUPERSEDED - use `PUT /api/admin/products/{product}` | PVA-03 |
 | API-117 | POST/PUT/DELETE | `/api/admin/attributes`, `/api/admin/attributes/{attribute}/values` | M2 | HIGH | NOT STARTED | PVA-01 |
-| API-118 | POST | `/api/admin/inventory/{inventory}/adjust` | M5 | CRITICAL | NOT STARTED | INV-04 |
+| API-118 | POST | `/api/admin/inventory/{inventory}/adjust` | M5 | CRITICAL | IN PROGRESS | INV-04 |
 | API-119 | POST | `/api/admin/shipments` (create shipment for an order) | M5 | CRITICAL | NOT STARTED | SHP-04 |
 | API-120 | POST | `/api/checkout/{orderNumber}/payment` (payment submission) | M4 | CRITICAL | NOT STARTED | PAY-01 |
 | API-121 | POST | `/api/webhooks/payment/{provider}` (idempotent callback) | M4 | HIGH | NOT STARTED | PAY-06 |
-| API-122 | DELETE | `/api/reviews/{review}` | M6 | MEDIUM | NOT STARTED | REV-04 |
+| API-122 | DELETE | `/api/reviews/{review}` | M6 | MEDIUM | IN PROGRESS | REV-04 |
 | API-123 | GET | `/api/account/wishlist/count` | M3 | LOW | NOT STARTED | WSH-06 |
 
 ---

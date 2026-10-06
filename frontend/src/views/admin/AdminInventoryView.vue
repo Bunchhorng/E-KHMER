@@ -10,6 +10,7 @@ import DataTableSkeleton from '@/components/DataTableSkeleton.vue'
 import { adminApi } from '@/api/admin'
 import type { AdminInventoryItem, InventoryTransaction } from '@/api/admin'
 import { formatDateTime } from '@/utils/format'
+import { extractErrorMessage } from '@/api/errors'
 
 const { t } = useI18n()
 
@@ -32,6 +33,8 @@ const ledgerTotal = ref(0)
 const ledgerPage = ref(1)
 const ledgerPageCount = ref(1)
 const ledgerType = ref('all')
+const adjustmentQuantity = ref<number | null>(null)
+const adjusting = ref(false)
 
 let searchTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -127,9 +130,36 @@ async function loadLedger(inventoryId: number, params: { type?: string; page?: n
 
 function selectItem(item: AdminInventoryItem) {
   selectedId.value = item.id
+  adjustmentQuantity.value = item.quantity
   ledgerType.value = 'all'
   ledgerPage.value = 1
   loadLedger(item.id, { page: 1 })
+}
+
+async function adjustStock() {
+  const item = selectedItem.value
+  if (!item || adjusting.value || adjustmentQuantity.value === null || !Number.isInteger(adjustmentQuantity.value)) return
+
+  if (adjustmentQuantity.value < item.reserved_quantity) {
+    showToast(`Quantity cannot be lower than the ${item.reserved_quantity} units currently reserved.`)
+    return
+  }
+
+  if (!window.confirm(`Set on-hand stock for ${item.variant?.sku ?? 'this variant'} to ${adjustmentQuantity.value}?`)) return
+
+  adjusting.value = true
+  try {
+    const { data } = await adminApi.adjustInventory(item.id, adjustmentQuantity.value)
+    const index = items.value.findIndex((entry) => entry.id === item.id)
+    if (index >= 0) items.value[index] = data.data
+    adjustmentQuantity.value = data.data.quantity
+    await loadLedger(item.id, { page: 1 })
+    showToast('Stock adjusted and recorded in the inventory ledger.')
+  } catch (error) {
+    showToast(extractErrorMessage(error, 'Could not adjust stock.'))
+  } finally {
+    adjusting.value = false
+  }
 }
 
 function onLedgerTypeChange() {
@@ -228,25 +258,27 @@ onMounted(() => loadInventory())
     </div>
 
     <div class="card overflow-hidden">
-      <div class="flex items-center justify-between gap-3 border-b border-border-gray p-4">
+      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border-gray p-4">
         <div>
           <h2 class="text-base font-semibold text-ink">{{ $t('admin.inventory.ledger_title') }}</h2>
           <p v-if="selectedItem" class="mt-0.5 text-sm text-gray-500">
             {{ selectedItem.product?.name }} · {{ selectedItem.variant?.sku ?? '' }}
           </p>
         </div>
-        <select
-          v-if="selectedItem"
-          v-model="ledgerType"
-          class="select h-10 w-44"
-          @change="onLedgerTypeChange"
-        >
-          <option value="all">{{ $t('admin.inventory.all_types') }}</option>
-          <option value="reserve">{{ $t('admin.inventory.type_reserve') }}</option>
-          <option value="release">{{ $t('admin.inventory.type_release') }}</option>
-          <option value="deduct">{{ $t('admin.inventory.type_deduct') }}</option>
-          <option value="adjust">{{ $t('admin.inventory.type_adjust') }}</option>
-        </select>
+        <div v-if="selectedItem" class="flex flex-wrap items-center gap-2">
+          <label class="sr-only" for="inventory-quantity">New on-hand quantity</label>
+          <input id="inventory-quantity" v-model.number="adjustmentQuantity" type="number" min="0" step="1" class="input h-10 w-36" aria-label="New on-hand quantity" />
+          <button type="button" class="btn-primary btn-sm" :disabled="adjusting" @click="adjustStock">
+            {{ adjusting ? 'Adjusting…' : 'Adjust stock' }}
+          </button>
+          <select v-model="ledgerType" class="select h-10 w-44" @change="onLedgerTypeChange">
+            <option value="all">{{ $t('admin.inventory.all_types') }}</option>
+            <option value="reserve">{{ $t('admin.inventory.type_reserve') }}</option>
+            <option value="release">{{ $t('admin.inventory.type_release') }}</option>
+            <option value="deduct">{{ $t('admin.inventory.type_deduct') }}</option>
+            <option value="adjust">{{ $t('admin.inventory.type_adjust') }}</option>
+          </select>
+        </div>
       </div>
 
       <DataTableSkeleton v-if="ledgerLoading" :rows="5" :columns="7" />

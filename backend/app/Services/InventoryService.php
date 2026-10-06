@@ -264,6 +264,13 @@ class InventoryService
             $delta = $newQuantity - $current;
 
             $inventory = $this->syncShop($inventory);
+
+            if ($newQuantity < (int) $inventory->reserved_quantity) {
+                throw ValidationException::withMessages([
+                    'quantity' => ['Quantity cannot be lower than stock currently reserved for checkout.'],
+                ]);
+            }
+
             $inventory->quantity = max($newQuantity, 0);
             $inventory->save();
 

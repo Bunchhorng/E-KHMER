@@ -449,6 +449,10 @@ export const adminApi = {
     return apiClient.get<PaginatedResponse<InventoryTransaction>>(`/admin/inventory/${inventoryId}/transactions`, { params })
   },
 
+  adjustInventory(inventoryId: number, quantity: number) {
+    return apiClient.post<{ data: AdminInventoryItem }>(`/admin/inventory/${inventoryId}/adjust`, { quantity })
+  },
+
   listPayments(params: { status?: string; method?: string; q?: string; page?: number } = {}) {
     return apiClient.get<PaginatedResponse<AdminPayment>>('/admin/payments', { params })
   },
