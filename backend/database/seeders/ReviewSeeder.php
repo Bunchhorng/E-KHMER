@@ -26,9 +26,8 @@ class ReviewSeeder extends Seeder
             ['user' => 'marcus.lee@example.com', 'sku' => 'nova-white-l', 'rating' => 4, 'status' => Review::STATUS_APPROVED, 'title' => 'Soft and easy to style', 'body' => 'Lovely relaxed fit. Shrinks slightly on first wash — size up if between sizes.' ],
             ['user' => 'elena.rodriguez@example.com', 'sku' => 'lumiere-30ml', 'rating' => 5, 'status' => Review::STATUS_APPROVED, 'title' => 'Glow in a bottle', 'body' => 'Skin looks noticeably plumper after two weeks. No fragrance, great for sensitive skin.' ],
             ['user' => 'elena.rodriguez@example.com', 'sku' => 'vertex-base', 'rating' => 4, 'status' => Review::STATUS_PENDING, 'title' => 'Great camera, stiff learning curve', 'body' => 'Stabilization is unreal, but the menu takes a while to learn.' ],
-            ['user' => 'jake.miller@example.com', 'sku' => 'orbit-ocean', 'rating' => 3, 'status' => Review::STATUS_PENDING, 'title' => 'Solid but heavy', 'body' => 'Good build, but heavier than expected for daily commute.' ],
-            ['user' => 'priya.shah@example.com', 'sku' => 'nova-beige-m', 'rating' => 4, 'status' => Review::STATUS_PENDING, 'title' => 'Nice and breezy', 'body' => 'Ordered ahead of a trip; fits well and breathes in the heat.' ],
-            ['user' => 'dan.okafor@example.com', 'sku' => 'lumiere-30ml', 'rating' => 2, 'status' => Review::STATUS_REJECTED, 'title' => 'Spam giveaway', 'body' => 'Join our Telegram for a free sample of this serum!!' ],
+            ['user' => 'priya.shah@example.com', 'sku' => 'pulse-rose', 'rating' => 4, 'status' => Review::STATUS_PENDING, 'title' => 'Useful daily watch', 'body' => 'The health tracking is excellent and the display stays clear outdoors.' ],
+            ['user' => 'dan.okafor@example.com', 'sku' => 'cascade-tan', 'rating' => 2, 'status' => Review::STATUS_REJECTED, 'title' => 'Spam giveaway', 'body' => 'Join our Telegram for a free offer.' ],
         ];
 
         $linked = 0;
@@ -37,7 +36,7 @@ class ReviewSeeder extends Seeder
             $product = Product::whereHas('variants', fn ($q) => $q->where('sku', $spec['sku']))->firstOrFail();
 
             $sourceOrder = null;
-            if ($spec['status'] === Review::STATUS_PENDING && $spec['sku'] === 'nova-beige-m') {
+            if ($spec['status'] === Review::STATUS_PENDING && $spec['sku'] === 'pulse-rose') {
                 $sourceOrder = Order::where('user_id', $user->id)
                     ->where('status', Order::STATUS_PROCESSING)
                     ->whereHas('items', fn ($q) => $q->where('product_id', $product->id))
