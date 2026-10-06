@@ -6,6 +6,7 @@ import { ArrowUpRight, Check, CircleDollarSign, Clock3, RefreshCw, ShoppingBag, 
 import RevenueChart from '@/components/admin/charts/RevenueChart.vue'
 import OrdersTrendChart from '@/components/admin/charts/OrdersTrendChart.vue'
 import OrderStatusChart from '@/components/admin/charts/OrderStatusChart.vue'
+import BaseModal from '@/components/BaseModal.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { adminApi, type AdminDashboard, type AdminOrderItem, type AdminShop } from '@/api/admin'
 import { formatCompactNumber, formatDate, formatPrice } from '@/utils/format'
@@ -19,6 +20,8 @@ const recentOrders = ref<AdminOrderItem[]>([])
 const pendingShops = ref<AdminShop[]>([])
 const shopCounts = ref({ total: 0, active: 0, pending: 0 })
 const shopActionId = ref<number | null>(null)
+const rejectShop = ref<AdminShop | null>(null)
+const rejectionReason = ref('')
 const ranges = [{ key: '7', label: 'Last 7 days' }, { key: '30', label: 'Last 30 days' }, { key: 'this_month', label: 'This month' }, { key: 'last_month', label: 'Last month' }]
 const metrics = computed(() => dashboard.value?.metrics ?? null)
 const cards = computed<MetricCard[]>(() => {
@@ -50,9 +53,17 @@ async function loadSupportingData() {
 }
 async function refresh() { await Promise.all([loadDashboard(), loadSupportingData().catch(() => undefined)]) }
 async function setShopStatus(shop: AdminShop, status: 'active' | 'rejected') {
-  if (status === 'rejected' && !window.confirm(`Reject ${shop.name}?`)) return
+  if (status === 'rejected') { openRejectModal(shop); return }
   shopActionId.value = shop.id
-  try { await adminApi.updateShopStatus(shop.id, status, status === 'rejected' ? 'Rejected from dashboard' : undefined); await loadSupportingData() } finally { shopActionId.value = null }
+  try { await adminApi.updateShopStatus(shop.id, status); await loadSupportingData() } finally { shopActionId.value = null }
+}
+function openRejectModal(shop: AdminShop) { rejectShop.value = shop; rejectionReason.value = '' }
+function closeRejectModal() { rejectShop.value = null; rejectionReason.value = '' }
+async function confirmRejection() {
+  const shop = rejectShop.value
+  if (!shop || !rejectionReason.value.trim()) return
+  shopActionId.value = shop.id
+  try { await adminApi.updateShopStatus(shop.id, 'rejected', rejectionReason.value.trim()); await loadSupportingData(); closeRejectModal() } finally { shopActionId.value = null }
 }
 onMounted(() => { void refresh() })
 </script>
@@ -85,6 +96,25 @@ onMounted(() => { void refresh() })
       </section>
 
       <section class="card overflow-hidden"><div class="flex items-center justify-between px-4 pb-3 pt-4"><div><h2 class="font-semibold text-ink">Recent Orders</h2><p class="mt-0.5 text-xs text-gray-500 dark:text-muted">Latest marketplace transactions</p></div><RouterLink :to="{ name: 'admin-orders' }" class="inline-flex items-center gap-1 text-xs font-semibold text-primary hover:text-primary-dark">View all <ArrowUpRight class="h-3.5 w-3.5" /></RouterLink></div><div class="overflow-x-auto"><table class="w-full min-w-[760px] text-sm"><thead class="border-y border-border-gray bg-canvas/60 text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-muted"><tr><th class="px-4 py-2.5">Order ID</th><th class="px-4 py-2.5">Customer</th><th class="px-4 py-2.5">Items</th><th class="px-4 py-2.5 text-right">Total</th><th class="px-4 py-2.5">Payment</th><th class="px-4 py-2.5">Status</th><th class="px-4 py-2.5">Date</th></tr></thead><tbody class="divide-y divide-border-gray"><tr v-if="!recentOrders.length"><td colspan="7" class="px-4 py-8 text-center text-sm text-gray-400">No orders found.</td></tr><tr v-for="order in recentOrders" :key="order.id" class="hover:bg-canvas/50"><td class="px-4 py-3 font-semibold text-primary"><RouterLink :to="{ name: 'admin-order-detail', params: { id: order.id } }">{{ order.order_number }}</RouterLink></td><td class="px-4 py-3"><p class="font-medium text-ink">{{ order.user?.name ?? 'Guest customer' }}</p><p class="text-xs text-gray-500 dark:text-muted">{{ order.user?.email }}</p></td><td class="px-4 py-3 text-gray-600 dark:text-muted">{{ order.items_count }} items</td><td class="px-4 py-3 text-right font-semibold text-ink">{{ formatPrice(order.total) }}</td><td class="px-4 py-3"><StatusTag :status="order.payment_status" /></td><td class="px-4 py-3"><StatusTag :status="order.status" /></td><td class="px-4 py-3 text-xs text-gray-500 dark:text-muted">{{ formatDate(order.placed_at) }}</td></tr></tbody></table></div></section>
+      <BaseModal :model-value="rejectShop !== null" size="sm" title="Reject shop application" @update:model-value="closeRejectModal">
+        <p class="text-sm text-gray-600 dark:text-muted">
+          Reject <strong class="text-ink">{{ rejectShop?.name }}</strong>? The applicant will receive the reason below.
+        </p>
+        <label class="mt-4 block text-sm font-medium text-ink" for="rejection-reason">Reason for rejection</label>
+        <textarea
+          id="rejection-reason"
+          v-model="rejectionReason"
+          class="input mt-2 min-h-24 resize-y"
+          placeholder="Explain what the seller needs to update..."
+          maxlength="500"
+        />
+        <template #footer>
+          <div class="flex justify-end gap-2">
+            <button type="button" class="btn-secondary btn-sm" :disabled="shopActionId !== null" @click="closeRejectModal">Cancel</button>
+            <button type="button" class="btn-danger btn-sm" :disabled="!rejectionReason.trim() || shopActionId === rejectShop?.id" @click="confirmRejection"><X class="h-4 w-4" />Reject shop</button>
+          </div>
+        </template>
+      </BaseModal>
     </template>
   </div>
 </template>
