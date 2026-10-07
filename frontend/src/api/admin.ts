@@ -486,8 +486,16 @@ export const adminApi = {
     return apiClient.get<PaginatedResponse<InventoryTransaction>>(`/admin/inventory/${inventoryId}/transactions`, { params })
   },
 
-  listShopMembers(params: { role: 'owner' | 'manager'; q?: string; page?: number }) {
+  listShopMembers(params: { role: 'owner' | 'manager'; q?: string; status?: string; shop_status?: string; page?: number }) {
     return apiClient.get<PaginatedResponse<AdminShopMember>>('/admin/shop-members', { params })
+  },
+
+  createShopMember(payload: { name: string; email: string; phone?: string; password: string; shop_id: number; role: 'owner' | 'manager'; status: string }) {
+    return apiClient.post<{ data: AdminShopMember }>('/admin/shop-members', payload)
+  },
+
+  updateShopMember(id: number, payload: { name: string; email: string; phone?: string; password?: string; shop_id: number; role: 'owner' | 'manager'; status: string }) {
+    return apiClient.put<{ data: AdminShopMember }>(`/admin/shop-members/${id}`, payload)
   },
 
   listShops(params: { q?: string; status?: string; page?: number } = {}) {

@@ -155,6 +155,8 @@ Route::prefix('admin')
         Route::patch('shops/{shop}/status', [AdminShopController::class, 'updateStatus']);
         Route::delete('shops/{shop}', [AdminShopController::class, 'destroy']);
         Route::get('shop-members', [AdminShopMemberController::class, 'index']);
+        Route::post('shop-members', [AdminShopMemberController::class, 'store']);
+        Route::put('shop-members/{shopMember}', [AdminShopMemberController::class, 'update']);
 
         Route::get('products', [AdminProductController::class, 'index']);
         Route::post('products', [AdminProductController::class, 'store']);

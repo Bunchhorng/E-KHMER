@@ -131,6 +131,8 @@ docker compose exec app php artisan key:generate
 # Create the schema + seed demo data
 docker compose exec app php artisan migrate --seed
 
+# This resets the database, runs all migrations, then seeds fresh data:
+docker compose exec app php artisan migrate:fresh --seed
 # Link storage so product/brand images load
 docker compose exec app php artisan storage:link
 ```

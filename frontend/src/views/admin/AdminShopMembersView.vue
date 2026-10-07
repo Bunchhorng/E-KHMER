@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { Search, Store, Users } from 'lucide-vue-next'
-import { adminApi, type AdminShopMember } from '@/api/admin'
+import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
+import { CheckCircle2, Clock3, MoreHorizontal, Plus, Search, Store, Users, X, XCircle } from 'lucide-vue-next'
+import { adminApi, type AdminShop, type AdminShopMember } from '@/api/admin'
 import { extractErrorMessage } from '@/api/errors'
 import BasePagination from '@/components/BasePagination.vue'
 import DataTableSkeleton from '@/components/DataTableSkeleton.vue'
@@ -10,86 +11,29 @@ import StatusTag from '@/components/StatusTag.vue'
 import { formatDate } from '@/utils/format'
 
 const props = defineProps<{ role: 'owner' | 'manager' }>()
-
-const members = ref<AdminShopMember[]>([])
-const loading = ref(true)
-const error = ref('')
-const query = ref('')
-const page = ref(1)
-const pageCount = ref(1)
-const total = ref(0)
-
-const isOwners = computed(() => props.role === 'owner')
-const title = computed(() => isOwners.value ? 'Shop Owners' : 'Shop Admins')
-const description = computed(() => isOwners.value
-  ? 'View the verified owners responsible for each marketplace shop.'
-  : 'View shop managers with administrative access to their shop operations.')
-
-async function load(target = page.value) {
-  loading.value = true
-  error.value = ''
-  try {
-    const { data } = await adminApi.listShopMembers({ role: props.role, q: query.value.trim() || undefined, page: target })
-    members.value = data.data
-    page.value = data.meta.current_page
-    pageCount.value = data.meta.last_page
-    total.value = data.meta.total
-  } catch (cause) {
-    error.value = extractErrorMessage(cause, `Could not load ${title.value.toLowerCase()}.`)
-  } finally {
-    loading.value = false
-  }
-}
-
-function search() {
-  void load(1)
-}
-
-watch(() => props.role, () => {
-  query.value = ''
-  void load(1)
-})
-
-onMounted(() => void load())
+const router = useRouter()
+const members = ref<AdminShopMember[]>([]); const shops = ref<AdminShop[]>([]); const loading = ref(true); const saving = ref(false); const error = ref('')
+const query = ref(''); const status = ref(''); const page = ref(1); const pageCount = ref(1); const total = ref(0); const panelOpen = ref(false); const editing = ref<AdminShopMember | null>(null)
+const counts = reactive({ all: 0, active: 0, suspended: 0, pending: 0 })
+const title = computed(() => props.role === 'owner' ? 'Shop Owners' : 'Shop Admins')
+const form = reactive({ name: '', email: '', phone: '', password: '', shop_id: 0, status: 'active' })
+const tabs = computed(() => [{ key: '', label: `All ${title.value}`, count: counts.all }, { key: 'pending', label: 'Pending', count: counts.pending }, { key: 'active', label: 'Active', count: counts.active }, { key: 'suspended', label: 'Suspended', count: counts.suspended }])
+function resetForm(member?: AdminShopMember) { editing.value = member ?? null; form.name = member?.user.name ?? ''; form.email = member?.user.email ?? ''; form.phone = member?.user.phone ?? ''; form.password = ''; form.shop_id = member?.shop.id ?? shops.value[0]?.id ?? 0; form.status = member?.status ?? 'active'; panelOpen.value = true }
+async function load(target = page.value) { loading.value = true; error.value = ''; try { const { data } = await adminApi.listShopMembers({ role: props.role, q: query.value.trim() || undefined, status: status.value === 'pending' ? undefined : status.value || undefined, shop_status: status.value === 'pending' ? 'pending' : undefined, page: target }); members.value = data.data; page.value = data.meta.current_page; pageCount.value = data.meta.last_page; total.value = data.meta.total } catch (cause) { error.value = extractErrorMessage(cause, `Could not load ${title.value.toLowerCase()}.`) } finally { loading.value = false } }
+async function loadCounts() { try { const [all, active, suspended, pending] = await Promise.all(['', 'active', 'suspended'].map((memberStatus) => adminApi.listShopMembers({ role: props.role, status: memberStatus || undefined })).concat(adminApi.listShopMembers({ role: props.role, shop_status: 'pending' }))); counts.all = all.data.meta.total; counts.active = active.data.meta.total; counts.suspended = suspended.data.meta.total; counts.pending = pending.data.meta.total } catch {} }
+function search() { void load(1) }; function selectTab(next: string) { status.value = next; void load(1) }
+async function save() { if (!form.shop_id) return; saving.value = true; error.value = ''; const payload = { ...form, role: props.role } as const; try { if (editing.value) await adminApi.updateShopMember(editing.value.id, payload); else await adminApi.createShopMember(payload); panelOpen.value = false; await Promise.all([load(), loadCounts()]) } catch (cause) { error.value = extractErrorMessage(cause, `Could not save this ${props.role}.`) } finally { saving.value = false } }
+watch(() => props.role, () => { status.value = ''; query.value = ''; void Promise.all([load(1), loadCounts()]) })
+onMounted(async () => { try { const { data } = await adminApi.listShops(); shops.value = data.data } finally { await Promise.all([load(), loadCounts()]) } })
 </script>
 
 <template>
   <div class="mx-auto max-w-[1600px] space-y-4 sm:space-y-5">
-    <section class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-bold tracking-tight text-ink sm:text-[27px]">{{ title }}</h1>
-        <p class="mt-1 text-sm text-gray-500 dark:text-muted">{{ description }}</p>
-      </div>
-      <div class="relative w-full sm:w-72">
-        <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-        <input v-model="query" class="input h-9 w-full pl-9 text-xs" :placeholder="`Search ${title.toLowerCase()} or shops...`" @keyup.enter="search" />
-      </div>
-    </section>
-
-    <DataTableSkeleton v-if="loading" :rows="7" :columns="5" />
-    <div v-else-if="error" class="card p-8 text-center">
-      <p class="text-red-600">{{ error }}</p>
-      <button class="btn-secondary btn-sm mt-4" @click="load()">Retry</button>
-    </div>
-    <section v-else-if="members.length" class="card overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full min-w-[760px] text-sm">
-          <thead class="border-b border-border-gray bg-canvas/60 text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-muted">
-            <tr><th class="px-4 py-3">{{ isOwners ? 'Owner' : 'Admin' }}</th><th class="px-4 py-3">Shop</th><th class="px-4 py-3">Contact</th><th class="px-4 py-3">Membership</th><th class="px-4 py-3">Joined</th></tr>
-          </thead>
-          <tbody class="divide-y divide-border-gray">
-            <tr v-for="member in members" :key="member.id" class="transition-colors hover:bg-canvas/50">
-              <td class="px-4 py-3"><div class="flex items-center gap-3"><img v-if="member.user.avatar" :src="member.user.avatar" :alt="member.user.name" class="h-9 w-9 rounded-full border border-border-gray object-cover" /><div v-else class="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{{ member.user.name.charAt(0) }}</div><p class="font-semibold text-ink">{{ member.user.name }}</p></div></td>
-              <td class="px-4 py-3"><div class="flex items-center gap-2.5"><img v-if="member.shop.logo" :src="member.shop.logo" :alt="member.shop.name" class="h-8 w-8 rounded-lg border border-border-gray object-cover" /><div v-else class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><Store class="h-4 w-4" /></div><div><p class="font-medium text-ink">{{ member.shop.name }}</p><p class="text-xs text-gray-500 dark:text-muted">{{ member.shop.slug }}</p></div></div></td>
-              <td class="px-4 py-3"><p class="text-xs font-medium text-ink">{{ member.user.email }}</p><p class="text-xs text-gray-500 dark:text-muted">{{ member.user.phone || '—' }}</p></td>
-              <td class="px-4 py-3"><StatusTag :status="member.status" /></td>
-              <td class="px-4 py-3 text-xs text-gray-500 dark:text-muted">{{ formatDate(member.joined_at) }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div class="border-t border-border-gray p-4"><BasePagination :page="page" :page-count="pageCount" :total-items="total" :page-size="20" @update:page="load" /></div>
-    </section>
-    <EmptyState v-else :title="`No ${title.toLowerCase()} found`" description="Try changing your search term."><template #icon><Users class="h-10 w-10 text-gray-300" /></template></EmptyState>
+    <section class="flex flex-wrap items-end justify-between gap-4"><div><h1 class="text-2xl font-bold tracking-tight text-ink sm:text-[27px]">{{ title }}</h1><p class="mt-1 text-sm text-gray-500 dark:text-muted">Manage {{ title.toLowerCase() }}, their shops, and account status.</p></div><button class="btn-primary !px-4 !py-2" @click="router.push({ name: props.role === 'owner' ? 'admin-shop-owner-create' : 'admin-shop-admin-create' })"><Plus class="h-4 w-4" />Add {{ props.role === 'owner' ? 'Shop Owner' : 'Shop Admin' }}</button></section>
+    <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><article v-for="card in [{ label: `Total ${title}`, value: counts.all, icon: Users, tone: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300', note: 'All registered members' }, { label: 'Active', value: counts.active, icon: CheckCircle2, tone: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300', note: 'Can access their shop' }, { label: 'Suspended', value: counts.suspended, icon: XCircle, tone: 'bg-red-50 text-red-500 dark:bg-red-500/15 dark:text-red-300', note: 'Temporarily blocked' }, { label: 'Pending approval', value: counts.pending, icon: Clock3, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300', note: 'Waiting for review' } ]" :key="card.label" class="card p-4"><div class="flex items-start gap-3"><div class="flex h-11 w-11 items-center justify-center rounded-xl" :class="card.tone"><component :is="card.icon" class="h-5 w-5" /></div><div><p class="text-xs font-medium text-gray-500 dark:text-muted">{{ card.label }}</p><p class="mt-1 text-xl font-bold text-ink">{{ card.value }}</p><p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">{{ card.note }}</p></div></div></article></section>
+    <section class="flex flex-wrap items-center justify-between gap-3"><div class="flex max-w-full items-center gap-1 overflow-x-auto pb-1"><button v-for="tab in tabs" :key="tab.key" class="whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition-colors" :class="status === tab.key ? 'bg-primary text-white shadow-sm' : 'text-gray-500 hover:bg-surface-hover dark:text-muted'" @click="selectTab(tab.key)">{{ tab.label }} <span class="ml-1 rounded-full px-1.5 py-0.5 text-[10px]" :class="status === tab.key ? 'bg-white/20' : 'bg-gray-100 dark:bg-surface-hover'">{{ tab.count }}</span></button></div><div class="flex w-full gap-2 sm:w-auto"><div class="relative flex-1 sm:w-60"><Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input v-model="query" class="input h-9 w-full pl-9 text-xs" :placeholder="`Search ${title.toLowerCase()}...`" @keyup.enter="search" /></div><select v-model="status" class="select h-9 w-32 !py-1.5 text-xs" @change="search"><option value="">All Statuses</option><option value="active">Active</option><option value="suspended">Suspended</option></select></div></section>
+    <DataTableSkeleton v-if="loading" :rows="7" :columns="7" /><div v-else-if="error" class="card p-8 text-center"><p class="text-red-600">{{ error }}</p><button class="btn-secondary btn-sm mt-4" @click="load()">Retry</button></div>
+    <section v-else-if="members.length" class="card overflow-hidden"><div class="overflow-x-auto"><table class="w-full min-w-[900px] text-sm"><thead class="border-b border-border-gray bg-canvas/60 text-left text-[11px] uppercase tracking-wide text-gray-500 dark:text-muted"><tr><th class="px-4 py-3">#</th><th class="px-4 py-3">{{ props.role === 'owner' ? 'Owner' : 'Admin' }}</th><th class="px-4 py-3">Shop</th><th class="px-4 py-3">Contact</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Joined at</th><th class="px-4 py-3 text-right">Actions</th></tr></thead><tbody class="divide-y divide-border-gray"><tr v-for="(member, index) in members" :key="member.id" class="transition-colors hover:bg-canvas/50"><td class="px-4 py-3 text-gray-500">{{ (page - 1) * 20 + index + 1 }}</td><td class="px-4 py-3"><div class="flex items-center gap-2.5"><img v-if="member.user.avatar" :src="member.user.avatar" :alt="member.user.name" class="h-8 w-8 rounded-full object-cover" /><div v-else class="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-xs font-bold text-primary">{{ member.user.name.charAt(0) }}</div><div><p class="font-semibold text-ink">{{ member.user.name }}</p><p class="text-xs text-gray-500 dark:text-muted">{{ member.user.email }}</p></div></div></td><td class="px-4 py-3"><div class="flex items-center gap-2"><div class="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><Store class="h-4 w-4" /></div><div><p class="font-medium text-ink">{{ member.shop.name }}</p><p class="text-xs text-gray-500 dark:text-muted">{{ member.shop.slug }}</p></div></div></td><td class="px-4 py-3 text-xs text-gray-600 dark:text-muted">{{ member.user.phone || '—' }}</td><td class="px-4 py-3"><StatusTag :status="member.status" /></td><td class="px-4 py-3 text-xs text-gray-500 dark:text-muted">{{ formatDate(member.joined_at) }}</td><td class="px-4 py-3 text-right"><button class="btn-outline btn-sm !px-2.5 !py-1 text-xs" @click="resetForm(member)">Edit</button><button class="btn-icon ml-1 h-7 w-7" title="More actions"><MoreHorizontal class="h-4 w-4" /></button></td></tr></tbody></table></div><div class="border-t border-border-gray p-4"><BasePagination :page="page" :page-count="pageCount" :total-items="total" :page-size="20" @update:page="load" /></div></section><EmptyState v-else :title="`No ${title.toLowerCase()} found`" description="Try changing your search or status filter."><template #icon><Users class="h-10 w-10 text-gray-300" /></template></EmptyState>
+    <Teleport to="body"><div v-if="panelOpen" class="fixed inset-0 z-50"><div class="absolute inset-0 bg-slate-950/30" @click="panelOpen = false" /><aside class="absolute right-0 top-0 flex h-full w-full max-w-md flex-col bg-surface shadow-2xl"><div class="flex items-center justify-between border-b border-border-gray px-6 py-5"><h2 class="text-lg font-bold text-ink">{{ editing ? `Edit ${props.role === 'owner' ? 'Shop Owner' : 'Shop Admin'}` : `Add ${props.role === 'owner' ? 'Shop Owner' : 'Shop Admin'}` }}</h2><button class="btn-icon" @click="panelOpen = false"><X class="h-5 w-5" /></button></div><form class="flex flex-1 flex-col overflow-y-auto" @submit.prevent="save"><div class="space-y-4 p-6"><p class="border-b border-primary pb-3 text-sm font-semibold text-primary">Account Information</p><label class="block text-sm font-medium text-ink">Full name <span class="text-red-500">*</span><input v-model="form.name" required class="input mt-1.5 w-full" placeholder="Enter full name" /></label><label class="block text-sm font-medium text-ink">Email <span class="text-red-500">*</span><input v-model="form.email" required type="email" class="input mt-1.5 w-full" placeholder="Enter email address" /></label><label class="block text-sm font-medium text-ink">Phone<input v-model="form.phone" class="input mt-1.5 w-full" placeholder="+855 10 123 456" /></label><label class="block text-sm font-medium text-ink">{{ editing ? 'New password' : 'Password' }} <span v-if="!editing" class="text-red-500">*</span><input v-model="form.password" :required="!editing" type="password" class="input mt-1.5 w-full" :placeholder="editing ? 'Leave blank to keep current password' : 'Enter password'" /></label><p class="border-b border-border-gray pb-3 pt-2 text-sm font-semibold text-ink">Shop Information</p><label class="block text-sm font-medium text-ink">Shop <span class="text-red-500">*</span><select v-model="form.shop_id" required class="select mt-1.5 w-full"><option :value="0" disabled>Select a shop</option><option v-for="shop in shops" :key="shop.id" :value="shop.id">{{ shop.name }}</option></select></label><label class="block text-sm font-medium text-ink">Status <span class="text-red-500">*</span><select v-model="form.status" class="select mt-1.5 w-full"><option value="active">Active</option><option value="suspended">Suspended</option></select></label></div><div class="mt-auto flex justify-end gap-3 border-t border-border-gray p-5"><button type="button" class="btn-secondary" @click="panelOpen = false">Cancel</button><button type="submit" class="btn-primary" :disabled="saving">{{ saving ? 'Saving...' : editing ? 'Update' : 'Create owner' }}</button></div></form></aside></div></Teleport>
   </div>
 </template>
