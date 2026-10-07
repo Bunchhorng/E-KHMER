@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Str;
 
@@ -54,6 +55,11 @@ class Shop extends Model
     public function inventories()
     {
         return $this->hasMany(Inventory::class);
+    }
+
+    public function shopOrders(): HasMany
+    {
+        return $this->hasMany(ShopOrder::class);
     }
 
     public function orderItems()

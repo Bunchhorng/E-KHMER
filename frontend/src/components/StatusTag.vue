@@ -1,10 +1,17 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import BaseBadge from './BaseBadge.vue'
 
 type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
 
-const props = defineProps<{ status: string }>()
+const props = defineProps<{ status: string; label?: string }>()
+const { t, te } = useI18n()
+const label = computed(() => {
+  if (props.label) return props.label
+  const key = `status.${props.status.trim().toLowerCase().replace(/\s+/g, '_')}`
+  return te(key) ? t(key) : props.status
+})
 
 const statusVariantMap: Record<string, BadgeVariant> = {
   pending: 'warning',
@@ -36,5 +43,5 @@ const variant = computed<BadgeVariant>(() => {
 </script>
 
 <template>
-  <BaseBadge :variant="variant" dot>{{ status }}</BaseBadge>
+  <BaseBadge :variant="variant" dot>{{ label }}</BaseBadge>
 </template>

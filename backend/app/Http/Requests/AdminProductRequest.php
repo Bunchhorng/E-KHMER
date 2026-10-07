@@ -31,6 +31,7 @@ class AdminProductRequest extends FormRequest
             // products.description is a text column (65 535 bytes).
             'description' => ['nullable', 'string', 'max:60000'],
             'price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'initial_stock' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'compare_at_price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             // products.sku carries a unique index, so the clash has to be a 422
             // instead of an unhandled driver exception.

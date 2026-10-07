@@ -1,5 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import StoreLayout from '@/layouts/StoreLayout.vue'
+import SellerLayout from '@/layouts/SellerLayout.vue'
 import AccountLayout from '@/layouts/AccountLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import AuthLayout from '@/layouts/AuthLayout.vue'
@@ -29,17 +30,24 @@ const router = createRouter({
         { path: 'product/:slug', name: 'product-detail', component: () => import('@/views/ProductDetailView.vue'), meta: { title: 'Product' } },
         { path: 'cart', name: 'cart', component: () => import('@/views/CartView.vue'), meta: { title: 'Cart' } },
         { path: 'checkout', name: 'checkout', component: () => import('@/views/CheckoutView.vue'), meta: { title: 'Checkout' } },
-        { path: 'seller/application', name: 'seller-application', component: () => import('@/views/seller/SellerApplicationView.vue'), meta: { title: 'Become a Seller', requiresAuth: true } },
-        { path: 'seller', name: 'seller-dashboard', component: () => import('@/views/seller/SellerDashboardView.vue'), meta: { title: 'Seller Center', requiresAuth: true } },
-        { path: 'seller/shops/:id', name: 'seller-shop-dashboard', component: () => import('@/views/seller/SellerDashboardView.vue'), meta: { title: 'Shop Dashboard', requiresAuth: true } },
-        { path: 'seller/shops/:id/products', name: 'seller-shop-products', component: () => import('@/views/seller/SellerProductsView.vue'), meta: { title: 'Shop Products', requiresAuth: true } },
-        { path: 'seller/shops/:id/products/new', name: 'seller-shop-product-create', component: () => import('@/views/seller/SellerProductFormView.vue'), meta: { title: 'Add Shop Product', requiresAuth: true } },
-        { path: 'seller/shops/:id/products/:productId/edit', name: 'seller-shop-product-edit', component: () => import('@/views/seller/SellerProductFormView.vue'), meta: { title: 'Edit Shop Product', requiresAuth: true } },
-        { path: 'seller/shops/:id/inventory', name: 'seller-shop-inventory', component: () => import('@/views/seller/SellerInventoryView.vue'), meta: { title: 'Shop Inventory', requiresAuth: true } },
-        { path: 'seller/shops/:id/orders', name: 'seller-shop-orders', component: () => import('@/views/seller/SellerOrdersView.vue'), meta: { title: 'Shop Orders', requiresAuth: true } },
-        { path: 'seller/shops/:id/orders/:orderId', name: 'seller-shop-order-detail', component: () => import('@/views/seller/SellerOrderDetailView.vue'), meta: { title: 'Shop Order', requiresAuth: true } },
         { path: 'order/success/:orderId', name: 'order-success', component: () => import('@/views/OrderSuccessView.vue'), meta: { title: 'Order Confirmed' } },
         { path: 'order/tracking/:orderId', name: 'order-tracking', component: () => import('@/views/OrderTrackingView.vue'), meta: { title: 'Track Order' } }
+      ]
+    },
+    {
+      path: '/seller',
+      component: SellerLayout,
+      meta: { requiresAuth: true },
+      children: [
+        { path: 'application', name: 'seller-application', component: () => import('@/views/seller/SellerApplicationView.vue'), meta: { title: 'Become a Seller', requiresAuth: true } },
+        { path: '', name: 'seller-dashboard', component: () => import('@/views/seller/SellerDashboardView.vue'), meta: { title: 'Seller Center', requiresAuth: true } },
+        { path: 'shops/:id', name: 'seller-shop-dashboard', component: () => import('@/views/seller/SellerDashboardView.vue'), meta: { title: 'Shop Dashboard', requiresAuth: true } },
+        { path: 'shops/:id/products', name: 'seller-shop-products', component: () => import('@/views/seller/SellerProductsView.vue'), meta: { title: 'Shop Products', requiresAuth: true } },
+        { path: 'shops/:id/products/new', name: 'seller-shop-product-create', component: () => import('@/views/seller/SellerProductFormView.vue'), meta: { title: 'Add Shop Product', requiresAuth: true } },
+        { path: 'shops/:id/products/:productId/edit', name: 'seller-shop-product-edit', component: () => import('@/views/seller/SellerProductFormView.vue'), meta: { title: 'Edit Shop Product', requiresAuth: true } },
+        { path: 'shops/:id/inventory', name: 'seller-shop-inventory', component: () => import('@/views/seller/SellerInventoryView.vue'), meta: { title: 'Shop Inventory', requiresAuth: true } },
+        { path: 'shops/:id/orders', name: 'seller-shop-orders', component: () => import('@/views/seller/SellerOrdersView.vue'), meta: { title: 'Shop Orders', requiresAuth: true } },
+        { path: 'shops/:id/orders/:orderId', name: 'seller-shop-order-detail', component: () => import('@/views/seller/SellerOrderDetailView.vue'), meta: { title: 'Shop Order', requiresAuth: true } },
       ]
     },
     {

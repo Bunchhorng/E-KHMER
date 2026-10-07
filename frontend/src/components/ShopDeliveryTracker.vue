@@ -6,7 +6,7 @@ import AssetImage from '@/components/AssetImage.vue'
 import type { ApiOrder, ApiShopOrder } from '@/api/checkout'
 import { formatDateTime, formatPrice } from '@/utils/format'
 
-defineProps<{ allocations: ApiShopOrder[]; platformShipment?: ApiOrder['shipment'] }>()
+withDefaults(defineProps<{ allocations: ApiShopOrder[]; platformShipment?: ApiOrder['shipment']; showHeading?: boolean }>(), { showHeading: true })
 const { t } = useI18n()
 const stages = ['pending', 'confirmed', 'processing', 'shipped', 'delivered']
 const isClosed = (status: string) => ['cancelled', 'refunded'].includes(status)
@@ -17,7 +17,7 @@ function statusLabel(status: string) {
 
 <template>
   <section class="space-y-4">
-    <div><h2 class="text-lg font-semibold text-ink">{{ t('marketplace.shop_deliveries') }}</h2><p class="mt-1 text-sm text-gray-500 dark:text-muted">{{ t('marketplace.delivery_description') }}</p></div>
+    <div v-if="showHeading"><h2 class="text-lg font-semibold text-ink">{{ t('marketplace.shop_deliveries') }}</h2><p class="mt-1 text-sm text-gray-500 dark:text-muted">{{ t('marketplace.delivery_description') }}</p></div>
     <article v-for="allocation in allocations" :key="allocation.id" class="card overflow-hidden">
       <header class="flex flex-wrap items-center gap-3 border-b border-border-gray px-5 py-4">
         <img v-if="allocation.shop?.logo" :src="allocation.shop.logo" :alt="allocation.shop.name" class="h-11 w-11 shrink-0 rounded-xl border border-border-gray object-contain" />

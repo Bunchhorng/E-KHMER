@@ -1,6 +1,6 @@
 # E-KHMER Feature Completion Report
 
-Last updated: 7 October 2026
+Last updated: 8 October 2026
 
 This is the working completion record for the marketplace. A feature is marked **Complete** only when its implementation is present and its relevant automated checks pass. **In progress** means code exists but a workflow, verification, or UI surface remains incomplete. **Blocked** means completion requires a product or provider decision rather than an implementation assumption.
 
@@ -115,3 +115,24 @@ The implementation follows: Super Admin controls the platform; Owner A/Owner B/O
 The existing one-time shipping charge is retained and allocated across parcels. Owner actions do not capture online payments or issue refunds. Production gateway/settlement, partial refunds and additional seller administration modules are not certified by this core-flow completion.
 
 See `multi-shop-plan.md` for the current architecture, APIs, upgrade strategy and lifecycle rules.
+
+## 7. Seller workspace UX/UI — 8 October 2026
+
+Scope: the shop-owner workspace at `/seller`, its existing product/stock/order/application pages, and the data needed for its overview. This does not certify the remaining advanced seller modules.
+
+Status: **Complete for this scope**. The existing design system and project testing guidance were retained; no new UI framework or browser dependency was introduced.
+
+| Area | Improvement |
+| --- | --- |
+| Workspace navigation | Dedicated seller layout replaces the shopping promotion, category navigation and public footer. Four clear sections: Overview, Products, Stock and Orders. Shop selector includes current branding and remembers a selection separately for each signed-in user. Existing role permissions and URLs remain intact. |
+| Overview | Real, shop-scoped counts for orders to prepare/dispatch, live low-stock options and live products; actionable next-step links, recent orders, stock alerts and a getting-started checklist. Pending/closed parent orders and returned parcels are not counted as actionable dispatch work. |
+| Products | Image-led responsive rows, explicit search/empty-state recovery, Live/Hidden labels, edit/show/hide actions, and a deletion confirmation explaining historical-order preservation. |
+| Product form | Grouped details, price/stock and visibility sections; clearer labels and field errors; loading/retry handling and unsaved-change protection. Editing a product does not reset inventory. Simple default-option prices and publication are now synchronized; multi-option prices are preserved. |
+| Stock | Available, held and total quantities are clearly distinguished. Total-count updates explain that the entered value is not an increment; preview subtracts current holds. Stock-history dialog includes pagination, signed movements and error recovery. |
+| Orders | Preparation/dispatch/delivery filters, order-code/customer search, task-specific action labels, returned-parcel indicator and next-step guidance on the detail page. Search recognizes the shop allocation code as well as the parent order number. |
+| Shop application | Clear details → review → selling steps, review feedback, additional-shop applications and approved-workspace links. |
+| Accessibility & presentation | Consistent typography, spacing and Lucide icons; responsive layouts, dark theme, English/Khmer workspace labels, keyboard focus indicators, modal focus containment/restoration and mobile navigation focus management. |
+
+Verification: `SellerWorkspaceTest`, `SellerShopScopeTest` and `MarketplaceFlowTest` passed together in Docker: **33 tests, 232 assertions**. PHP formatting, production TypeScript/Vite build and static diff checks passed. The final running-browser review passed **40 checks**, covering desktop and 390px layouts, authorized shop switching, product search recovery, product create/edit screens, stock preview/history and focus restoration, order task filters/detail guidance, application steps, mobile navigation, dark theme and Khmer labels. No load alerts, runtime exceptions, missing translation keys or page-level mobile overflow were found. Browser verification did not change products, stock or orders; temporary browser sessions were closed and logged out. Legacy stock-in history now has a readable label and positive quantity sign.
+
+Remaining seller work is unchanged: advanced media/variant controls, shop-specific shipping configuration, coupons, reports and team management. Payment providers, settlement and partial refunds remain separate workflows.

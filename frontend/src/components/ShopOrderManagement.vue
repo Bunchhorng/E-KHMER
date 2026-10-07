@@ -19,6 +19,16 @@ const carrier = ref('')
 const trackingNumber = ref('')
 const note = ref('')
 const closed = computed(() => ['pending', 'cancelled', 'refunded'].includes(props.allocation.parent_status))
+const guidance = computed(() => {
+  if (props.allocation.shipment?.status === 'returned') return 'seller.returned_guidance'
+  if (props.allocation.parent_status === 'pending') return 'marketplace.waiting_confirmation'
+  if (closed.value) return 'marketplace.no_order_actions'
+  return ({ confirmed: 'seller.prepare_guidance', processing: 'seller.dispatch_guidance', shipped: 'seller.delivery_guidance', delivered: 'seller.done_guidance' } as Record<string, string>)[props.allocation.status] ?? 'marketplace.no_order_actions'
+})
+function actionLabel(status: string) {
+  const key = ({ processing: 'seller.prepare', shipped: 'seller.dispatch', delivered: 'seller.deliver' } as Record<string, string>)[status]
+  return props.mode === 'seller' && key ? t(key) : t('marketplace.mark_status', { status: t(`status.${status}`) })
+}
 const shipmentActions = computed(() => props.allocation.status === 'shipped' && ['shipped', 'in_transit'].includes(props.allocation.shipment?.status ?? '') ? [ ...(props.allocation.shipment?.status === 'shipped' ? ['in_transit'] : []), 'returned'] : [])
 const addressLines = computed(() => {
   const a = props.allocation.shipping_address
@@ -56,7 +66,8 @@ async function save(kind: 'order' | 'shipment', status: string) {
 
 <template>
   <div class="space-y-5">
-    <ShopDeliveryTracker :allocations="[allocation]" />
+    <section v-if="mode === 'seller'" class="rounded-xl border border-primary/10 bg-primary/5 p-5"><h2 class="text-sm font-semibold text-primary">{{ t('seller.next_step') }}</h2><p class="mt-2 text-sm leading-relaxed text-muted">{{ t(guidance) }}</p></section>
+    <ShopDeliveryTracker :allocations="[allocation]" :show-heading="mode !== 'seller'" />
     <section class="card space-y-4 p-5">
       <h3 class="font-semibold text-ink">{{ t('marketplace.fulfilment_actions') }}</h3>
       <p v-if="closed || !allocation.allowed_transitions.length" class="text-sm text-gray-500 dark:text-muted">{{ t(allocation.parent_status === 'pending' ? 'marketplace.waiting_confirmation' : 'marketplace.no_order_actions') }}</p>
@@ -68,7 +79,7 @@ async function save(kind: 'order' | 'shipment', status: string) {
       <p v-if="allocation.allowed_transitions.includes('shipped')" class="text-xs text-gray-500 dark:text-muted">{{ t('marketplace.tracking_required') }}</p>
       <p v-if="error" role="alert" class="text-sm text-red-600 dark:text-red-400">{{ error }}</p><p v-if="success" role="status" class="text-sm text-emerald-600 dark:text-emerald-400">{{ success }}</p>
       <div v-if="!closed" class="flex flex-wrap gap-2">
-        <button v-for="status in allocation.allowed_transitions" :key="status" type="button" class="btn-primary btn-sm" :disabled="busy || (status === 'shipped' && (!carrier.trim() || !trackingNumber.trim()))" @click="save('order', status)"><RefreshCw v-if="busy" class="h-4 w-4 animate-spin" /><Truck v-else-if="status === 'shipped'" class="h-4 w-4" /><Check v-else class="h-4 w-4" />{{ t('marketplace.mark_status', { status: t(`status.${status}`) }) }}</button>
+        <button v-for="status in allocation.allowed_transitions" :key="status" type="button" class="btn-primary btn-sm" :disabled="busy || (status === 'shipped' && (!carrier.trim() || !trackingNumber.trim()))" @click="save('order', status)"><RefreshCw v-if="busy" class="h-4 w-4 animate-spin" /><Truck v-else-if="status === 'shipped'" class="h-4 w-4" /><Check v-else class="h-4 w-4" />{{ actionLabel(status) }}</button>
         <button v-if="allocation.shipment" type="button" class="btn-secondary btn-sm" :disabled="busy" @click="save('shipment', allocation.shipment.status)">{{ t('marketplace.save_tracking') }}</button>
         <button v-for="status in shipmentActions" :key="status" type="button" class="btn-secondary btn-sm" :disabled="busy" @click="save('shipment', status)">{{ t('marketplace.mark_status', { status: t(`admin.shipments.filter.${status}`) }) }}</button>
       </div>

@@ -20,11 +20,13 @@ class SellerShopOrderController extends Controller
     {
         $paginator = ShopOrder::query()
             ->where('shop_id', $shop->id)
+            ->whereHas('order')
             ->with(['order', 'shop', 'items.shop', 'shipment', 'trackingEvents'])
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->string('q')->trim().'%';
-                $query->whereHas('order', fn ($order) => $order->where('order_number', 'like', $term)->orWhere('customer_name', 'like', $term));
+                $query->where(fn ($search) => $search->where('shop_order_number', 'like', $term)
+                    ->orWhereHas('order', fn ($order) => $order->where('order_number', 'like', $term)->orWhere('customer_name', 'like', $term)));
             })
             ->latest('id')
             ->paginate(15);

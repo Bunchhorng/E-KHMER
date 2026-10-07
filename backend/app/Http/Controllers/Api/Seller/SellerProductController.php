@@ -30,6 +30,25 @@ class SellerProductController extends Controller
 
     public function update(AdminProductRequest $request, Shop $shop, Product $product): mixed
     {
+        // A simple seller product has one default variant. Keep its actual
+        // selling price and visibility aligned with the owner's basic form.
+        if (! $request->has('variants')) {
+            $variants = $product->variants()->get();
+            $variant = $variants->count() === 1 && $variants->first()->is_default ? $variants->first() : null;
+            if ($variant !== null) {
+                $data = $variant->only(['id', 'name', 'sku', 'price', 'compare_at_price', 'is_active']);
+                foreach (['price', 'compare_at_price', 'is_active'] as $key) {
+                    if ($request->has($key)) {
+                        $data[$key] = $request->input($key);
+                    }
+                }
+                if ($request->has('sku') && $request->input('sku') !== $product->sku) {
+                    $data['sku'] = $request->input('sku');
+                }
+                $request->merge(['variants' => [$data]]);
+            }
+        }
+
         return $this->products->update($request, $product);
     }
 

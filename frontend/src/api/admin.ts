@@ -224,7 +224,7 @@ export interface AdminInventoryItem {
 export interface InventoryTransaction {
   id: number
   inventory_id: number
-  type: 'reserve' | 'release' | 'deduct' | 'restock' | 'adjust'
+  type: 'reserve' | 'release' | 'deduct' | 'restock' | 'adjust' | 'in' | 'out'
   quantity: number
   balance_after: number
   reference: string | null

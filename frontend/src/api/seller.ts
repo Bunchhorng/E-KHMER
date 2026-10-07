@@ -7,14 +7,18 @@ export interface SellerShop {
   id: number
   name: string
   slug: string
-  status: 'pending' | 'active' | 'suspended' | 'rejected'
+  status: 'pending' | 'active' | 'suspended' | 'rejected' | 'closed'
+  logo: string | null
+  code: string
   description: string | null
   rejection_reason: string | null
 }
 
 export interface SellerDashboard {
   shop: SellerShop
-  metrics: { products: number; active_products: number; inactive_products: number; low_stock: number }
+  metrics: { products: number; active_products: number; inactive_products: number; low_stock: number; in_stock: number; orders: number; to_pack: number; to_ship: number; on_way: number; returns: number }
+  recent_orders: ApiShopOrder[]
+  low_stock: { id: number; name: string; sku: string | null; available: number; threshold: number }[]
 }
 
 export type SellerShopOrder = ApiShopOrder

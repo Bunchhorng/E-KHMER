@@ -1,14 +1,56 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
-import { Search, ShoppingBag } from 'lucide-vue-next'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { ArrowRight, Search } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { sellerApi, type SellerShopOrder } from '@/api/seller'
-import { extractErrorMessage } from '@/api/errors'
+import { useSellerList } from '@/composables/useSellerList'
 import BasePagination from '@/components/BasePagination.vue'
 import StatusTag from '@/components/StatusTag.vue'
+import BaseBadge from '@/components/BaseBadge.vue'
+import SellerPageHeader from '@/components/seller/SellerPageHeader.vue'
+import SellerListState from '@/components/seller/SellerListState.vue'
 import { formatDate, formatPrice } from '@/utils/format'
-const route = useRoute(); const shopId = computed(() => Number(route.params.id)); const orders = ref<SellerShopOrder[]>([]); const query = ref(''); const status = ref(''); const loading = ref(true); const error = ref(''); const page = ref(1); const pageCount = ref(1); const total = ref(0)
-async function load(target = page.value) { loading.value = true; error.value = ''; try { const { data } = await sellerApi.listOrders(shopId.value, { q: query.value || undefined, status: status.value || undefined, page: target }); orders.value = data.data; page.value = data.meta.current_page; pageCount.value = data.meta.last_page; total.value = data.meta.total } catch (cause) { error.value = extractErrorMessage(cause, 'Could not load shop orders.') } finally { loading.value = false } }
-watch(shopId, () => load(1)); onMounted(load)
+const route = useRoute()
+const router = useRouter()
+const shopId = Number(route.params.id)
+const { t } = useI18n()
+const query = ref(String(route.query.q ?? ''))
+const status = ref(String(route.query.status ?? ''))
+const tabs = [{ value: '', label: 'all_orders' }, { value: 'confirmed', label: 'needs_preparation' }, { value: 'processing', label: 'ready_dispatch' }, { value: 'shipped', label: 'on_way' }, { value: 'delivered', label: 'completed' }]
+const { items: orders, loading, error, page, pageCount, pageSize, total, load } = useSellerList<SellerShopOrder>(
+  page => sellerApi.listOrders(shopId, { q: query.value.trim() || undefined, status: status.value || undefined, page }), () => t('seller.load_failed')
+)
+const filtered = computed(() => !!query.value.trim() || !!status.value)
+function chooseStatus(value: string) { void router.replace({ query: { ...route.query, status: value || undefined } }) }
+async function reset() { query.value = ''; status.value = ''; await router.replace({ query: {} }); await load(1) }
+function action(order: SellerShopOrder) {
+  if (order.shipment?.status === 'returned') return t('seller.open_order')
+  if (order.allowed_transitions.includes('processing')) return t('seller.prepare')
+  if (order.allowed_transitions.includes('shipped')) return t('seller.dispatch')
+  return t('seller.open_order')
+}
+watch(() => route.query.status, () => { status.value = String(route.query.status ?? ''); void load(1) })
+onMounted(() => void load())
 </script>
-<template><div class="container-app mx-auto py-10"><header class="mb-6 flex flex-wrap items-end justify-between gap-4"><div><RouterLink :to="{ name: 'seller-shop-dashboard', params: { id: shopId } }" class="text-xs font-semibold text-primary">Seller Center</RouterLink><h1 class="mt-1 text-3xl font-bold text-ink">Shop orders</h1><p class="mt-1 text-sm text-gray-500">Only the order totals and items allocated to this shop are shown.</p></div><div class="flex gap-2"><div class="relative w-56"><Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" /><input v-model="query" class="input h-9 w-full pl-9 text-sm" placeholder="Search orders" @keyup.enter="load(1)" /></div><select v-model="status" class="select h-9 text-sm" @change="load(1)"><option value="">All statuses</option><option value="pending">Pending</option><option value="confirmed">Confirmed</option><option value="processing">Processing</option><option value="shipped">Shipped</option><option value="delivered">Delivered</option><option value="cancelled">Cancelled</option><option value="refunded">Refunded</option></select></div></header><div v-if="loading" class="card p-10 text-center text-sm text-gray-500">Loading orders…</div><div v-else-if="error" class="card p-8 text-center text-red-600">{{ error }}</div><section v-else class="card overflow-hidden"><div class="overflow-x-auto"><table class="w-full min-w-[760px] text-sm"><thead class="border-b border-border-gray bg-canvas/60 text-left text-xs uppercase text-gray-500"><tr><th class="px-4 py-3">Order</th><th class="px-4 py-3">Customer</th><th class="px-4 py-3 text-right">Items</th><th class="px-4 py-3 text-right">Shop total</th><th class="px-4 py-3">Payment</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Placed</th></tr></thead><tbody class="divide-y divide-border-gray"><tr v-if="!orders.length"><td colspan="7" class="px-4 py-10 text-center text-gray-500"><ShoppingBag class="mx-auto mb-2 h-7 w-7 text-gray-300" />No orders for this shop.</td></tr><tr v-for="order in orders" :key="order.id" class="hover:bg-canvas/50"><td class="px-4 py-3 font-semibold text-primary"><RouterLink :to="{ name: 'seller-shop-order-detail', params: { id: shopId, orderId: order.id } }" class="hover:underline">{{ order.shop_order_number }}</RouterLink></td><td class="px-4 py-3 text-ink">{{ order.customer_name || 'Guest customer' }}</td><td class="px-4 py-3 text-right">{{ order.items_count }}</td><td class="px-4 py-3 text-right font-medium text-ink">{{ formatPrice(order.total, order.currency) }}</td><td class="px-4 py-3"><StatusTag :status="order.payment_status || 'unpaid'" /></td><td class="px-4 py-3"><StatusTag :status="order.status" /></td><td class="px-4 py-3 text-xs text-gray-500">{{ formatDate(order.placed_at) }}</td></tr></tbody></table></div><div class="border-t border-border-gray p-4"><BasePagination :page="page" :page-count="pageCount" :page-size="15" :total-items="total" @update:page="load" /></div></section></div></template>
+<template>
+  <div class="space-y-6">
+    <SellerPageHeader :title="t('seller.orders')" :description="t('seller.orders_help')" />
+    <section class="card overflow-hidden rounded-2xl">
+      <nav class="flex gap-1 overflow-x-auto border-b border-border-gray px-4 pt-3 sm:px-5" :aria-label="t('seller.all_statuses')"><button v-for="tab in tabs" :key="tab.value" type="button" class="shrink-0 border-b-2 px-3 py-3 text-sm font-medium transition-colors" :class="status === tab.value ? 'border-primary text-primary' : 'border-transparent text-muted hover:text-ink'" :aria-pressed="status === tab.value" @click="chooseStatus(tab.value)">{{ t('seller.' + tab.label) }}</button></nav>
+      <form class="flex flex-wrap items-center gap-3 p-4 sm:p-5" @submit.prevent="load(1)"><div class="relative min-w-0 flex-1 sm:max-w-md"><Search :size="18" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" /><input v-model="query" class="input w-full pl-10" :aria-label="t('seller.search_orders')" :placeholder="t('seller.search_orders')" /></div><button class="btn-secondary" :disabled="loading">{{ t('seller.search') }}</button><select :value="status" class="select w-full sm:ml-auto sm:w-auto" :aria-label="t('seller.all_statuses')" @change="chooseStatus(($event.target as HTMLSelectElement).value)"><option value="">{{ t('seller.all_statuses') }}</option><option v-for="value in ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded']" :key="value" :value="value">{{ t('status.' + value) }}</option></select><button v-if="filtered" type="button" class="text-sm font-medium text-primary" @click="reset">{{ t('seller.reset') }}</button></form>
+      <SellerListState :loading="loading" :error="error" :empty="!orders.length" :title="t(filtered ? 'seller.no_results' : 'seller.no_orders')" :description="t(filtered ? 'seller.no_results_help' : 'seller.no_orders_help')" @retry="load()"><button v-if="filtered" class="btn-secondary" @click="reset">{{ t('seller.reset') }}</button></SellerListState>
+      <template v-if="!loading && !error && orders.length">
+        <div class="divide-y divide-border-gray border-t border-border-gray">
+          <article v-for="order in orders" :key="order.id" class="grid gap-4 p-5 sm:p-6 xl:grid-cols-[minmax(0,1fr)_130px_150px_160px] xl:items-center">
+            <div class="min-w-0"><RouterLink :to="{ name: 'seller-shop-order-detail', params: { id: shopId, orderId: order.id } }" class="text-sm font-semibold hover:text-primary">{{ order.shop_order_number }}</RouterLink><p class="mt-1 text-sm text-muted">{{ order.customer_name }}</p><p class="mt-2 text-xs text-muted">{{ formatDate(order.placed_at) }} · {{ order.items_count }} {{ t('seller.products') }}</p></div>
+            <div><p class="text-xs text-muted">{{ t('seller.shop_total') }}</p><p class="mt-1 text-base font-semibold tabular-nums">{{ formatPrice(order.total, order.currency) }}</p><p class="mt-2 flex items-center gap-2 text-xs text-muted">{{ t('seller.payment') }}<StatusTag :status="order.payment_status || 'unpaid'" /></p></div>
+            <div class="flex flex-wrap gap-2"><StatusTag :status="order.status" /><BaseBadge v-if="order.shipment?.status === 'returned'" variant="danger">{{ t('admin.shipments.filter.returned') }}</BaseBadge></div>
+            <RouterLink :to="{ name: 'seller-shop-order-detail', params: { id: shopId, orderId: order.id } }" class="btn-secondary btn-sm justify-between">{{ action(order) }}<ArrowRight :size="16" /></RouterLink>
+          </article>
+        </div>
+        <div v-if="pageCount > 1" class="border-t border-border-gray p-5"><BasePagination :page="page" :page-count="pageCount" :page-size="pageSize" :total-items="total" @update:page="load" /></div>
+      </template>
+    </section>
+  </div>
+</template>

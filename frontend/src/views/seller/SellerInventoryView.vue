@@ -1,213 +1,127 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
-import { History, Search, Warehouse } from 'lucide-vue-next'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
+import { History, Info, Search } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { sellerApi } from '@/api/seller'
 import type { AdminInventoryItem, InventoryTransaction } from '@/api/admin'
+import { useSellerList } from '@/composables/useSellerList'
+import { useSellerWorkspace } from '@/stores/sellerWorkspace'
 import { extractErrorMessage } from '@/api/errors'
 import { formatDateTime } from '@/utils/format'
+import BaseBadge from '@/components/BaseBadge.vue'
+import BaseModal from '@/components/BaseModal.vue'
 import BasePagination from '@/components/BasePagination.vue'
-import StatusTag from '@/components/StatusTag.vue'
-
+import SellerPageHeader from '@/components/seller/SellerPageHeader.vue'
+import SellerListState from '@/components/seller/SellerListState.vue'
 const route = useRoute()
-const shopId = computed(() => Number(route.params.id))
-const inventory = ref<AdminInventoryItem[]>([])
-const query = ref('')
-const status = ref('')
-const loading = ref(true)
-const error = ref('')
-const page = ref(1)
-const pageCount = ref(1)
-const total = ref(0)
+const shopId = Number(route.params.id)
+const { t } = useI18n()
+const workspace = useSellerWorkspace()
+const query = ref(String(route.query.q ?? ''))
+const status = ref(String(route.query.stock_status ?? ''))
 const selected = ref<AdminInventoryItem | null>(null)
 const quantity = ref<number | null>(null)
+const adjusting = ref(false)
+const stockError = ref('')
+const feedback = ref('')
 const ledger = ref<InventoryTransaction[]>([])
 const ledgerLoading = ref(false)
-const adjusting = ref(false)
-
-async function load(target = page.value) {
-  loading.value = true
-  error.value = ''
-
+const ledgerError = ref('')
+const ledgerPage = ref(1)
+const ledgerPages = ref(1)
+const ledgerTotal = ref(0)
+const ledgerSize = ref(20)
+let historyRequest = 0
+let alive = true
+const { items: inventory, loading, error, page, pageCount, pageSize, total, load } = useSellerList<AdminInventoryItem>(
+  page => sellerApi.listInventory(shopId, { q: query.value.trim() || undefined, stock_status: status.value || undefined, page }), () => t('seller.load_failed')
+)
+const filtered = computed(() => !!query.value.trim() || !!status.value)
+const valid = computed(() => selected.value && quantity.value !== null && Number.isInteger(quantity.value) && quantity.value >= selected.value.reserved_quantity && quantity.value <= 1000000)
+const available = computed(() => Math.max(0, Number(quantity.value ?? 0) - (selected.value?.reserved_quantity ?? 0)))
+async function reset() { query.value = ''; status.value = ''; await load(1) }
+async function loadLedger(target = 1) {
+  const item = selected.value
+  if (!item) return
+  const request = ++historyRequest
+  ledgerLoading.value = true; ledgerError.value = ''
   try {
-    const { data } = await sellerApi.listInventory(shopId.value, {
-      q: query.value || undefined,
-      stock_status: status.value || undefined,
-      page: target
-    })
-    inventory.value = data.data
-    page.value = data.meta.current_page
-    pageCount.value = data.meta.last_page
-    total.value = data.meta.total
-
-    if (selected.value && !inventory.value.some((item) => item.id === selected.value?.id)) {
-      selected.value = null
-      ledger.value = []
-    }
-  } catch (cause) {
-    error.value = extractErrorMessage(cause, 'Could not load shop inventory.')
-  } finally {
-    loading.value = false
-  }
-}
-
-async function loadLedger(inventoryId: number) {
-  ledgerLoading.value = true
-
-  try {
-    const { data } = await sellerApi.listInventoryTransactions(shopId.value, inventoryId)
+    const { data } = await sellerApi.listInventoryTransactions(shopId, item.id, { page: target })
+    if (request !== historyRequest || !alive) return
     ledger.value = data.data
-  } catch (cause) {
-    error.value = extractErrorMessage(cause, 'Could not load the inventory ledger.')
-  } finally {
-    ledgerLoading.value = false
-  }
+    ledgerPage.value = data.meta.current_page; ledgerPages.value = data.meta.last_page
+    ledgerTotal.value = data.meta.total; ledgerSize.value = data.meta.per_page
+  } catch (cause) { if (request === historyRequest && alive) ledgerError.value = extractErrorMessage(cause, t('seller.load_failed')) }
+  finally { if (request === historyRequest && alive) ledgerLoading.value = false }
 }
-
-async function selectItem(item: AdminInventoryItem) {
-  selected.value = item
-  quantity.value = item.quantity
-  await loadLedger(item.id)
+function selectItem(item: AdminInventoryItem) {
+  selected.value = item; quantity.value = item.quantity; stockError.value = ''; feedback.value = ''; ledger.value = []
+  void loadLedger()
 }
-
+function close() { if (!adjusting.value) { selected.value = null; historyRequest++ } }
 async function adjustStock() {
   const item = selected.value
-  const nextQuantity = quantity.value
-
-  if (!item || nextQuantity === null || !Number.isInteger(nextQuantity) || nextQuantity < 0 || adjusting.value) return
-
-  if (nextQuantity < item.reserved_quantity) {
-    error.value = `On-hand stock cannot be less than the ${item.reserved_quantity} units currently reserved.`
-    return
-  }
-
-  if (!window.confirm(`Set on-hand stock for ${item.sku ?? 'this variant'} to ${nextQuantity}?`)) return
-
-  adjusting.value = true
-  error.value = ''
-
+  if (!item || !valid.value || adjusting.value || quantity.value === null) return
+  adjusting.value = true; stockError.value = ''; feedback.value = ''
   try {
-    const { data } = await sellerApi.adjustInventory(shopId.value, item.id, nextQuantity)
-    const index = inventory.value.findIndex((entry) => entry.id === item.id)
-    if (index !== -1) inventory.value[index] = data.data
-    selected.value = data.data
-    quantity.value = data.data.quantity
-    await loadLedger(item.id)
-  } catch (cause) {
-    error.value = extractErrorMessage(cause, 'Could not adjust stock.')
-  } finally {
-    adjusting.value = false
-  }
+    const { data } = await sellerApi.adjustInventory(shopId, item.id, quantity.value)
+    if (!alive) return
+    selected.value = data.data; quantity.value = data.data.quantity
+    feedback.value = t('seller.stock_saved')
+    if (workspace.selectedId === shopId) workspace.dashboard = null
+    await Promise.all([load(), loadLedger()])
+  } catch (cause) { if (alive) stockError.value = extractErrorMessage(cause, t('seller.save_failed')) }
+  finally { if (alive) adjusting.value = false }
 }
-
-function quantityText(transaction: InventoryTransaction): string {
-  if (transaction.type === 'adjust') return transaction.quantity >= 0 ? `+${transaction.quantity}` : String(transaction.quantity)
-  return transaction.type === 'release' || transaction.type === 'restock'
-    ? `+${transaction.quantity}`
-    : `-${transaction.quantity}`
+function quantityText(transaction: InventoryTransaction) {
+  if (transaction.type === 'adjust') return transaction.quantity >= 0 ? '+' + transaction.quantity : String(transaction.quantity)
+  return (['release', 'restock', 'in'].includes(transaction.type) ? '+' : '−') + Math.abs(transaction.quantity)
 }
-
-watch(shopId, () => void load(1))
+watch(() => [route.query.q, route.query.stock_status], () => {
+  query.value = String(route.query.q ?? ''); status.value = String(route.query.stock_status ?? ''); void load(1)
+})
 onMounted(() => void load())
+onBeforeUnmount(() => { alive = false; historyRequest++ })
 </script>
-
 <template>
-  <div class="container-app mx-auto space-y-6 py-10">
-    <header class="flex flex-wrap items-end justify-between gap-4">
-      <div>
-        <RouterLink :to="{ name: 'seller-shop-dashboard', params: { id: shopId } }" class="text-xs font-semibold text-primary">Seller Center</RouterLink>
-        <h1 class="mt-1 text-3xl font-bold text-ink">Shop inventory</h1>
-        <p class="mt-1 text-sm text-gray-500">Review stock, set on-hand quantities, and inspect the inventory ledger for this shop only.</p>
-      </div>
-    </header>
-
-    <p v-if="error" class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">{{ error }}</p>
-
-    <section class="card overflow-hidden">
-      <div class="flex flex-wrap gap-2 border-b border-border-gray p-4">
-        <div class="relative min-w-56 flex-1 sm:flex-none">
-          <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input v-model="query" class="input h-9 w-full pl-9 text-sm" placeholder="Search inventory" @keyup.enter="load(1)" />
+  <div class="space-y-6">
+    <SellerPageHeader :title="t('seller.stock')" :description="t('seller.stock_intro')" />
+    <div class="flex items-start gap-3 rounded-xl border border-primary/10 bg-primary/5 p-4 text-sm leading-relaxed text-muted"><Info :size="18" class="mt-0.5 shrink-0 text-primary" /><p>{{ t('seller.stock_explain') }}</p></div>
+    <section class="card overflow-hidden rounded-2xl">
+      <form class="flex flex-wrap items-center gap-3 border-b border-border-gray p-4 sm:p-5" @submit.prevent="load(1)">
+        <div class="relative min-w-0 flex-1 sm:max-w-sm"><Search :size="18" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted" /><input v-model="query" class="input w-full pl-10" :aria-label="t('seller.search_stock')" :placeholder="t('seller.search_stock')" /></div><button class="btn-secondary" :disabled="loading">{{ t('seller.search') }}</button>
+        <select v-model="status" class="select w-full sm:w-auto" :aria-label="t('seller.all_stock')" @change="load(1)"><option value="">{{ t('seller.all_stock') }}</option><option value="in">{{ t('seller.healthy') }}</option><option value="low">{{ t('seller.low_stock') }}</option><option value="out">{{ t('seller.out') }}</option></select><button v-if="filtered" type="button" class="text-sm font-medium text-primary" @click="reset">{{ t('seller.reset') }}</button>
+      </form>
+      <SellerListState :loading="loading" :error="error" :empty="!inventory.length" :title="t(filtered ? 'seller.no_results' : 'seller.no_inventory')" :description="t(filtered ? 'seller.no_results_help' : 'seller.no_inventory_help')" @retry="load()"><button v-if="filtered" class="btn-secondary" @click="reset">{{ t('seller.reset') }}</button><RouterLink v-else :to="{ name: 'seller-shop-product-create', params: { id: shopId } }" class="btn-primary">{{ t('seller.add_product') }}</RouterLink></SellerListState>
+      <template v-if="!loading && !error && inventory.length">
+        <div class="divide-y divide-border-gray">
+          <article v-for="item in inventory" :key="item.id" class="flex flex-wrap items-center gap-5 p-5 sm:p-6">
+            <div class="min-w-0 flex-1 basis-48"><h2 class="text-sm font-semibold">{{ item.product_name }}</h2><p class="mt-1 text-xs text-muted">{{ item.sku }}<span v-if="item.variant_label"> · {{ item.variant_label }}</span></p><div class="mt-2"><BaseBadge :variant="item.is_out_of_stock ? 'danger' : item.is_low_stock ? 'warning' : 'success'" dot>{{ t(item.is_out_of_stock ? 'seller.out' : item.is_low_stock ? 'seller.low_stock' : 'seller.healthy') }}</BaseBadge></div></div>
+            <dl class="grid w-full grid-cols-3 gap-3 rounded-xl bg-canvas p-3 sm:w-auto sm:min-w-72 sm:gap-6 sm:px-5"><div><dt class="text-xs text-muted">{{ t('seller.available') }}</dt><dd class="mt-1 text-xl font-bold tabular-nums" :class="item.is_low_stock ? 'text-amber-700 dark:text-amber-400' : 'text-ink'">{{ item.available_quantity }}</dd></div><div><dt class="text-xs text-muted">{{ t('seller.reserved') }}</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ item.reserved_quantity }}</dd></div><div><dt class="text-xs text-muted">{{ t('seller.on_hand') }}</dt><dd class="mt-1 text-xl font-semibold tabular-nums">{{ item.quantity }}</dd></div></dl>
+            <button type="button" class="btn-secondary w-full sm:w-auto" @click="selectItem(item)">{{ t('seller.update_stock') }}</button>
+          </article>
         </div>
-        <select v-model="status" class="select h-9 text-sm" @change="load(1)">
-          <option value="">All stock</option>
-          <option value="in">In stock</option>
-          <option value="low">Low stock</option>
-          <option value="out">Out of stock</option>
-        </select>
-      </div>
-
-      <div v-if="loading" class="p-10 text-center text-sm text-gray-500">Loading inventory…</div>
-      <div v-else class="overflow-x-auto">
-        <table class="w-full min-w-[820px] text-sm">
-          <thead class="border-b border-border-gray bg-canvas/60 text-left text-xs uppercase text-gray-500">
-            <tr>
-              <th class="px-4 py-3">Product</th>
-              <th class="px-4 py-3">SKU</th>
-              <th class="px-4 py-3 text-right">Available</th>
-              <th class="px-4 py-3 text-right">Reserved</th>
-              <th class="px-4 py-3 text-right">On hand</th>
-              <th class="px-4 py-3">Status</th>
-              <th class="px-4 py-3 text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-border-gray">
-            <tr v-if="!inventory.length">
-              <td colspan="7" class="px-4 py-10 text-center text-gray-500">
-                <Warehouse class="mx-auto mb-2 h-7 w-7 text-gray-300" />
-                No inventory records in this shop.
-              </td>
-            </tr>
-            <tr v-for="item in inventory" :key="item.id" class="hover:bg-canvas/50">
-              <td class="px-4 py-3 font-semibold text-ink">{{ item.product_name }}</td>
-              <td class="px-4 py-3 text-xs text-gray-500">{{ item.sku }}</td>
-              <td class="px-4 py-3 text-right font-medium text-ink">{{ item.available_quantity }}</td>
-              <td class="px-4 py-3 text-right text-gray-500">{{ item.reserved_quantity }}</td>
-              <td class="px-4 py-3 text-right text-gray-500">{{ item.quantity }}</td>
-              <td class="px-4 py-3"><StatusTag :status="item.is_out_of_stock ? 'out' : item.is_low_stock ? 'low' : 'active'" /></td>
-              <td class="px-4 py-3 text-right"><button type="button" class="btn-outline btn-sm" @click="selectItem(item)">Manage</button></td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-      <div v-if="!loading && inventory.length" class="border-t border-border-gray p-4">
-        <BasePagination :page="page" :page-count="pageCount" :page-size="15" :total-items="total" @update:page="load" />
-      </div>
+        <div v-if="pageCount > 1" class="border-t border-border-gray p-5"><BasePagination :page="page" :page-count="pageCount" :page-size="pageSize" :total-items="total" @update:page="load" /></div>
+      </template>
     </section>
-
-    <section v-if="selected" class="card overflow-hidden">
-      <div class="flex flex-wrap items-center justify-between gap-3 border-b border-border-gray p-4">
-        <div>
-          <h2 class="text-lg font-semibold text-ink">Inventory ledger</h2>
-          <p class="text-sm text-gray-500">{{ selected.product_name }} · {{ selected.sku }}</p>
-        </div>
-        <div class="flex items-center gap-2">
-          <input v-model.number="quantity" class="input h-9 w-28 text-sm" type="number" min="0" step="1" aria-label="On-hand stock quantity" />
-          <button type="button" class="btn-primary btn-sm" :disabled="adjusting" @click="adjustStock">{{ adjusting ? 'Saving…' : 'Set stock' }}</button>
-        </div>
-      </div>
-
-      <div v-if="ledgerLoading" class="p-8 text-center text-sm text-gray-500">Loading ledger…</div>
-      <div v-else-if="!ledger.length" class="p-8 text-center text-sm text-gray-500">No inventory transactions yet.</div>
-      <div v-else class="overflow-x-auto">
-        <table class="w-full min-w-[720px] text-sm">
-          <thead class="border-b border-border-gray bg-canvas/60 text-left text-xs uppercase text-gray-500">
-            <tr><th class="px-4 py-3">Date</th><th class="px-4 py-3">Type</th><th class="px-4 py-3 text-right">Quantity</th><th class="px-4 py-3 text-right">Balance</th><th class="px-4 py-3">Note</th><th class="px-4 py-3">By</th></tr>
-          </thead>
-          <tbody class="divide-y divide-border-gray">
-            <tr v-for="transaction in ledger" :key="transaction.id">
-              <td class="whitespace-nowrap px-4 py-3 text-gray-500">{{ formatDateTime(transaction.created_at) }}</td>
-              <td class="px-4 py-3"><span class="chip">{{ transaction.type }}</span></td>
-              <td class="px-4 py-3 text-right font-mono">{{ quantityText(transaction) }}</td>
-              <td class="px-4 py-3 text-right font-mono">{{ transaction.balance_after }}</td>
-              <td class="px-4 py-3 text-gray-500">{{ transaction.note ?? '—' }}</td>
-              <td class="px-4 py-3 text-gray-500">{{ transaction.created_by?.name ?? 'System' }}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <div v-else class="card p-8 text-center text-sm text-gray-500"><History class="mx-auto mb-2 h-7 w-7 text-gray-300" />Choose an inventory item to adjust stock or view its ledger.</div>
+    <BaseModal :model-value="!!selected" :title="t('seller.update_stock')" size="lg" :close-on-backdrop="!adjusting" @update:model-value="close">
+      <template v-if="selected">
+        <p class="font-semibold">{{ selected.product_name }}</p><p class="mt-1 text-xs text-muted">{{ selected.sku }}</p>
+        <form class="mt-5 space-y-4" @submit.prevent="adjustStock">
+          <label class="block"><span class="label">{{ t('seller.new_total') }}</span><input v-model.number="quantity" class="input w-full" type="number" :min="selected.reserved_quantity" max="1000000" step="1" required :disabled="adjusting" :aria-invalid="!valid" aria-describedby="stock-count-help" /><span id="stock-count-help" class="mt-2 block text-xs leading-relaxed text-muted">{{ t('seller.new_total_help') }}</span></label>
+          <p v-if="quantity !== null && quantity < selected.reserved_quantity" class="text-sm text-red-600 dark:text-red-400">{{ t('seller.min_reserved', { count: selected.reserved_quantity }) }}</p>
+          <div class="rounded-xl bg-primary/5 p-4 text-sm"><p class="font-medium text-primary">{{ t('seller.will_available', { count: available }) }}</p><p class="mt-1 text-xs text-muted">{{ t('seller.reserved') }}: {{ selected.reserved_quantity }}</p></div>
+          <p v-if="stockError" role="alert" class="text-sm text-red-600 dark:text-red-400">{{ stockError }}</p><p v-if="feedback" role="status" class="text-sm text-emerald-700 dark:text-emerald-400">{{ feedback }}</p>
+          <button class="btn-primary w-full" :disabled="adjusting || !valid || quantity === selected.quantity">{{ t(adjusting ? 'common.saving' : 'seller.update_stock') }}</button>
+        </form>
+        <section class="mt-7 border-t border-border-gray pt-5"><h3 class="mb-4 flex items-center gap-2 text-sm font-semibold"><History :size="17" />{{ t('seller.stock_history') }}</h3>
+          <p v-if="ledgerLoading" role="status" class="py-4 text-sm text-muted">{{ t('common.loading') }}</p><p v-else-if="ledgerError" role="alert" class="text-sm text-red-600 dark:text-red-400">{{ ledgerError }} <button class="underline" @click="loadLedger(ledgerPage)">{{ t('actions.retry') }}</button></p><p v-else-if="!ledger.length" class="text-sm text-muted">{{ t('seller.no_history') }}</p>
+          <div v-else class="divide-y divide-border-gray"><div v-for="transaction in ledger" :key="transaction.id" class="flex items-start justify-between gap-3 py-3"><div class="min-w-0"><p class="text-sm font-medium">{{ t('seller.' + transaction.type) }}</p><p class="mt-1 text-xs text-muted">{{ formatDateTime(transaction.created_at) }}</p><p class="mt-1 break-words text-xs text-muted">{{ transaction.note || transaction.reference }} · {{ transaction.created_by?.name ?? t('seller.system') }}</p></div><div class="text-right"><p class="text-sm font-semibold tabular-nums">{{ quantityText(transaction) }}</p><p class="mt-1 whitespace-nowrap text-xs text-muted">{{ t('seller.balance') }}: {{ transaction.balance_after }}</p></div></div></div>
+          <div v-if="ledgerPages > 1 && !ledgerLoading" class="mt-4"><BasePagination :page="ledgerPage" :page-count="ledgerPages" :page-size="ledgerSize" :total-items="ledgerTotal" @update:page="loadLedger" /></div>
+        </section>
+      </template>
+      <template #footer><button class="btn-secondary w-full" :disabled="adjusting" @click="close">{{ t('actions.close') }}</button></template>
+    </BaseModal>
   </div>
 </template>
