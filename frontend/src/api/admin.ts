@@ -494,6 +494,10 @@ export const adminApi = {
     return apiClient.post<{ data: AdminShopMember }>('/admin/shop-members', payload)
   },
 
+  getShopMember(id: number) {
+    return apiClient.get<{ data: AdminShopMember }>(`/admin/shop-members/${id}`)
+  },
+
   updateShopMember(id: number, payload: { name: string; email: string; phone?: string; password?: string; shop_id: number; role: 'owner' | 'manager'; status: string }) {
     return apiClient.put<{ data: AdminShopMember }>(`/admin/shop-members/${id}`, payload)
   },

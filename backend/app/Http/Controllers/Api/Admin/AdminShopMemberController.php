@@ -79,6 +79,11 @@ class AdminShopMemberController extends Controller
         return response()->json(['data' => $this->member($member)], 201);
     }
 
+    public function show(ShopUser $shopMember)
+    {
+        return response()->json(['data' => $this->member($shopMember)]);
+    }
+
     public function update(Request $request, ShopUser $shopMember)
     {
         $data = $request->validate($this->rules($shopMember));
