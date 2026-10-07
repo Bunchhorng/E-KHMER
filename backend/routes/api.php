@@ -158,6 +158,7 @@ Route::prefix('admin')
         Route::post('shop-members', [AdminShopMemberController::class, 'store']);
         Route::get('shop-members/{shopMember}', [AdminShopMemberController::class, 'show']);
         Route::put('shop-members/{shopMember}', [AdminShopMemberController::class, 'update']);
+        Route::delete('shop-members/{shopMember}', [AdminShopMemberController::class, 'destroy']);
 
         Route::get('products', [AdminProductController::class, 'index']);
         Route::post('products', [AdminProductController::class, 'store']);

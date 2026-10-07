@@ -502,6 +502,10 @@ export const adminApi = {
     return apiClient.put<{ data: AdminShopMember }>(`/admin/shop-members/${id}`, payload)
   },
 
+  removeShopMember(id: number) {
+    return apiClient.delete<{ message: string }>(`/admin/shop-members/${id}`)
+  },
+
   listShops(params: { q?: string; status?: string; page?: number } = {}) {
     return apiClient.get<PaginatedResponse<AdminShop>>('/admin/shops', { params })
   },

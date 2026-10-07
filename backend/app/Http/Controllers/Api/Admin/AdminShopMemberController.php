@@ -97,6 +97,14 @@ class AdminShopMemberController extends Controller
         return response()->json(['data' => $this->member($shopMember->refresh())]);
     }
 
+    /** Remove only the shop role; the person's customer account remains intact. */
+    public function destroy(ShopUser $shopMember)
+    {
+        $shopMember->delete();
+
+        return response()->json(['message' => 'Shop access removed.']);
+    }
+
     private function rules(?ShopUser $member = null): array
     {
         return [
