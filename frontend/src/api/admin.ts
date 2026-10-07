@@ -235,6 +235,15 @@ export interface AdminCustomerDetail {
   recent_orders: AdminOrderItem[]
 }
 
+export interface AdminShopMember {
+  id: number
+  status: string
+  role: 'owner' | 'manager'
+  joined_at: string
+  user: { id: number; name: string; email: string; phone: string | null; avatar: string | null }
+  shop: { id: number; name: string; slug: string; logo: string | null; status: string }
+}
+
 export interface AdminPayment {
   id: number
   order_id: number
@@ -475,6 +484,10 @@ export const adminApi = {
 
   listInventoryTransactions(inventoryId: number, params: { type?: string; page?: number } = {}) {
     return apiClient.get<PaginatedResponse<InventoryTransaction>>(`/admin/inventory/${inventoryId}/transactions`, { params })
+  },
+
+  listShopMembers(params: { role: 'owner' | 'manager'; q?: string; page?: number }) {
+    return apiClient.get<PaginatedResponse<AdminShopMember>>('/admin/shop-members', { params })
   },
 
   listShops(params: { q?: string; status?: string; page?: number } = {}) {

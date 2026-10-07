@@ -33,6 +33,7 @@ use App\Http\Controllers\Api\Admin\AdminNotificationController;
 use App\Http\Controllers\Api\Admin\AdminPaymentController;
 use App\Http\Controllers\Api\Admin\AdminShipmentController;
 use App\Http\Controllers\Api\Admin\AdminShopController;
+use App\Http\Controllers\Api\Admin\AdminShopMemberController;
 use App\Http\Controllers\Api\Admin\DashboardController;
 use Illuminate\Support\Facades\Route;
 
@@ -153,6 +154,7 @@ Route::prefix('admin')
         Route::put('shops/{shop}', [AdminShopController::class, 'update']);
         Route::patch('shops/{shop}/status', [AdminShopController::class, 'updateStatus']);
         Route::delete('shops/{shop}', [AdminShopController::class, 'destroy']);
+        Route::get('shop-members', [AdminShopMemberController::class, 'index']);
 
         Route::get('products', [AdminProductController::class, 'index']);
         Route::post('products', [AdminProductController::class, 'store']);

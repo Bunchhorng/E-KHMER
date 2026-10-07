@@ -16,6 +16,7 @@ import {
   FileBarChart,
   TicketPercent,
   Users,
+  UserRoundCog,
   MessageSquare,
   Search,
   Bell,
@@ -69,7 +70,12 @@ onMounted(async () => {
 const navGroups: NavGroup[] = [
   {
     titleKey: 'admin.nav.group_overview',
-    items: [{ labelKey: 'nav.dashboard', route: { name: 'admin-dashboard' }, icon: LayoutDashboard }, { labelKey: 'Shops', route: { name: 'admin-shops' }, icon: Store }]
+    items: [
+      { labelKey: 'nav.dashboard', route: { name: 'admin-dashboard' }, icon: LayoutDashboard },
+      { labelKey: 'admin.nav.shops', route: { name: 'admin-shops' }, icon: Store },
+      { labelKey: 'admin.nav.shop_owners', route: { name: 'admin-shop-owners' }, icon: Users },
+      { labelKey: 'admin.nav.shop_admins', route: { name: 'admin-shop-admins' }, icon: UserRoundCog }
+    ]
   },
   {
     titleKey: 'admin.nav.group_catalog',
