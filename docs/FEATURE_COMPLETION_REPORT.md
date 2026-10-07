@@ -11,7 +11,7 @@ This is the working completion record for the marketplace. A feature is marked *
 | Account access | Complete | Registration, Sanctum authentication, password reset, email verification, profile, password, avatar, addresses, and customer notifications are implemented. |
 | Storefront catalog | Complete | Search, pagination, categories, brands, facets, sorting, product gallery/zoom, variants, availability, and reviews are implemented. |
 | Cart and checkout foundation | Complete | Guest and authenticated carts, coupon validation, order snapshots, stock reservation, reservation expiry, order receipts, and order tracking are implemented. |
-| Receipt PDF and printing | Complete | The receipt uses a minimal invoice print layout: large shop identity and dynamic logo, payment/shipping/invoice sections, image-led line items, bold totals, and barcode footer. A single-shop receipt uses that shop's stored logo and name; a multi-shop parent receipt safely uses marketplace branding. Receipt buttons now open the browser print dialog rather than downloading a file. |
+| Receipt PDF and printing | Complete | The receipt uses the blue E-KHMER invoice layout: large dynamic shop identity/logo and contact details, payment/shipping/invoice panels, image-led line items, tax/total breakdown, and barcode footer. A single-shop receipt uses that shop's stored branding; a multi-shop parent receipt safely uses marketplace branding. Receipt buttons now open the browser print dialog rather than downloading a file. |
 | Inventory core | Complete | Atomic reservations, stock deduction/release/restock, low-stock notifications, adjustments, and an admin inventory ledger are implemented. |
 | Customer engagement | Complete | Wishlist, delivered-purchase review verification, review moderation, and account notifications are implemented. |
 | Platform administration | Complete | Dashboard metrics/charts, catalog management, category tree, brands, orders, payments, shipments, coupons, reviews, customers, reports, and settings screens are implemented. |
@@ -48,7 +48,7 @@ This is the working completion record for the marketplace. A feature is marked *
 | Full Laravel suite before repairs | 283 passed, 8 failed. |
 | Targeted Laravel suite after initial repairs | 68 passed, 2 seller authorization checks still failing; the other six original failures are resolved. |
 | Latest static diff check | Passed. |
-| Receipt branding and PDF checks | Passed: 3 tests, 10 assertions on the final invoice-style template (single-shop dynamic logo, multi-shop fallback, admin receipt generation). |
+| Receipt branding and PDF checks | Passed: 3 tests, 10 assertions on the final blue invoice template (single-shop dynamic logo, multi-shop fallback, admin receipt generation). |
 | Vue production build after print-preview update | Passed. |
 | Latest seller/settings implementation | Final Docker test/build rerun pending after the route-context, inventory workspace, and operational-settings changes. |
 

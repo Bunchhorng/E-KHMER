@@ -17,7 +17,7 @@ class ReceiptBrandingService
      * multi-shop parent order intentionally falls back to marketplace branding:
      * choosing one seller's logo for several sellers would be misleading.
      *
-     * @return array{name: string, tagline: string, logo: ?string, mark: string}
+     * @return array{name: string, tagline: string, logo: ?string, mark: string, address: array<int, string>, email: ?string, phone: ?string}
      */
     public function forOrder(Order $order): array
     {
@@ -34,12 +34,16 @@ class ReceiptBrandingService
         /** @var Shop|null $shop */
         $shop = $shops->count() === 1 ? $shops->first() : null;
         $name = $shop?->name ?? config('app.name', 'E-KHMER');
+        $location = implode(', ', array_filter([$shop?->city, $shop?->province, $shop?->postal_code, $shop?->country]));
 
         return [
             'name' => $name,
             'tagline' => $shop?->description ?: 'E-Commerce Store',
             'logo' => $this->localImageDataUri($shop?->logo),
             'mark' => mb_strtoupper(mb_substr($name, 0, 1)),
+            'address' => array_values(array_filter([$shop?->address_line, $shop?->mall, $location])),
+            'email' => $shop?->email,
+            'phone' => $shop?->phone,
         ];
     }
 
