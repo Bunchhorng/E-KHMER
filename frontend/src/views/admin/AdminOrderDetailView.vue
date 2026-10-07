@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, ChevronRight, PackageCheck, FileText, Download } from 'lucide-vue-next'
+import { ArrowLeft, ChevronRight, PackageCheck, FileText, Printer } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/api/admin'
 import type { ApiOrder } from '@/api/checkout'
 import StatusTag from '@/components/StatusTag.vue'
 import BaseBadge from '@/components/BaseBadge.vue'
 import { formatDateTime, formatPrice } from '@/utils/format'
-import { downloadResponse } from '@/utils/download'
+import { openPrintWindow, printBlob } from '@/utils/download'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -86,18 +86,25 @@ async function transitionTo(status: string) {
   }
 }
 
-const downloadingReceipt = ref(false)
+const printingReceipt = ref(false)
 
-async function downloadReceipt() {
-  if (downloadingReceipt.value) return
-  downloadingReceipt.value = true
+async function printReceipt() {
+  if (printingReceipt.value) return
+  const printWindow = openPrintWindow()
+  if (!printWindow) {
+    showToast('Your browser blocked the print preview. Please allow popups and try again.')
+    return
+  }
+
+  printingReceipt.value = true
   try {
     const response = await adminApi.getOrderReceipt(Number(route.params.id))
-    downloadResponse(response, `receipt-${order.value?.order_number ?? 'order'}.pdf`)
+    printBlob(response.data, printWindow)
   } catch {
+    printWindow.close()
     showToast(t('admin.order_detail.toast_receipt_error'))
   } finally {
-    downloadingReceipt.value = false
+    printingReceipt.value = false
   }
 }
 
@@ -127,8 +134,8 @@ onMounted(loadOrder)
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <button type="button" class="btn-secondary btn-sm" :disabled="downloadingReceipt" @click="downloadReceipt">
-            <Download v-if="!downloadingReceipt" class="h-4 w-4" />
+          <button type="button" class="btn-secondary btn-sm" :disabled="printingReceipt" @click="printReceipt">
+            <Printer v-if="!printingReceipt" class="h-4 w-4" />
             <FileText v-else class="h-4 w-4 animate-pulse" />
             {{ $t('admin.order_detail.receipt') }}
           </button>

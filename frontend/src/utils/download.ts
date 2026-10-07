@@ -22,3 +22,31 @@ export function downloadResponse(response: AxiosResponse<Blob>, fallbackFilename
   }
   downloadBlob(response.data, filename)
 }
+
+/**
+ * Open a window during the user click so browsers do not treat the eventual
+ * PDF print preview as a popup. The receipt can then be fetched asynchronously
+ * and sent straight to the platform print dialog.
+ */
+export function openPrintWindow(): Window | null {
+  const printWindow = window.open('', '_blank')
+  if (printWindow) printWindow.opener = null
+
+  return printWindow
+}
+
+export function printBlob(blob: Blob, printWindow: Window): void {
+  const url = URL.createObjectURL(blob)
+
+  printWindow.addEventListener('load', () => {
+    window.setTimeout(() => {
+      if (!printWindow.closed) {
+        printWindow.focus()
+        printWindow.print()
+      }
+    }, 250)
+  }, { once: true })
+
+  printWindow.location.replace(url)
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
+}

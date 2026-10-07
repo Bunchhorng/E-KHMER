@@ -160,7 +160,7 @@
     "estimated_delivery": "Estimated delivery",
     "payment_method": "Payment method",
     "track_my_order": "Track My Order",
-    "receipt": "Download Receipt (PDF)",
+    "receipt": "Print Receipt",
     "email_sent": "A confirmation email was sent to {email}",
     "not_found_title": "Order not found",
     "not_found_description": "We couldn't find that order, but you can keep browsing the shop.",
@@ -598,10 +598,10 @@
       "no_shipment": "Not shipped yet",
       "transition": "Update Status",
       "transition_to": "Move to {status}",
-      "receipt": "Receipt (PDF)",
+      "receipt": "Print Receipt",
       "toast_load_error": "Failed to load the order.",
       "toast_transition_error": "Failed to update the order status.",
-      "toast_receipt_error": "Failed to download the receipt."
+      "toast_receipt_error": "Failed to prepare the receipt for printing."
     },
     "reports": {
       "title": "Reports",
@@ -1013,7 +1013,7 @@
       "shipped_at": "Shipped at",
       "delivered_at": "Delivered at",
       "no_shipment": "Not shipped yet",
-      "receipt": "Download Receipt (PDF)"
+      "receipt": "Print Receipt"
     },
     "welcome_back_name": "Welcome back, {name}",
     "today_summary": "Here's what's happening with your orders today.",

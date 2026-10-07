@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { CheckCircle2, Download, FileText } from 'lucide-vue-next'
+import { CheckCircle2, FileText, Printer } from 'lucide-vue-next'
 import { ordersApi } from '@/api/orders'
 import type { ApiOrder } from '@/api/checkout'
 import { useAuthStore } from '@/stores/auth'
 import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { formatPrice, formatDate } from '@/utils/format'
-import { downloadResponse } from '@/utils/download'
+import { openPrintWindow, printBlob } from '@/utils/download'
 import type { Order, OrderItem, OrderStatus } from '@/types'
 
 const route = useRoute()
@@ -17,25 +17,32 @@ const authStore = useAuthStore()
 
 const order = ref<Order | null>(null)
 const loading = ref(true)
-const downloadingReceipt = ref(false)
+const printingReceipt = ref(false)
 const receiptError = ref('')
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
 }
 
-async function downloadReceipt() {
+async function printReceipt() {
   const orderNumber = route.params.orderId as string
-  if (!orderNumber || downloadingReceipt.value) return
-  downloadingReceipt.value = true
+  if (!orderNumber || printingReceipt.value) return
+  const printWindow = openPrintWindow()
+  if (!printWindow) {
+    receiptError.value = 'Your browser blocked the print preview. Please allow popups and try again.'
+    return
+  }
+
+  printingReceipt.value = true
   receiptError.value = ''
   try {
     const response = await ordersApi.receipt(orderNumber)
-    downloadResponse(response, `receipt-${orderNumber}.pdf`)
+    printBlob(response.data, printWindow)
   } catch {
-    receiptError.value = 'The receipt could not be downloaded. Please try again.'
+    printWindow.close()
+    receiptError.value = 'The receipt could not be prepared for printing. Please try again.'
   } finally {
-    downloadingReceipt.value = false
+    printingReceipt.value = false
   }
 }
 
@@ -191,8 +198,8 @@ onMounted(async () => {
       <RouterLink :to="`/order/tracking/${order.id}`" class="btn-primary">
         {{ $t('order.track_my_order') }}
       </RouterLink>
-      <button type="button" class="btn-secondary" :disabled="downloadingReceipt" @click="downloadReceipt">
-        <Download v-if="!downloadingReceipt" class="h-4 w-4" />
+      <button type="button" class="btn-secondary" :disabled="printingReceipt" @click="printReceipt">
+        <Printer v-if="!printingReceipt" class="h-4 w-4" />
         <FileText v-else class="h-4 w-4 animate-pulse" />
         {{ $t('order.receipt') }}
       </button>
