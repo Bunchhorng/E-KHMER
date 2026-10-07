@@ -6,7 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Models\ShopUser;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AdminShopMemberController extends Controller
 {
@@ -69,12 +71,15 @@ class AdminShopMemberController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate($this->rules());
-        $user = User::create([
-            'name' => $data['name'], 'email' => $data['email'], 'phone' => $data['phone'] ?? null, 'password' => $data['password'],
-        ]);
-        $member = ShopUser::create([
-            'shop_id' => $data['shop_id'], 'user_id' => $user->id, 'role_in_shop' => $data['role'], 'status' => $data['status'],
-        ]);
+        $member = DB::transaction(function () use ($data) {
+            $user = User::create([
+                'name' => $data['name'], 'email' => $data['email'], 'phone' => $data['phone'] ?? null, 'password' => $data['password'],
+            ]);
+
+            return ShopUser::create([
+                'shop_id' => $data['shop_id'], 'user_id' => $user->id, 'role_in_shop' => $data['role'], 'status' => $data['status'],
+            ]);
+        });
 
         return response()->json(['data' => $this->member($member)], 201);
     }
@@ -87,12 +92,20 @@ class AdminShopMemberController extends Controller
     public function update(Request $request, ShopUser $shopMember)
     {
         $data = $request->validate($this->rules($shopMember));
-        $shopMember->user->fill([
-            'name' => $data['name'], 'email' => $data['email'], 'phone' => $data['phone'] ?? null,
-        ]);
-        if (!empty($data['password'])) $shopMember->user->password = $data['password'];
-        $shopMember->user->save();
-        $shopMember->update(['shop_id' => $data['shop_id'], 'status' => $data['status']]);
+
+        if ((int) $data['shop_id'] !== (int) $shopMember->shop_id
+            && ShopUser::query()->where('user_id', $shopMember->user_id)->where('shop_id', $data['shop_id'])->exists()) {
+            throw ValidationException::withMessages(['shop_id' => ['This user already belongs to the selected shop.']]);
+        }
+
+        DB::transaction(function () use ($shopMember, $data) {
+            $shopMember->user->fill([
+                'name' => $data['name'], 'email' => $data['email'], 'phone' => $data['phone'] ?? null,
+            ]);
+            if (!empty($data['password'])) $shopMember->user->password = $data['password'];
+            $shopMember->user->save();
+            $shopMember->update(['shop_id' => $data['shop_id'], 'status' => $data['status']]);
+        });
 
         return response()->json(['data' => $this->member($shopMember->refresh())]);
     }

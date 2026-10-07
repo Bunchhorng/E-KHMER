@@ -10,7 +10,7 @@ export interface AuthUser {
   name: string
   email: string
   phone?: string | null
-  role: 'customer' | 'admin'
+  role: 'customer' | 'admin' | 'super_admin'
   avatar?: string | null
   newsletter?: boolean
   email_verified?: boolean
@@ -38,7 +38,7 @@ export const useAuthStore = defineStore('auth', {
 
   getters: {
     isAuthenticated: (state): boolean => Boolean(state.user),
-    isAdmin: (state): boolean => state.user?.role === 'admin',
+    isAdmin: (state): boolean => state.user?.role === 'admin' || state.user?.role === 'super_admin',
     token: (): string | null => localStorage.getItem(TOKEN_KEY)
   },
 

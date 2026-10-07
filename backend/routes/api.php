@@ -17,15 +17,17 @@ use App\Http\Controllers\Api\ShippingMethodController;
 use App\Http\Controllers\Api\ShopController;
 use App\Http\Controllers\Api\ShopApplicationController;
 use App\Http\Controllers\Api\Seller\SellerDashboardController;
+use App\Http\Controllers\Api\Seller\SellerShopController;
+use App\Http\Controllers\Api\Seller\SellerShopOrderController;
 use App\Http\Controllers\Api\WishlistController;
 use App\Http\Controllers\Api\Admin\AdminBrandController;
 use App\Http\Controllers\Api\Admin\AdminCategoryController;
 use App\Http\Controllers\Api\Admin\AdminCouponController;
 use App\Http\Controllers\Api\Admin\AdminCustomerController;
 use App\Http\Controllers\Api\Admin\AdminInventoryController;
+use App\Http\Controllers\Api\Admin\AdminProductController;
 use App\Http\Controllers\Api\Admin\AdminMediaController;
 use App\Http\Controllers\Api\Admin\AdminOrderController;
-use App\Http\Controllers\Api\Admin\AdminProductController;
 use App\Http\Controllers\Api\Admin\AdminReportController;
 use App\Http\Controllers\Api\Admin\AdminReviewController;
 use App\Http\Controllers\Api\Admin\AdminShippingMethodController;
@@ -58,6 +60,19 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('seller/application', [ShopApplicationController::class, 'show']);
     Route::post('seller/application', [ShopApplicationController::class, 'store']);
     Route::get('seller/dashboard', [SellerDashboardController::class, 'show']);
+    Route::get('seller/shops', [SellerShopController::class, 'index']);
+    Route::get('seller/shops/{shop}/dashboard', [SellerShopController::class, 'dashboard']);
+    Route::prefix('seller/shops/{shop}')->middleware('shop.manager')->group(function () {
+        Route::get('products', [AdminProductController::class, 'index']);
+        Route::post('products', [AdminProductController::class, 'store']);
+        Route::get('products/{product}', [AdminProductController::class, 'show']);
+        Route::put('products/{product}', [AdminProductController::class, 'update']);
+        Route::delete('products/{product}', [AdminProductController::class, 'destroy']);
+        Route::get('inventory', [AdminInventoryController::class, 'index']);
+        Route::get('inventory/{inventory}/transactions', [AdminInventoryController::class, 'transactions']);
+        Route::post('inventory/{inventory}/adjust', [AdminInventoryController::class, 'adjust']);
+        Route::get('orders', [SellerShopOrderController::class, 'index']);
+    });
     Route::get('auth/me', [AuthController::class, 'me']);
     Route::post('auth/logout', [AuthController::class, 'logout']);
     Route::post('auth/email/verification-notification', [AuthController::class, 'sendVerificationEmail'])

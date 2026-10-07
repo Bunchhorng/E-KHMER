@@ -11,7 +11,7 @@ class UserSeeder extends Seeder
     public function run(): void
     {
         foreach ([
-            ['name' => 'Super Admin', 'email' => 'admin@ekhmer.dev', 'phone' => '+855 10 000 001', 'role' => User::ROLE_ADMIN],
+            ['name' => 'Super Admin', 'email' => 'admin@ekhmer.dev', 'phone' => '+855 10 000 001', 'role' => User::ROLE_SUPER_ADMIN],
             ['name' => 'Demo Customer', 'email' => 'customer@ekhmer.dev', 'phone' => '+855 10 000 002', 'role' => User::ROLE_CUSTOMER],
             // Seller access is represented by shop_users; the base User role remains customer by design.
             ['name' => 'Demo Seller', 'email' => 'seller@ekhmer.dev', 'phone' => '+855 10 000 003', 'role' => User::ROLE_CUSTOMER],

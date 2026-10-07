@@ -196,12 +196,15 @@ export interface AdminInventoryItem {
   product: { id: number; name: string; slug: string }
   variant: { id: number; name: string; sku: string; is_active: boolean }
   variant_label: string
+  product_name: string | null
+  sku: string | null
   quantity: number
   reserved_quantity: number
   available_quantity: number
   sold_count: number
   low_stock_threshold: number
   is_low_stock: boolean
+  is_out_of_stock: boolean
   low_stock_notified_at: string | null
   updated_at: string
 }

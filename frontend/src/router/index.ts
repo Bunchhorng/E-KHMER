@@ -31,6 +31,12 @@ const router = createRouter({
         { path: 'checkout', name: 'checkout', component: () => import('@/views/CheckoutView.vue'), meta: { title: 'Checkout' } },
         { path: 'seller/application', name: 'seller-application', component: () => import('@/views/seller/SellerApplicationView.vue'), meta: { title: 'Become a Seller', requiresAuth: true } },
         { path: 'seller', name: 'seller-dashboard', component: () => import('@/views/seller/SellerDashboardView.vue'), meta: { title: 'Seller Center', requiresAuth: true } },
+        { path: 'seller/shops/:id', name: 'seller-shop-dashboard', component: () => import('@/views/seller/SellerDashboardView.vue'), meta: { title: 'Shop Dashboard', requiresAuth: true } },
+        { path: 'seller/shops/:id/products', name: 'seller-shop-products', component: () => import('@/views/seller/SellerProductsView.vue'), meta: { title: 'Shop Products', requiresAuth: true } },
+        { path: 'seller/shops/:id/products/new', name: 'seller-shop-product-create', component: () => import('@/views/seller/SellerProductFormView.vue'), meta: { title: 'Add Shop Product', requiresAuth: true } },
+        { path: 'seller/shops/:id/products/:productId/edit', name: 'seller-shop-product-edit', component: () => import('@/views/seller/SellerProductFormView.vue'), meta: { title: 'Edit Shop Product', requiresAuth: true } },
+        { path: 'seller/shops/:id/inventory', name: 'seller-shop-inventory', component: () => import('@/views/seller/SellerInventoryView.vue'), meta: { title: 'Shop Inventory', requiresAuth: true } },
+        { path: 'seller/shops/:id/orders', name: 'seller-shop-orders', component: () => import('@/views/seller/SellerOrdersView.vue'), meta: { title: 'Shop Orders', requiresAuth: true } },
         { path: 'order/success/:orderId', name: 'order-success', component: () => import('@/views/OrderSuccessView.vue'), meta: { title: 'Order Confirmed' } },
         { path: 'order/tracking/:orderId', name: 'order-tracking', component: () => import('@/views/OrderTrackingView.vue'), meta: { title: 'Track Order' } }
       ]

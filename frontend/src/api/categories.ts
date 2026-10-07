@@ -15,5 +15,8 @@ export interface ApiCategory {
 export const categoriesApi = {
   getTree() {
     return apiClient.get<{ data: ApiCategory[] }>('/categories')
+  },
+  list() {
+    return this.getTree()
   }
 }

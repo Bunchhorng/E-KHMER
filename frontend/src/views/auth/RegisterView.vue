@@ -54,7 +54,7 @@ async function submit() {
       password: form.password,
       password_confirmation: form.confirm
     })
-    router.push(user?.role === 'admin' ? { name: 'admin-dashboard' } : { name: 'account-dashboard' })
+    router.push(['admin', 'super_admin'].includes(user?.role ?? '') ? { name: 'admin-dashboard' } : { name: 'account-dashboard' })
   } catch (e) {
     // Surface per-field rejections (duplicate email, weak password) on the input
     // itself and keep a summary message for everything else.

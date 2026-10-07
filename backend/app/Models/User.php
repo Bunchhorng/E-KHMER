@@ -22,6 +22,8 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public const ROLE_ADMIN = 'admin';
 
+    public const ROLE_SUPER_ADMIN = 'super_admin';
+
     /**
      * `role` and `email_verified_at` are intentionally absent from $fillable:
      * a request payload must never be able to promote itself to admin or mark
@@ -54,7 +56,12 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isAdmin(): bool
     {
-        return $this->role === self::ROLE_ADMIN;
+        return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_SUPER_ADMIN], true);
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->role === self::ROLE_SUPER_ADMIN;
     }
 
     public function addresses()

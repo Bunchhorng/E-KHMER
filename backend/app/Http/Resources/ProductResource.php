@@ -47,10 +47,12 @@ class ProductResource extends JsonResource
             'sizes' => $this->whenLoaded('variants', fn () => $this->attributeSummary('size')),
             'cover_image' => $this->resolveCoverImage(),
             'brand' => $this->whenLoaded('brand', fn () => [
+                'id' => $this->brand->id,
                 'slug' => $this->brand->slug,
                 'name' => $this->brand->name,
             ]),
             'category' => $this->whenLoaded('category', fn () => [
+                'id' => $this->category->id,
                 'slug' => $this->category->slug,
                 'name' => $this->category->name,
             ]),

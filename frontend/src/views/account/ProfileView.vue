@@ -34,7 +34,7 @@ const saving = ref(false)
 let timer: ReturnType<typeof setTimeout> | null = null
 
 const isVerified = computed(() => Boolean(activeUser.value?.email_verified))
-const isAdmin = computed(() => activeUser.value?.role === 'admin')
+const isAdmin = computed(() => ['admin', 'super_admin'].includes(activeUser.value?.role ?? ''))
 
 const emailDisplay = computed(() => activeUser.value?.email ?? '—')
 const phoneDisplay = computed(() => activeUser.value?.phone || '—')

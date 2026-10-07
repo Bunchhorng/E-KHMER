@@ -304,7 +304,7 @@ class InventoryService
         if ($inventory->is_low_stock && $inventory->low_stock_notified_at === null) {
             $inventory->forceFill(['low_stock_notified_at' => now()])->save();
 
-            $admins = User::query()->where('role', User::ROLE_ADMIN)->get();
+            $admins = User::query()->whereIn('role', [User::ROLE_ADMIN, User::ROLE_SUPER_ADMIN])->get();
 
             if ($admins->isEmpty()) {
                 return;

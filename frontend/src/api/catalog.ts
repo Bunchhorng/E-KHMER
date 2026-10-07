@@ -37,8 +37,8 @@ export interface CatalogProduct {
   }[]
   colors?: AttributeSummary[]
   sizes?: AttributeSummary[]
-  brand: { slug: string; name: string } | null
-  category: { slug: string; name: string } | null
+  brand: { id: number; slug: string; name: string } | null
+  category: { id: number; slug: string; name: string } | null
 }
 
 export interface ProductDetail extends CatalogProduct {

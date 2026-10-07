@@ -12,5 +12,8 @@ export interface ApiBrand {
 export const brandsApi = {
   getAll() {
     return apiClient.get<{ data: ApiBrand[] }>('/brands')
+  },
+  list() {
+    return this.getAll()
   }
 }

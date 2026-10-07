@@ -13,7 +13,7 @@ class NotificationSeeder extends Seeder
     /** Seed read and unread records for the customer and admin notification screens. */
     public function run(): void
     {
-        $admin = User::where('role', User::ROLE_ADMIN)->first();
+        $admin = User::whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN])->first();
         $customer = User::where('email', 'customer@ekhmer.dev')->first();
         $order = Order::latest('id')->first();
 

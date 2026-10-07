@@ -216,7 +216,7 @@ class CatalogSeeder extends Seeder
 
     private function adminId(): ?int
     {
-        return User::query()->where('role', 'admin')->value('id');
+        return User::query()->whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN])->value('id');
     }
 
     /**

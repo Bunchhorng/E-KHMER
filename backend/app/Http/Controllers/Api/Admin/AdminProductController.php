@@ -94,6 +94,20 @@ class AdminProductController extends Controller
 
         $variants = $request->input('variants') ?: null;
 
+        // Seller quick-create intentionally captures a simple product rather
+        // than the full variant matrix used by Super Admin. A sellable default
+        // variant is still required for cart, checkout, and inventory flows.
+        if ($variants === null && $request->is('api/seller/*')) {
+            $variants = [[
+                'name' => 'Default',
+                'sku' => $data['sku'] ?? null,
+                'price' => $data['price'] ?? 0,
+                'compare_at_price' => $data['compare_at_price'] ?? null,
+                'quantity' => max((int) $request->input('initial_stock', 0), 0),
+                'is_active' => (bool) ($data['is_active'] ?? true),
+            ]];
+        }
+
         if (is_array($variants)) {
             // Variants inherit the product's branch, so that is the scope the
             // composite unique index will be checked against.

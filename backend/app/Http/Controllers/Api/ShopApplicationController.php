@@ -8,7 +8,6 @@ use App\Models\Shop;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 
 class ShopApplicationController extends Controller
 {
@@ -22,10 +21,6 @@ class ShopApplicationController extends Controller
     public function store(Request $request)
     {
         $user = $request->user();
-        if ($user->shops()->wherePivot('role_in_shop', 'owner')->exists()) {
-            throw ValidationException::withMessages(['shop' => ['You already own a shop application.']]);
-        }
-
         $data = $request->validate([
             'name' => ['required', 'string', 'max:190'], 'description' => ['nullable', 'string', 'max:5000'],
             'email' => ['nullable', 'email', 'max:190'], 'phone' => ['nullable', 'string', 'max:30'],
