@@ -3,76 +3,87 @@
 <head>
     <meta charset="utf-8">
     <style>
-        @page { margin: 30px 34px; }
+        @page { margin: 26px 30px; }
         * { box-sizing: border-box; }
-        body { margin: 0; color: #0f1e3c; font-family: DejaVu Sans, sans-serif; font-size: 9px; line-height: 1.42; }
-        .header, .information, .items, .footer { border-collapse: collapse; width: 100%; }
-        .header td, .information td, .footer td { vertical-align: top; }
-        .merchant { width: 58%; }
-        .merchant-name { color: #0a1934; font-size: 22px; font-weight: bold; letter-spacing: .3px; line-height: 1.05; }
-        .merchant-tagline { color: #35425a; font-size: 11px; font-weight: bold; letter-spacing: .5px; margin-top: 3px; }
-        .merchant-detail { color: #4f5e77; font-size: 8.5px; line-height: 1.55; margin-top: 4px; }
-        .contact-mark { color: #196ff0; display: inline-block; font-weight: bold; width: 14px; }
-        .brand { text-align: right; width: 42%; }
-        .brand-logo { display: inline-block; height: 58px; max-width: 82px; object-fit: contain; vertical-align: middle; }
-        .brand-mark { background: #1676f7; border-radius: 8px; color: #ffffff; display: inline-block; font-size: 27px; font-weight: bold; height: 54px; line-height: 54px; min-width: 54px; text-align: center; vertical-align: middle; }
-        .brand-copy { display: inline-block; margin-left: 10px; text-align: left; vertical-align: middle; }
-        .brand-name { color: #081936; font-size: 22px; font-weight: bold; letter-spacing: .5px; line-height: 1.05; }
-        .brand-links { color: #4f5e77; font-size: 7.5px; font-weight: bold; letter-spacing: 2px; margin-top: 8px; white-space: nowrap; }
-        .rule { border-top: 1.5px solid #50617e; height: 1px; margin: 18px 0 17px; }
-        .information { border-bottom: 1.2px solid #53627b; }
-        .information td { border-right: 1px solid #d6dfec; padding: 0 13px 16px; }
-        .information td:first-child { padding-left: 0; }
-        .information td:last-child { border-right: 0; padding-right: 0; }
+        body { color: #15233f; font-family: DejaVu Sans, sans-serif; font-size: 10px; line-height: 1.45; margin: 0; }
+        .header, .info-grid, .items, .footer { border-collapse: collapse; width: 100%; }
+        .header td, .info-grid td, .footer td { vertical-align: top; }
+
+        .merchant { padding-right: 20px; width: 56%; }
+        .merchant-name { color: #0b1d3a; font-size: 24px; font-weight: bold; letter-spacing: .1px; line-height: 1.1; }
+        .merchant-tagline { color: #43536e; font-size: 11px; font-weight: bold; letter-spacing: .35px; margin-top: 3px; }
+        .merchant-contact { color: #586982; font-size: 9px; line-height: 1.7; margin-top: 11px; }
+        .merchant-contact div { margin-top: 2px; }
+        .contact-dot { background: #1877f2; border-radius: 50%; display: inline-block; height: 5px; margin: 0 10px 1px 1px; vertical-align: middle; width: 5px; }
+        .brand { text-align: right; width: 44%; }
+        .brand-logo { display: inline-block; height: 66px; max-width: 72px; object-fit: contain; vertical-align: middle; }
+        .brand-mark { background: #1977f3; border-radius: 9px; color: #ffffff; display: inline-block; font-size: 31px; font-weight: bold; height: 60px; line-height: 60px; min-width: 60px; text-align: center; vertical-align: middle; }
+        .brand-copy { display: inline-block; margin-left: 11px; text-align: left; vertical-align: middle; }
+        .brand-name { color: #0a1d3a; font-size: 25px; font-weight: bold; letter-spacing: .15px; line-height: 1.08; }
+        .brand-links { color: #63728b; font-size: 7px; font-weight: bold; letter-spacing: 1.8px; margin-top: 8px; white-space: nowrap; }
+        .rule { border-top: 1.5px solid #9caabc; height: 1px; margin: 19px 0 18px; }
+
+        .info-grid { border-bottom: 1.5px solid #9caabc; }
+        .info-grid td { border-right: 1px solid #d8e2ee; padding: 0 15px 17px; }
+        .info-grid td:first-child { padding-left: 0; }
+        .info-grid td:last-child { border-right: 0; padding-right: 0; }
         .payment { width: 32%; }
-        .shipping { width: 37%; }
-        .invoice { width: 31%; }
-        .info-heading { background: #edf6ff; border-radius: 5px; color: #102144; font-size: 11px; font-weight: bold; margin-bottom: 10px; padding: 8px 9px; text-transform: uppercase; }
-        .info-line { color: #33435d; font-size: 8.6px; line-height: 1.72; }
-        .info-icon { color: #4b5d7a; display: inline-block; font-weight: bold; text-align: center; width: 18px; }
-        .status { background: #d5f7df; border-radius: 7px; color: #168341; display: inline-block; font-size: 8.5px; font-weight: bold; margin-top: 8px; padding: 7px 10px; }
-        .status.unpaid, .status.failed { background: #ffe4e7; color: #d64257; }
-        .status.refunded { background: #fff0cf; color: #a56a07; }
-        .invoice-value { color: #102144; float: right; font-weight: bold; }
-        .invoice-status { background: #1676f7; border-radius: 7px; color: #ffffff; display: inline-block; font-weight: bold; margin-top: 5px; padding: 6px 12px; }
-        .items { margin-top: 20px; }
-        .items th { background: #eaf5ff; color: #0f1e3c; font-size: 9px; font-weight: bold; padding: 11px 8px; text-align: left; }
+        .shipping { width: 36%; }
+        .invoice { width: 32%; }
+        .panel-heading { background: #edf6ff; border: 1px solid #e0efff; border-radius: 6px; color: #102344; font-size: 11px; font-weight: bold; margin-bottom: 10px; padding: 8px 9px; text-transform: uppercase; }
+        .detail-line { color: #44556f; font-size: 9px; line-height: 1.75; }
+        .detail-dot { background: #72849e; border-radius: 50%; display: inline-block; height: 5px; margin: 0 8px 1px 0; vertical-align: middle; width: 5px; }
+        .detail-line.primary { color: #182845; font-size: 9.5px; font-weight: bold; }
+        .payment-status { border-radius: 7px; display: inline-block; font-size: 8.8px; font-weight: bold; margin-top: 8px; padding: 7px 10px; }
+        .payment-status.paid { background: #dff8e8; color: #178143; }
+        .payment-status.unpaid, .payment-status.failed { background: #ffe5e8; color: #d54259; }
+        .payment-status.refunded { background: #fff0d2; color: #9d690d; }
+        .invoice-row { color: #4b5b73; font-size: 8.8px; line-height: 1.82; }
+        .invoice-row strong { color: #162640; float: right; font-weight: bold; }
+        .invoice-number { color: #102344; float: right; font-size: 10px; font-weight: bold; text-transform: none; }
+        .order-status { background: #1977f3; border-radius: 6px; color: #ffffff; float: right; font-size: 8px; font-weight: bold; line-height: 1.2; margin-top: 3px; padding: 5px 10px; }
+
+        .items { margin-top: 20px; table-layout: fixed; }
+        .items th { background: #eaf5ff; color: #102344; font-size: 9px; font-weight: bold; padding: 12px 8px; text-align: left; }
         .items th.right, .items td.right { text-align: right; }
-        .items td { border-bottom: 1px solid #dbe3ed; padding: 11px 8px; vertical-align: middle; }
+        .items td { border-bottom: 1px solid #dce5ef; padding: 12px 8px; vertical-align: middle; }
+        .items tr { page-break-inside: avoid; }
         .qty { text-align: center; width: 7%; }
-        .item { width: 50%; }
-        .price { width: 14%; }
-        .tax { width: 10%; }
-        .tax-amount { width: 11%; }
-        .subtotal { width: 13%; }
-        .product-image { background: #f4f6fa; border-radius: 6px; height: 62px; object-fit: contain; vertical-align: middle; width: 62px; }
-        .product-placeholder { background: #eef4fb; border-radius: 6px; color: #5a6c8b; display: inline-block; font-size: 20px; font-weight: bold; height: 62px; line-height: 62px; text-align: center; vertical-align: middle; width: 62px; }
-        .item-copy { display: inline-block; margin-left: 12px; max-width: 240px; vertical-align: middle; }
-        .product-name { color: #102144; font-size: 10px; font-weight: bold; line-height: 1.3; }
-        .product-detail { color: #60708a; font-size: 8.2px; line-height: 1.45; }
-        .money { color: #17253e; font-size: 9px; }
+        .item { width: 44%; }
+        .price { width: 12%; }
+        .tax { width: 8%; }
+        .tax-amount { width: 13%; }
+        .subtotal { width: 16%; }
+        .product-image { background: #f4f7fb; border: 1px solid #e0e8f2; border-radius: 7px; height: 68px; object-fit: contain; vertical-align: middle; width: 68px; }
+        .product-placeholder { background: #edf4fd; border: 1px solid #e0e8f2; border-radius: 7px; color: #58708f; display: inline-block; font-size: 22px; font-weight: bold; height: 68px; line-height: 68px; text-align: center; vertical-align: middle; width: 68px; }
+        .item-copy { display: inline-block; margin-left: 12px; max-width: 210px; vertical-align: middle; }
+        .product-name { color: #132442; font-size: 10.5px; font-weight: bold; line-height: 1.3; }
+        .product-detail { color: #65758d; font-size: 8.5px; line-height: 1.5; }
+        .money { color: #162640; font-size: 9px; }
         .strong { font-weight: bold; }
-        .totals { border-left: 1px solid #d8e0eb; margin-left: auto; margin-top: 15px; padding-left: 18px; width: 47%; }
+
+        .totals { border-left: 1px solid #d7e1ed; margin-left: auto; margin-top: 16px; padding-left: 19px; width: 46%; }
         .total-row { padding: 4px 0; }
-        .total-label { color: #293a57; font-size: 9px; }
-        .total-value { color: #102144; float: right; font-size: 9px; }
-        .discount .total-value { color: #126df2; font-weight: bold; }
-        .total-rule { border-top: 1.5px solid #50617e; margin: 9px 0 6px; }
-        .grand-total { background: #eaf5ff; border-radius: 4px; padding: 9px 10px; }
-        .grand-total .total-label { color: #0d1d3b; font-size: 13px; font-weight: bold; }
-        .grand-total .total-value { color: #126df2; font-size: 16px; font-weight: bold; }
-        .footer-rule { border-top: 1.5px solid #50617e; height: 1px; margin: 24px 0 14px; }
-        .thanks-icon { background: #1676f7; border-radius: 50%; color: #ffffff; font-size: 22px; height: 52px; line-height: 52px; text-align: center; width: 52px; }
-        .thanks-copy { border-left: 1px solid #c6d2e2; color: #102144; font-size: 12px; font-weight: bold; padding: 8px 18px; vertical-align: middle !important; }
-        .thanks-subtitle { color: #63718a; font-size: 8.5px; font-weight: normal; margin-top: 4px; }
-        .footer-note { color: #63718a; font-size: 8px; padding-left: 16px; text-align: right; vertical-align: middle !important; width: 28%; }
+        .total-label { color: #31435f; font-size: 9.5px; }
+        .total-value { color: #152641; float: right; font-size: 9.5px; }
+        .discount .total-value { color: #1977f3; font-weight: bold; }
+        .total-rule { border-top: 1.5px solid #7f8fa5; margin: 9px 0 7px; }
+        .grand-total { background: #eaf5ff; border: 1px solid #dcecff; border-radius: 6px; padding: 10px 11px; }
+        .grand-total .total-label { color: #0e2142; font-size: 13px; font-weight: bold; }
+        .grand-total .total-value { color: #1674f0; font-size: 17px; font-weight: bold; }
+
+        .footer-rule { border-top: 1.5px solid #9caabc; height: 1px; margin: 25px 0 15px; }
+        .thanks-icon { background: #1977f3; border-radius: 50%; color: #ffffff; font-size: 24px; font-weight: bold; height: 56px; line-height: 56px; text-align: center; width: 56px; }
+        .thanks-copy { border-left: 1px solid #c8d5e4; color: #102344; font-size: 12.5px; font-weight: bold; padding: 7px 18px; vertical-align: middle !important; }
+        .thanks-subtitle { color: #63738b; font-size: 9px; font-weight: normal; margin-top: 4px; }
+        .footer-note { color: #6b7c93; font-size: 8.5px; line-height: 1.55; text-align: right; vertical-align: middle !important; width: 27%; }
     </style>
 </head>
 <body>
     @php
         $branding = ($branding ?? []) + ['name' => config('app.name', 'E-KHMER'), 'tagline' => 'E-Commerce Store', 'logo' => null, 'mark' => 'E', 'address' => [], 'email' => null, 'phone' => null];
         $shipping = $order->shipping_address ?: $order->billing_address;
-        $currencySymbol = match ($order->currency ?? 'USD') { 'EUR' => '€', 'KHR' => '៛', default => '$' };
+        $currencySymbol = match ($order->currency ?? 'USD') { 'EUR' => 'EUR ', 'KHR' => 'KHR ', default => '$' };
         $taxRate = (float) $order->subtotal > 0 ? ((float) $order->tax_amount / (float) $order->subtotal) : 0;
         $paymentClass = in_array($order->payment_status, ['unpaid', 'failed', 'refunded'], true) ? $order->payment_status : 'paid';
         $shippingLines = is_array($shipping) ? array_filter([
@@ -89,11 +100,11 @@
             <td class="merchant">
                 <div class="merchant-name">{{ $branding['name'] }}</div>
                 <div class="merchant-tagline">{{ $branding['tagline'] }}</div>
-                @foreach($branding['address'] as $addressLine)
-                    <div class="merchant-detail"><span class="contact-mark">●</span>{{ $addressLine }}</div>
-                @endforeach
-                @if($branding['email'])<div class="merchant-detail"><span class="contact-mark">@</span>{{ $branding['email'] }}</div>@endif
-                @if($branding['phone'])<div class="merchant-detail"><span class="contact-mark">+</span>{{ $branding['phone'] }}</div>@endif
+                <div class="merchant-contact">
+                    @foreach($branding['address'] as $addressLine)<div><span class="contact-dot"></span>{{ $addressLine }}</div>@endforeach
+                    @if($branding['email'])<div><span class="contact-dot"></span>{{ $branding['email'] }}</div>@endif
+                    @if($branding['phone'])<div><span class="contact-dot"></span>{{ $branding['phone'] }}</div>@endif
+                </div>
             </td>
             <td class="brand">
                 @if($branding['logo'])
@@ -101,37 +112,32 @@
                 @else
                     <span class="brand-mark">{{ $branding['mark'] }}</span>
                 @endif
-                <span class="brand-copy">
-                    <span class="brand-name">{{ $branding['name'] }}</span><br>
-                    <span class="brand-links">SHOP · DISCOVER · SUPPORT</span>
-                </span>
+                <span class="brand-copy"><span class="brand-name">{{ $branding['name'] }}</span><br><span class="brand-links">SHOP  /  DISCOVER  /  SUPPORT</span></span>
             </td>
         </tr>
     </table>
 
     <div class="rule"></div>
 
-    <table class="information">
+    <table class="info-grid">
         <tr>
             <td class="payment">
-                <div class="info-heading">Payment information</div>
-                <div class="info-line"><span class="info-icon">●</span>{{ $order->customer_name ?: 'Customer' }}</div>
-                <div class="info-line"><span class="info-icon">▣</span>{{ $order->payment ? ucfirst($order->payment->method) : 'Payment pending' }}</div>
-                <div class="info-line"><span class="info-icon">▦</span>{{ $order->placed_at?->format('M d, Y H:i') }}</div>
-                <span class="status {{ $paymentClass }}">{{ $order->payment_status === 'paid' ? '✓ Payment Completed' : ucfirst($order->payment_status) }}</span>
+                <div class="panel-heading">Payment information</div>
+                <div class="detail-line primary"><span class="detail-dot"></span>{{ $order->customer_name ?: 'Customer' }}</div>
+                <div class="detail-line"><span class="detail-dot"></span>{{ $order->payment ? ucfirst($order->payment->method) : 'Payment pending' }}</div>
+                <div class="detail-line"><span class="detail-dot"></span>{{ $order->placed_at?->format('M d, Y H:i') }}</div>
+                <span class="payment-status {{ $paymentClass }}">{{ $order->payment_status === 'paid' ? 'Payment completed' : ucfirst($order->payment_status) }}</span>
             </td>
             <td class="shipping">
-                <div class="info-heading">Shipping address</div>
-                @foreach($shippingLines as $index => $line)
-                    <div class="info-line"><span class="info-icon">{{ $index === 0 ? '●' : '•' }}</span>{{ $line }}</div>
-                @endforeach
+                <div class="panel-heading">Shipping address</div>
+                @foreach($shippingLines as $index => $line)<div class="detail-line {{ $index === 0 ? 'primary' : '' }}"><span class="detail-dot"></span>{{ $line }}</div>@endforeach
             </td>
             <td class="invoice">
-                <div class="info-heading">Invoice <span class="invoice-value">#{{ $order->order_number }}</span></div>
-                <div class="info-line"><span class="info-icon">▤</span>Order date: <span class="invoice-value">{{ $order->placed_at?->format('M d, Y H:i') }}</span></div>
-                <div class="info-line"><span class="info-icon">◆</span>Total amount: <span class="invoice-value">{{ $currencySymbol }}{{ number_format((float) $order->total, 2) }}</span></div>
-                <div class="info-line"><span class="info-icon">▣</span>Payment method: <span class="invoice-value">{{ $order->payment ? ucfirst($order->payment->method) : '—' }}</span></div>
-                <div class="info-line"><span class="info-icon">▰</span>Order status: <span class="invoice-status">{{ ucfirst($order->status) }}</span></div>
+                <div class="panel-heading">Invoice <span class="invoice-number">#{{ $order->order_number }}</span></div>
+                <div class="invoice-row">Order date <strong>{{ $order->placed_at?->format('M d, Y H:i') }}</strong></div>
+                <div class="invoice-row">Total amount <strong>{{ $currencySymbol }}{{ number_format((float) $order->total, 2) }}</strong></div>
+                <div class="invoice-row">Payment method <strong>{{ $order->payment ? ucfirst($order->payment->method) : 'N/A' }}</strong></div>
+                <div class="invoice-row">Order status <span class="order-status">{{ ucfirst($order->status) }}</span></div>
             </td>
         </tr>
     </table>
@@ -139,38 +145,22 @@
     <table class="items">
         <thead>
             <tr>
-                <th class="qty">Qty</th>
-                <th class="item">Items</th>
-                <th class="price right">Price</th>
-                <th class="tax right">Tax</th>
-                <th class="tax-amount right">Tax amount</th>
-                <th class="subtotal right">Subtotal</th>
+                <th class="qty">Qty</th><th class="item">Items</th><th class="price right">Price</th><th class="tax right">Tax</th><th class="tax-amount right">Tax amount</th><th class="subtotal right">Subtotal</th>
             </tr>
         </thead>
         <tbody>
             @foreach($order->items as $item)
-                @php
-                    $lineTax = round((float) $item->line_total * $taxRate, 2);
-                    $itemSubtotal = (float) $item->line_total + $lineTax;
-                @endphp
+                @php $lineTax = round((float) $item->line_total * $taxRate, 2); @endphp
                 <tr>
                     <td class="qty money">{{ $item->quantity }}</td>
                     <td class="item">
-                        @if($item->receipt_image)
-                            <img class="product-image" src="{{ $item->receipt_image }}" alt="">
-                        @else
-                            <span class="product-placeholder">{{ mb_strtoupper(mb_substr($item->product_name, 0, 1)) }}</span>
-                        @endif
-                        <span class="item-copy">
-                            <span class="product-name">{{ $item->product_name }}</span><br>
-                            <span class="product-detail">{{ $item->variant_label ?: 'Product order item' }}</span><br>
-                            <span class="product-detail">SKU: {{ $item->sku ?: '—' }}</span>
-                        </span>
+                        @if($item->receipt_image)<img class="product-image" src="{{ $item->receipt_image }}" alt="">@else<span class="product-placeholder">{{ mb_strtoupper(mb_substr($item->product_name, 0, 1)) }}</span>@endif
+                        <span class="item-copy"><span class="product-name">{{ $item->product_name }}</span><br><span class="product-detail">{{ $item->variant_label ?: 'Product order item' }}</span><br><span class="product-detail">SKU: {{ $item->sku ?: 'N/A' }}</span></span>
                     </td>
                     <td class="price right money">{{ $currencySymbol }}{{ number_format((float) $item->unit_price, 2) }}</td>
-                    <td class="tax right money">{{ $taxRate > 0 ? number_format($taxRate * 100, 0).'%' : '—' }}</td>
+                    <td class="tax right money">{{ $taxRate > 0 ? number_format($taxRate * 100, 0).'%' : '-' }}</td>
                     <td class="tax-amount right money">{{ $currencySymbol }}{{ number_format($lineTax, 2) }}</td>
-                    <td class="subtotal right money strong">{{ $currencySymbol }}{{ number_format($itemSubtotal, 2) }}</td>
+                    <td class="subtotal right money strong">{{ $currencySymbol }}{{ number_format((float) $item->line_total, 2) }}</td>
                 </tr>
             @endforeach
         </tbody>
@@ -178,9 +168,7 @@
 
     <div class="totals">
         <div class="total-row"><span class="total-label">Subtotal ({{ $order->items->sum('quantity') }} items)</span><span class="total-value">{{ $currencySymbol }}{{ number_format((float) $order->subtotal, 2) }}</span></div>
-        @if((float) $order->discount_amount > 0)
-            <div class="total-row discount"><span class="total-label">Discount</span><span class="total-value">-{{ $currencySymbol }}{{ number_format((float) $order->discount_amount, 2) }}</span></div>
-        @endif
+        @if((float) $order->discount_amount > 0)<div class="total-row discount"><span class="total-label">Discount</span><span class="total-value">-{{ $currencySymbol }}{{ number_format((float) $order->discount_amount, 2) }}</span></div>@endif
         <div class="total-row"><span class="total-label">Shipping</span><span class="total-value">{{ $currencySymbol }}{{ number_format((float) $order->shipping_amount, 2) }}</span></div>
         <div class="total-row"><span class="total-label">Tax{{ $taxRate > 0 ? ' ('.number_format($taxRate * 100, 0).'%)' : '' }}</span><span class="total-value">{{ $currencySymbol }}{{ number_format((float) $order->tax_amount, 2) }}</span></div>
         <div class="total-rule"></div>
@@ -190,9 +178,9 @@
     <div class="footer-rule"></div>
     <table class="footer">
         <tr>
-            <td style="width: 58px;"><div class="thanks-icon">▣</div></td>
+            <td style="width: 62px;"><div class="thanks-icon">OK</div></td>
             <td class="thanks-copy">Thank you for shopping with {{ $branding['name'] }}!<div class="thanks-subtitle">We appreciate your support and look forward to serving you again.</div></td>
-            <td class="footer-note">Please keep this receipt for your records.<br>Issued by {{ $branding['name'] }}</td>
+            <td class="footer-note">This receipt is your proof of purchase.<br>Issued by {{ $branding['name'] }}</td>
         </tr>
     </table>
 </body>
