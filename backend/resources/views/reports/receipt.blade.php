@@ -65,10 +65,7 @@
         .thanks-icon { background: #1676f7; border-radius: 50%; color: #ffffff; font-size: 22px; height: 52px; line-height: 52px; text-align: center; width: 52px; }
         .thanks-copy { border-left: 1px solid #c6d2e2; color: #102144; font-size: 12px; font-weight: bold; padding: 8px 18px; vertical-align: middle !important; }
         .thanks-subtitle { color: #63718a; font-size: 8.5px; font-weight: normal; margin-top: 4px; }
-        .barcode-cell { border-left: 1px solid #c6d2e2; padding-left: 18px; text-align: center; width: 34%; }
-        .barcode-label { color: #52627c; font-size: 8px; text-align: left; }
-        .barcode { color: #090d16; font-family: DejaVu Sans Mono, monospace; font-size: 20px; font-weight: bold; letter-spacing: -1px; line-height: 1; margin-top: 5px; overflow: hidden; white-space: nowrap; }
-        .barcode-number { color: #35425a; font-size: 8px; letter-spacing: 2px; margin-top: 3px; }
+        .footer-note { color: #63718a; font-size: 8px; padding-left: 16px; text-align: right; vertical-align: middle !important; width: 28%; }
     </style>
 </head>
 <body>
@@ -78,7 +75,6 @@
         $currencySymbol = match ($order->currency ?? 'USD') { 'EUR' => '€', 'KHR' => '៛', default => '$' };
         $taxRate = (float) $order->subtotal > 0 ? ((float) $order->tax_amount / (float) $order->subtotal) : 0;
         $paymentClass = in_array($order->payment_status, ['unpaid', 'failed', 'refunded'], true) ? $order->payment_status : 'paid';
-        $barcode = str_repeat('|', 3).implode(' ', str_split(preg_replace('/[^A-Za-z0-9]/', '', $order->order_number))).str_repeat('|', 3);
         $shippingLines = is_array($shipping) ? array_filter([
             $order->customer_name,
             $shipping['address_line1'] ?? $shipping['address_line'] ?? null,
@@ -196,7 +192,7 @@
         <tr>
             <td style="width: 58px;"><div class="thanks-icon">▣</div></td>
             <td class="thanks-copy">Thank you for shopping with {{ $branding['name'] }}!<div class="thanks-subtitle">We appreciate your support and look forward to serving you again.</div></td>
-            <td class="barcode-cell"><div class="barcode-label">Order Code</div><div class="barcode">{{ $barcode }}</div><div class="barcode-number">{{ $order->order_number }}</div></td>
+            <td class="footer-note">Please keep this receipt for your records.<br>Issued by {{ $branding['name'] }}</td>
         </tr>
     </table>
 </body>
