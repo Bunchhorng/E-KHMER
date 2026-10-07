@@ -12,6 +12,7 @@ class OrderResource extends JsonResource
         return [
             'order_number' => $this->order_number,
             'status' => $this->status,
+            'can_cancel' => $this->canBeCancelled(),
             'payment_status' => $this->payment_status,
             'subtotal' => (float) $this->subtotal,
             'discount_amount' => (float) $this->discount_amount,
@@ -40,25 +41,16 @@ class OrderResource extends JsonResource
                 ])->values();
             }),
             'items' => OrderItemResource::collection($this->whenLoaded('items')),
-            'shop_orders' => $this->whenLoaded('shopOrders', fn () => $this->shopOrders->map(fn ($shopOrder) => [
-                'shop_order_number' => $shopOrder->shop_order_number,
-                'status' => $shopOrder->status,
-                'subtotal' => (float) $shopOrder->subtotal,
-                'discount_amount' => (float) $shopOrder->discount_amount,
-                'tax_amount' => (float) $shopOrder->tax_amount,
-                'shipping_amount' => (float) $shopOrder->shipping_amount,
-                'total' => (float) $shopOrder->total,
-                'shop' => $shopOrder->relationLoaded('shop') ? [
-                    'id' => $shopOrder->shop?->id,
-                    'name' => $shopOrder->shop?->name,
-                    'slug' => $shopOrder->shop?->slug,
-                ] : null,
-                'items' => $shopOrder->relationLoaded('items') ? OrderItemResource::collection($shopOrder->items) : [],
-            ])->values()),
+            'shop_orders' => $this->whenLoaded('shopOrders', fn () => $this->shopOrders->map(function ($shopOrder) use ($request) {
+                $shopOrder->setRelation('order', $this->resource);
+
+                return (new ShopOrderResource($shopOrder))->toArray($request);
+            })->values()),
             'payment' => $this->whenLoaded('payment', function () {
                 if ($this->payment === null) {
                     return null;
                 }
+
                 return [
                     'id' => $this->payment->id,
                     'method' => $this->payment->method,
@@ -69,11 +61,14 @@ class OrderResource extends JsonResource
                 ];
             }),
             'shipment' => $this->whenLoaded('shipments', function () {
-                $shipment = $this->shipments->first();
+                $shipment = $this->shipments->firstWhere('shop_order_id', null)
+                    ?? ($this->shipments->count() === 1 ? $this->shipments->first() : null);
                 if ($shipment === null) {
                     return null;
                 }
+
                 return [
+                    'shop_order_id' => $shipment->shop_order_id,
                     'tracking_number' => $shipment->tracking_number,
                     'carrier' => $shipment->carrier,
                     'status' => $shipment->status,

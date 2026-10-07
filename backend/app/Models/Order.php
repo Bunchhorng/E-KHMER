@@ -91,6 +91,23 @@ class Order extends Model
 
     public function trackingEvents()
     {
-        return $this->hasMany(TrackingEvent::class);
+        return $this->hasMany(TrackingEvent::class)->whereNull('shop_order_id');
+    }
+
+    public function canBeCancelled(): bool
+    {
+        if (! in_array($this->status, [self::STATUS_PENDING, self::STATUS_CONFIRMED, self::STATUS_PROCESSING], true)) {
+            return false;
+        }
+        $dispatched = [self::STATUS_SHIPPED, self::STATUS_DELIVERED];
+        $hasDispatchedShop = $this->relationLoaded('shopOrders')
+            ? $this->shopOrders->contains(fn ($allocation) => in_array($allocation->status, $dispatched, true))
+            : $this->shopOrders()->whereIn('status', $dispatched)->exists();
+        $shipmentStates = [Shipment::STATUS_SHIPPED, Shipment::STATUS_IN_TRANSIT, Shipment::STATUS_DELIVERED, Shipment::STATUS_RETURNED];
+        $hasDispatchedShipment = $this->relationLoaded('shipments')
+            ? $this->shipments->contains(fn ($shipment) => in_array($shipment->status, $shipmentStates, true))
+            : $this->shipments()->whereIn('status', $shipmentStates)->exists();
+
+        return ! $hasDispatchedShop && ! $hasDispatchedShipment;
     }
 }

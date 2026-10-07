@@ -11,7 +11,7 @@ class TrackingEvent extends Model
 
     protected $table = 'tracking_events';
 
-    protected $fillable = ['order_id', 'from_status', 'status', 'description', 'changed_by', 'created_at'];
+    protected $fillable = ['order_id', 'shop_order_id', 'from_status', 'status', 'description', 'changed_by', 'created_at'];
 
     protected $casts = [
         'created_at' => 'datetime',
@@ -25,5 +25,10 @@ class TrackingEvent extends Model
     public function changedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'changed_by');
+    }
+
+    public function shopOrder(): BelongsTo
+    {
+        return $this->belongsTo(ShopOrder::class);
     }
 }

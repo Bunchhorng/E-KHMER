@@ -11,9 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 class ShipmentService
 {
-    public function __construct(private OrderService $orders)
-    {
-    }
+    public function __construct(private OrderService $orders, private ShopOrderFulfillmentService $fulfillment) {}
 
     /**
      * Update shipment metadata and move it through the supported logistics
@@ -23,8 +21,16 @@ class ShipmentService
      */
     public function update(Shipment $shipment, array $data, ?int $actorId = null): Shipment
     {
+        if ($shipment->shop_order_id !== null) {
+            $allocation = $this->fulfillment->updateShipment($shipment->shopOrder()->firstOrFail(), $data, $actorId);
+
+            return $allocation->shipment->load(['order.user', 'method', 'shopOrder.shop']);
+        }
+
         return DB::transaction(function () use ($shipment, $data, $actorId): Shipment {
-            $shipment = Shipment::with('order')->whereKey($shipment->id)->lockForUpdate()->firstOrFail();
+            $order = Order::whereKey($shipment->order_id)->lockForUpdate()->firstOrFail();
+            $shipment = Shipment::whereKey($shipment->id)->lockForUpdate()->firstOrFail();
+            $shipment->setRelation('order', $order);
             $from = $shipment->status;
             $to = $data['status'];
 
@@ -42,7 +48,11 @@ class ShipmentService
             }
 
             if (in_array($to, [Shipment::STATUS_SHIPPED, Shipment::STATUS_IN_TRANSIT], true)) {
-                if ($order->status === Order::STATUS_PROCESSING) {
+                if ($order->shopOrders()->exists()) {
+                    if (! in_array($order->status, [Order::STATUS_CONFIRMED, Order::STATUS_PROCESSING, Order::STATUS_SHIPPED, Order::STATUS_DELIVERED], true)) {
+                        throw ValidationException::withMessages(['status' => ['Confirm the order before dispatching its shipment.']]);
+                    }
+                } elseif ($order->status === Order::STATUS_PROCESSING) {
                     $this->orders->transition($order, Order::STATUS_SHIPPED, $actorId, 'Shipment dispatched');
                 } elseif (! in_array($order->status, [Order::STATUS_SHIPPED, Order::STATUS_DELIVERED], true)) {
                     throw ValidationException::withMessages([
@@ -52,7 +62,11 @@ class ShipmentService
             }
 
             if ($to === Shipment::STATUS_DELIVERED) {
-                if ($order->status === Order::STATUS_SHIPPED) {
+                if ($order->shopOrders()->exists()) {
+                    if (! in_array($from, [Shipment::STATUS_SHIPPED, Shipment::STATUS_IN_TRANSIT, Shipment::STATUS_DELIVERED], true)) {
+                        throw ValidationException::withMessages(['status' => ['Only a dispatched shipment can be delivered.']]);
+                    }
+                } elseif ($order->status === Order::STATUS_SHIPPED) {
                     $this->orders->transition($order, Order::STATUS_DELIVERED, $actorId, 'Shipment delivered');
                 } elseif ($order->status !== Order::STATUS_DELIVERED) {
                     throw ValidationException::withMessages([
@@ -75,6 +89,9 @@ class ShipmentService
             }
 
             $shipment->save();
+            if ($order->shopOrders()->exists()) {
+                $this->fulfillment->synchronizeParent($order, $actorId);
+            }
 
             return $shipment->load(['order.user', 'method']);
         });

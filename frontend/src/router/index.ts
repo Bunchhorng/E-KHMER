@@ -37,6 +37,7 @@ const router = createRouter({
         { path: 'seller/shops/:id/products/:productId/edit', name: 'seller-shop-product-edit', component: () => import('@/views/seller/SellerProductFormView.vue'), meta: { title: 'Edit Shop Product', requiresAuth: true } },
         { path: 'seller/shops/:id/inventory', name: 'seller-shop-inventory', component: () => import('@/views/seller/SellerInventoryView.vue'), meta: { title: 'Shop Inventory', requiresAuth: true } },
         { path: 'seller/shops/:id/orders', name: 'seller-shop-orders', component: () => import('@/views/seller/SellerOrdersView.vue'), meta: { title: 'Shop Orders', requiresAuth: true } },
+        { path: 'seller/shops/:id/orders/:orderId', name: 'seller-shop-order-detail', component: () => import('@/views/seller/SellerOrderDetailView.vue'), meta: { title: 'Shop Order', requiresAuth: true } },
         { path: 'order/success/:orderId', name: 'order-success', component: () => import('@/views/OrderSuccessView.vue'), meta: { title: 'Order Confirmed' } },
         { path: 'order/tracking/:orderId', name: 'order-tracking', component: () => import('@/views/OrderTrackingView.vue'), meta: { title: 'Track Order' } }
       ]
@@ -119,10 +120,20 @@ const router = createRouter({
   ]
 })
 
-router.beforeEach((to) => {
+router.beforeEach(async (to) => {
   document.title = to.meta.title ? `${to.meta.title} · E-KHMER` : 'E-KHMER'
 
   const auth = useAuthStore()
+
+  if (!auth.sessionChecked && auth.token) {
+    try {
+      await auth.refreshUser()
+    } catch {
+      if (!auth.token) auth.clearSession()
+    } finally {
+      auth.sessionChecked = true
+    }
+  }
 
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }

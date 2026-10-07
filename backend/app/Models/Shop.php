@@ -126,7 +126,14 @@ class Shop extends Model
                 $shop->slug = $slug;
             }
             if (empty($shop->code)) {
-                $shop->code = strtoupper(Str::slug($shop->name ?: $shop->slug, ''));
+                $baseCode = Str::upper(Str::substr(Str::slug($shop->name ?: $shop->slug, ''), 0, 30)) ?: 'SHOP';
+                $code = $baseCode;
+                $suffix = 2;
+                while (static::withTrashed()->where('code', $code)->exists()) {
+                    $ending = (string) $suffix++;
+                    $code = Str::substr($baseCode, 0, 30 - strlen($ending)).$ending;
+                }
+                $shop->code = $code;
             }
             if (empty($shop->country)) {
                 $shop->country = 'KH';

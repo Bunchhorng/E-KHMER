@@ -1,6 +1,7 @@
 import apiClient from './client'
 import type { AdminInventoryItem, AdminProduct, InventoryTransaction } from './admin'
 import type { PaginatedResponse } from './catalog'
+import type { ApiShopOrder, ShopOrderTransitionPayload, ShopShipmentPayload } from './checkout'
 
 export interface SellerShop {
   id: number
@@ -16,16 +17,7 @@ export interface SellerDashboard {
   metrics: { products: number; active_products: number; inactive_products: number; low_stock: number }
 }
 
-export interface SellerShopOrder {
-  id: number
-  shop_order_number: string
-  status: string
-  total: number
-  items_count: number
-  customer_name: string | null
-  payment_status: string | null
-  placed_at: string | null
-}
+export type SellerShopOrder = ApiShopOrder
 
 export const sellerApi = {
   getApplication() { return apiClient.get<{ data: SellerShop }>('/seller/application') },
@@ -47,5 +39,8 @@ export const sellerApi = {
   adjustInventory(shopId: number, inventoryId: number, quantity: number) {
     return apiClient.post<{ data: AdminInventoryItem }>(`/seller/shops/${shopId}/inventory/${inventoryId}/adjust`, { quantity })
   },
-  listOrders(shopId: number, params: { q?: string; status?: string; page?: number } = {}) { return apiClient.get<PaginatedResponse<SellerShopOrder>>(`/seller/shops/${shopId}/orders`, { params }) }
+  listOrders(shopId: number, params: { q?: string; status?: string; page?: number } = {}) { return apiClient.get<PaginatedResponse<SellerShopOrder>>(`/seller/shops/${shopId}/orders`, { params }) },
+  getOrder(shopId: number, orderId: number) { return apiClient.get<{ data: ApiShopOrder }>(`/seller/shops/${shopId}/orders/${orderId}`) },
+  transitionOrder(shopId: number, orderId: number, payload: ShopOrderTransitionPayload) { return apiClient.put<{ data: ApiShopOrder }>(`/seller/shops/${shopId}/orders/${orderId}/transition`, payload) },
+  updateShipment(shopId: number, orderId: number, payload: ShopShipmentPayload) { return apiClient.put<{ data: ApiShopOrder }>(`/seller/shops/${shopId}/orders/${orderId}/shipment`, payload) }
 }

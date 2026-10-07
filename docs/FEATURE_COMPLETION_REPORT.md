@@ -16,8 +16,8 @@ This is the working completion record for the marketplace. A feature is marked *
 | Customer engagement | Complete | Wishlist, delivered-purchase review verification, review moderation, and account notifications are implemented. |
 | Admin dashboard overview | Complete | Period KPIs, all requested date filters, revenue/order/category/payment/status charts, recent orders/customers/reviews/payments, current stock alerts, shop approvals, and catalog/shop totals are connected to the Laravel API. Dashboard and linked admin regressions pass. See the detailed audit below. |
 | Other platform administration | In progress | Catalog, category, brand, order, payment, shipment, coupon, review, customer, report, and settings screens exist. Their presence does not certify every action: for example, the order bulk "Print labels" action downloads the general orders PDF rather than shipping labels for the selected orders. Operational settings and the previously recorded project backlog remain separate work. |
-| Operational settings | In progress | Maintenance mode now returns a storefront 503 while preserving auth/admin access; order and low-stock email toggles now select notification channels; changing the low-stock threshold updates existing and new inventory records. Container regression verification is pending. |
-| Multi-shop foundation | In progress | Shops, memberships, ownership policies, shop product ownership, per-shop inventory, and parent-order splitting are implemented. Seller fulfilment and per-shop shipping remain incomplete. |
+| Operational settings | Complete | Maintenance-mode restrictions, order/stock notification preferences, and inventory threshold updates passed the full container regression suite. |
+| Multi-shop marketplace flow | Complete | Super Admin platform access, active owner/manager memberships, isolated product/inventory/order workspaces, one shared customer storefront, mixed-shop checkout, independent fulfilment/shipment histories, and customer delivery tracking are implemented and verified. Checkout keeps its existing single shipping charge and payment; each shop has its own parcel. Other seller modules and production payment integration remain separate work. |
 
 ## 2. Repairs completed in this work session
 
@@ -33,14 +33,21 @@ This is the working completion record for the marketplace. A feature is marked *
 | Dashboard interactions and feedback | Complete | Added request cancellation to prevent stale range responses, refresh timestamps, optional one-minute polling that pauses while the tab is hidden, explicit API/shop-action errors, success messages, and empty states. Stock links initialize the inventory page with the appropriate search and stock filters. |
 | Mobile admin layout | Complete | Replaced the always-visible sidebar on smaller screens with a drawer. It opens from the menu button and closes from the backdrop, Escape, or navigation. Hidden navigation is inert; desktop collapse remains available. Browser checks confirm a 358px dashboard content area within a 390px viewport. |
 | Docker frontend refresh | Complete | The running Vite server retained the previous dashboard because Windows bind-mount edits were not detected. Enabled polling through `VITE_USE_POLLING` for Docker development and recreated the frontend service. Browser verification then loaded the new dashboard without a manual code rebuild. |
-| Seller route context | In progress | The seller middleware verifies the manager, route shop, and route resource before controllers use its trusted context. Product and inventory seller routes now use that scope; create/update cannot move products across shops. Container regression verification is pending. |
-| Seller inventory workspace | In progress | Sellers can now search their shop inventory, set on-hand stock safely above reservations, and inspect its transaction ledger. The API now exposes restock ledger filtering as well. Frontend build verification is pending. |
-| Operational settings | In progress | Maintenance mode is enforced for storefront API calls; email preferences control order and low-stock notification channels; updating the global low-stock threshold synchronizes current stock and becomes the default for new records. Tests were added but need a final container run. |
+| Seller route context | Complete | Explicit seller controller adapters now bind Shop/Product/Inventory parameters correctly before the validated management context reaches existing controllers. The previously failing create/list routes and nested edit/adjust/ledger/delete workflows pass. Body shop IDs cannot move a seller's product across shops. |
+| Seller inventory workspace | Complete | Own-shop search, availability, reservation-safe adjustments and transaction history are verified through the scoped API and production frontend build. |
+| Operational settings | Complete | Maintenance restrictions, notification channel preferences and global/new inventory threshold behaviour passed the full regression suite. |
+| Strict platform role | Complete | Only `super_admin` receives global platform access. Legacy `admin` values grant no global privileges; the existing role migration converts designated platform administrators to Super Admin. Shop owners/managers use membership permissions. |
+| Independent shop fulfilment | Complete | Added seller order detail and validated processing/dispatch/delivery/tracking actions, separate shipment and history records, Super Admin allocation controls, overall progress synchronization, and customer tracking cards. |
+| Marketplace lifecycle safeguards | Complete | Customer confirmation closes reservations and confirms allocations together; cancellation/expiry closes all allocations; dispatched allocations block whole-order cancellation; returned parcels block global delivery; unpaid online orders cannot be fulfilled through a platform status override. |
+| Owner session and navigation | Complete | Login/me/profile responses include active managed-shop identities. Owners land in Seller Center, the account menu exposes their workspace, and saved sessions refresh against the API before route permissions are checked. |
+| Financial allocation accuracy | Complete | Three-or-more-shop discounts, tax and shipping now use original totals when distributing shares, with deterministic rounding. Parent checkout prices remain unchanged. |
+| Existing-order upgrade | Complete | Added shipment/history links and imported allocation status records while preserving original platform tracking. A forward correction clears inherited dates on pending imported parcels; actual new dispatch/delivery actions stamp their own dates. Original platform dates remain available. |
+| Flow presentation | Complete | Added shop branding, progress cards, accessible histories, owner/customer controls, English/Khmer labels, compact mobile navigation and missing-image fallbacks. The earlier branch-only architecture plan was replaced with the approved independent-shop flow. |
 
 ## 3. Remaining work, in delivery order
 
-1. **Finish seller operations** — verify manager access and the new inventory workspace; add product media/variant management, order detail/status actions, shipment tracking, shop shipping methods, coupons, reports, and team management.
-2. **Finish multi-shop fulfilment** — add a per-shop shipment and order-status model, including customer-facing tracking for each seller allocation. This needs a product decision on whether checkout charges one platform shipment or one shipment per shop.
+1. **Extend seller operations** — add the remaining media/variant UI, shop shipping configuration, coupons, reports and team management. Core ownership, products, inventory, order detail/status and shipment tracking are now complete.
+2. **Optional separate shop shipping quotes** — independent parcels are complete using the current single checkout shipping charge. Charging separately per shop is a distinct pricing change requiring delivery rules and fee policy.
 3. **Add privileged-action audit logs** — record actor, target, action, before/after state, timestamp, and reason for shop, member, payment/refund, and setting changes.
 4. **Add frontend automated tests and linting** — introduce a Vue/Vitest test suite and quality scripts for route authorization, forms, API errors, checkout, and seller operations.
 5. **Integrate a real payment provider** — card/bank/gateway checkout is intentionally sandbox-only. This is blocked until a provider, country/currency support, webhook policy, and credentials are chosen. Production currently rejects self-confirmed online payments safely.
@@ -51,8 +58,8 @@ This is the working completion record for the marketplace. A feature is marked *
 | Check | Result |
 | --- | --- |
 | `docker compose exec -T frontend npm run build` | Passed after the nullable-date repair. |
-| Full Laravel suite before repairs | 283 passed, 8 failed. |
-| Targeted Laravel suite after initial repairs | 68 passed, 2 seller authorization checks still failing; the other six original failures are resolved. |
+| Historical full Laravel suite before repairs | 283 passed, 8 failed; retained as the earlier baseline. |
+| Historical targeted suite after initial repairs | 68 passed, 2 seller route checks failed at that stage. Those route binding failures are resolved in the marketplace implementation. |
 | Latest static diff check | Passed. |
 | Dashboard and linked admin regressions | Passed: 67 tests, 386 assertions across `AdminDashboardTest`, `AdminOpsTest`, `AdminTest`, and `AdminInventoryTest` in the Laravel Docker container. |
 | Dashboard frontend production build | Passed: Vue TypeScript checks and Vite production build. |
@@ -60,9 +67,15 @@ This is the working completion record for the marketplace. A feature is marked *
 | Running dashboard browser checks | Passed: desktop and 390px mobile rendering, five live charts, all 14 dashboard panels, custom-range empty states, sidebar open/close, and low-stock navigation with the inventory filter applied. No runtime exceptions or dashboard load alerts; no page-level horizontal overflow. Temporary browser sessions were closed and logged out. |
 | Receipt branding and PDF checks | Passed: 3 tests and 10 assertions on the final print-safe blue invoice layout (single-shop dynamic logo, multi-shop fallback, and admin receipt generation). |
 | Vue production build after print-preview update | Passed. |
-| Latest seller/settings implementation | Final Docker test/build rerun pending after the route-context, inventory workspace, and operational-settings changes. |
+| Full Laravel regression after marketplace implementation | Passed: 328 tests, 1,472 assertions. |
+| Final marketplace/shop/checkout/admin regressions | Passed: 102 tests, 529 assertions after adding strict dispatch-cancellation and shop-name/code safeguards. |
+| Confirmation/returned-parcel regression checks | Passed: 60 tests, 417 assertions across marketplace, checkout and admin operations. |
+| Final marketplace-specific checks | Passed: 21 tests, 169 assertions, including the imported-date correction and upgrade compatibility. |
+| Final Vue production build | Passed: TypeScript and Vite build after owner/customer screens, session refresh, compact navigation and image fallbacks. |
+| Marketplace migrations on running MySQL | Applied the fulfilment migration, existing administrator-role rename, and forward import-date correction successfully. Original orders, money totals and platform tracking were preserved. |
+| Final marketplace browser/API checks | Passed against existing demo data: scoped seller detail with carrier/tracking controls, restored managed-shop session metadata, customer delivery/history cards, safe payment output, and desktop/390px mobile layouts. No load alerts, runtime exceptions or page-level horizontal overflow. Orders/payments were not changed by these checks; browser sessions were closed and logged out. |
 
-The next delivery step is the seller/settings regression run, then seller product media/variant controls. Multi-shop shipping is intentionally held until its checkout and fulfilment policy is decided.
+The approved core marketplace flow is implemented. The next seller delivery step is media/variant controls and the remaining shop administration modules. Per-shop shipping price changes and real provider/settlement work remain distinct decisions.
 
 ## 5. Admin dashboard audit — 7 October 2026
 
@@ -85,3 +98,20 @@ Scope: `/admin/dashboard`, its overview API, and dashboard links into inventory.
 | Docker development updates | Vite kept serving the earlier Vue component after source edits on the Windows bind mount. | Complete: Docker-only file polling enabled and the frontend service recreated; confirmed the new component is served in the browser. |
 
 Revenue uses the order's placement date and current paid status; it is not an accounting report grouped by payment settlement date. Category and top-product amounts are item subtotals before order-level discounts, shipping and tax. Stock, catalog, and shop approval summaries intentionally represent current operations regardless of the selected historical period.
+
+## 6. Approved marketplace flow
+
+The implementation follows: Super Admin controls the platform; Owner A/Owner B/Owner C manage their assigned shops; published products feed one E-KHMER storefront; customers use a shared cart and checkout.
+
+| Flow | Implemented behaviour |
+| --- | --- |
+| Super Admin → shops | Global dashboard, approvals, membership management, catalog/orders and individual allocation controls. Global access is restricted to Super Admin. |
+| Owner → own shop | Active memberships authorize scoped workspaces; request-body shop IDs cannot change the trusted scope. Unmanaged contexts are refused; cross-shop resources are not disclosed. |
+| Shops → website | The shared catalog exposes published products from active shops. Product details identify their seller. |
+| Customer → checkout | A parent order/payment covers the cart; immutable items are grouped into shop allocations with correctly apportioned totals. |
+| Each shop → delivery | Independent processing, carrier/tracking metadata, dispatch/delivery dates, status notes and history. One shop's action cannot advance another's shipment. |
+| Deliveries → customer | Customer account detail and tracking pages show each allocation's items, status, carrier, tracking and timeline; overall progress follows the least advanced allocation. |
+
+The existing one-time shipping charge is retained and allocated across parcels. Owner actions do not capture online payments or issue refunds. Production gateway/settlement, partial refunds and additional seller administration modules are not certified by this core-flow completion.
+
+See `multi-shop-plan.md` for the current architecture, APIs, upgrade strategy and lifecycle rules.

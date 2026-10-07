@@ -14,6 +14,9 @@ class UserResource extends JsonResource
             'name' => $this->name,
             'email' => $this->email,
             'role' => $this->role,
+            'managed_shops' => $this->whenLoaded('managedShops', fn () => $this->managedShops->map(fn ($shop) => [
+                'id' => $shop->id, 'name' => $shop->name, 'slug' => $shop->slug, 'role' => $shop->pivot->role_in_shop,
+            ])->values()),
             'avatar' => $this->avatar,
             'phone' => $this->phone,
             'newsletter' => (bool) $this->newsletter,

@@ -6,6 +6,8 @@ import { useI18n } from 'vue-i18n'
 import { ordersApi } from '@/api/orders'
 import type { ApiOrder } from '@/api/checkout'
 import StatusTag from '@/components/StatusTag.vue'
+import ShopDeliveryTracker from '@/components/ShopDeliveryTracker.vue'
+import AssetImage from '@/components/AssetImage.vue'
 import { formatDateTime, formatPrice } from '@/utils/format'
 import { openPrintWindow, printBlob } from '@/utils/download'
 
@@ -114,6 +116,8 @@ onMounted(async () => {
       </button>
     </div>
 
+    <ShopDeliveryTracker v-if="order.shop_orders?.length" class="mt-6" :allocations="order.shop_orders" :platform-shipment="order.shipment" />
+
     <div class="card mt-6 overflow-hidden p-0">
       <div class="border-b border-border-gray p-4">
         <h2 class="text-base font-semibold text-ink dark:text-ink">{{ $t('order.items') }}</h2>
@@ -133,11 +137,10 @@ onMounted(async () => {
             <tr v-for="item in order.items" :key="item.id">
               <td class="px-4 py-3">
                 <div class="flex items-center gap-3">
-                  <img
-                    v-if="item.image_path"
+                  <AssetImage
                     :src="item.image_path"
                     :alt="item.product_name"
-                    class="h-12 w-10 rounded-lg object-cover"
+                    class="h-12 w-10 rounded-lg border border-border-gray"
                   />
                   <div class="min-w-0">
                     <p class="font-medium text-ink dark:text-ink">{{ item.product_name }}</p>

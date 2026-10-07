@@ -3,17 +3,24 @@
 namespace App\Http\Controllers\Api\Seller;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ShopOrderTransitionRequest;
+use App\Http\Requests\ShopShipmentRequest;
+use App\Http\Resources\ShopOrderResource;
 use App\Models\Shop;
 use App\Models\ShopOrder;
+use App\Services\ShopOrderFulfillmentService;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class SellerShopOrderController extends Controller
 {
-    public function index(Request $request, Shop $shop): array
+    public function __construct(private ShopOrderFulfillmentService $fulfillment) {}
+
+    public function index(Request $request, Shop $shop): AnonymousResourceCollection
     {
         $paginator = ShopOrder::query()
             ->where('shop_id', $shop->id)
-            ->with(['order:id,order_number,customer_name,email,phone,placed_at,payment_status', 'items'])
+            ->with(['order', 'shop', 'items.shop', 'shipment', 'trackingEvents'])
             ->when($request->filled('status'), fn ($query) => $query->where('status', $request->string('status')))
             ->when($request->filled('q'), function ($query) use ($request) {
                 $term = '%'.$request->string('q')->trim().'%';
@@ -22,23 +29,23 @@ class SellerShopOrderController extends Controller
             ->latest('id')
             ->paginate(15);
 
-        return [
-            'data' => $paginator->getCollection()->map(fn (ShopOrder $shopOrder) => [
-                'id' => $shopOrder->id,
-                'shop_order_number' => $shopOrder->shop_order_number,
-                'status' => $shopOrder->status,
-                'total' => (float) $shopOrder->total,
-                'items_count' => $shopOrder->items->sum('quantity'),
-                'customer_name' => $shopOrder->order?->customer_name,
-                'payment_status' => $shopOrder->order?->payment_status,
-                'placed_at' => $shopOrder->order?->placed_at?->toISOString(),
-            ])->values(),
-            'meta' => [
-                'current_page' => $paginator->currentPage(),
-                'last_page' => $paginator->lastPage(),
-                'per_page' => $paginator->perPage(),
-                'total' => $paginator->total(),
-            ],
-        ];
+        return ShopOrderResource::collection($paginator);
+    }
+
+    public function show(Shop $shop, ShopOrder $shopOrder): ShopOrderResource
+    {
+        return new ShopOrderResource($this->fulfillment->load($shopOrder));
+    }
+
+    public function transition(ShopOrderTransitionRequest $request, Shop $shop, ShopOrder $shopOrder): ShopOrderResource
+    {
+        $data = $request->validated();
+
+        return new ShopOrderResource($this->fulfillment->transition($shopOrder, $data['status'], $request->user()->id, $data['note'] ?? null, array_intersect_key($data, array_flip(['carrier', 'tracking_number']))));
+    }
+
+    public function shipment(ShopShipmentRequest $request, Shop $shop, ShopOrder $shopOrder): ShopOrderResource
+    {
+        return new ShopOrderResource($this->fulfillment->updateShipment($shopOrder, $request->validated(), $request->user()->id));
     }
 }

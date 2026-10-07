@@ -30,10 +30,15 @@ class ShopApplicationController extends Controller
         ]);
 
         $shop = DB::transaction(function () use ($data, $user) {
-            $base = Str::slug($data['name']) ?: 'shop'; $slug = $base; $suffix = 2;
-            while (Shop::withTrashed()->where('slug', $slug)->exists()) $slug = $base.'-'.$suffix++;
-            $shop = Shop::create(array_merge($data, ['slug' => $slug, 'code' => strtoupper(Str::substr(str_replace('-', '', $slug), 0, 30)), 'status' => Shop::STATUS_PENDING]));
+            $base = Str::slug($data['name']) ?: 'shop';
+            $slug = $base;
+            $suffix = 2;
+            while (Shop::withTrashed()->where('slug', $slug)->exists()) {
+                $slug = $base.'-'.$suffix++;
+            }
+            $shop = Shop::create(array_merge($data, ['slug' => $slug, 'status' => Shop::STATUS_PENDING]));
             $shop->users()->attach($user->id, ['role_in_shop' => 'owner', 'status' => 'active']);
+
             return $shop;
         });
 

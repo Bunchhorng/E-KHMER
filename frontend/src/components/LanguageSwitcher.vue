@@ -4,6 +4,7 @@ import { Languages } from 'lucide-vue-next'
 import { useLocaleStore } from '@/stores/locale'
 
 const localeStore = useLocaleStore()
+withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 
 const currentLabel = computed(() => (localeStore.currentLocale === 'km' ? 'ភាសាខ្មែរ' : 'English'))
 
@@ -23,6 +24,6 @@ function toggle() {
     @click="toggle"
   >
     <Languages :size="16" />
-    <span class="leading-tight">{{ currentLabel }}</span>
+    <span class="leading-tight" :class="{ 'hidden sm:inline': compact }">{{ currentLabel }}</span>
   </button>
 </template>

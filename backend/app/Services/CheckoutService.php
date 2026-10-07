@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Http\Resources\AddressResource;
+use App\Models\Cart;
 use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Payment;
@@ -25,6 +26,7 @@ class CheckoutService
         private InventoryService $inventory,
         private CouponService $coupon,
         private ShopOrderService $shopOrders,
+        private ShopOrderFulfillmentService $fulfillment,
         private OrderNumberGenerator $orderNumber,
     ) {}
 
@@ -163,18 +165,29 @@ class CheckoutService
                 ],
             ]);
 
-            Shipment::create([
-                'order_id' => $order->id,
-                'shipping_method_id' => $shippingMethod->id,
-                'status' => Shipment::STATUS_PENDING,
-                'address_snapshot' => $snapshot,
-            ]);
+            foreach ($order->shopOrders()->get() as $shopOrder) {
+                Shipment::create([
+                    'order_id' => $order->id,
+                    'shop_order_id' => $shopOrder->id,
+                    'shipping_method_id' => $shippingMethod->id,
+                    'status' => Shipment::STATUS_PENDING,
+                    'address_snapshot' => $snapshot,
+                ]);
+            }
+            if ($order->items()->whereNull('shop_order_id')->exists()) {
+                Shipment::create([
+                    'order_id' => $order->id,
+                    'shipping_method_id' => $shippingMethod->id,
+                    'status' => Shipment::STATUS_PENDING,
+                    'address_snapshot' => $snapshot,
+                ]);
+            }
 
             if ($coupon !== null && $discount > 0) {
                 $this->coupon->applyUsage($coupon, $order, $user);
             }
 
-            return $order->load(['items.shop', 'shopOrders.shop', 'shopOrders.items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
+            return $order->load(['items.shop', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents', 'payment', 'shipments', 'trackingEvents.changedBy']);
         });
     }
 
@@ -229,6 +242,7 @@ class CheckoutService
 
             $order->status = Order::STATUS_CONFIRMED;
             $order->save();
+            $this->fulfillment->synchronizeAll($order, Order::STATUS_CONFIRMED);
 
             $order->trackingEvents()->create([
                 'from_status' => $fromStatus,
@@ -243,10 +257,10 @@ class CheckoutService
 
             $cartId = $payment->provider_data['cart_id'] ?? null;
             if (is_numeric($cartId)) {
-                \App\Models\Cart::find((int) $cartId)?->items()->delete();
+                Cart::find((int) $cartId)?->items()->delete();
             }
 
-            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
+            return $order->load(['items.shop', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents', 'payment', 'shipments', 'trackingEvents.changedBy']);
         });
     }
 
@@ -273,6 +287,7 @@ class CheckoutService
             $order->status = Order::STATUS_CANCELLED;
             $order->note = trim(($order->note ? $order->note.' ' : '').'reservation released');
             $order->save();
+            $this->fulfillment->synchronizeAll($order, Order::STATUS_CANCELLED);
 
             $order->trackingEvents()->create([
                 'from_status' => $fromStatus,

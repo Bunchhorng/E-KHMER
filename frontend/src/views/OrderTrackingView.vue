@@ -1,13 +1,15 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Package, Check } from 'lucide-vue-next'
+import { Package, Check, RefreshCw } from 'lucide-vue-next'
 import type { OrderStatus, Order, OrderItem, TrackingEvent } from '@/types'
 import { ordersApi } from '@/api/orders'
-import type { ApiOrder } from '@/api/checkout'
+import type { ApiOrder, ApiShopOrder } from '@/api/checkout'
 import { useAuthStore } from '@/stores/auth'
 import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import ShopDeliveryTracker from '@/components/ShopDeliveryTracker.vue'
+import AssetImage from '@/components/AssetImage.vue'
 import { formatDate, formatDateTime, formatPrice } from '@/utils/format'
 
 const route = useRoute()
@@ -16,6 +18,8 @@ const authStore = useAuthStore()
 
 const order = ref<Order | null>(null)
 const loading = ref(true)
+const allocations = ref<ApiShopOrder[]>([])
+const platformShipment = ref<ApiOrder['shipment']>(null)
 
 const FLOW: OrderStatus[] = ['Pending', 'Confirmed', 'Processing', 'Shipped', 'Delivered']
 
@@ -46,7 +50,8 @@ function mapOrderFromApi(raw: ApiOrder): Order {
 
   // The API currently supplies an actual delivery timestamp, not a carrier ETA.
   // Do not manufacture a date from the order timestamp: that misleads customers.
-  const estimatedDelivery = raw.shipment?.delivered_at ?? ''
+  const deliveredDates = (raw.shop_orders ?? []).map(allocation => allocation.shipment?.delivered_at).filter((date): date is string => Boolean(date)).sort()
+  const estimatedDelivery = raw.status === 'delivered' ? deliveredDates.at(-1) ?? raw.shipment?.delivered_at ?? '' : ''
 
   return {
     id: raw.order_number,
@@ -88,7 +93,8 @@ function timestampFor(status: OrderStatus): string | null {
   return event ? formatDateTime(event.at) : null
 }
 
-onMounted(async () => {
+async function loadTracking() {
+  loading.value = true
   const orderNumber = route.params.orderId as string
   if (!orderNumber) {
     loading.value = false
@@ -99,13 +105,16 @@ onMounted(async () => {
       ? ordersApi.get(orderNumber)
       : ordersApi.getGuest(orderNumber)
     const { data } = await request
+    allocations.value = data.data.shop_orders ?? []
+    platformShipment.value = data.data.shipment
     order.value = mapOrderFromApi(data.data)
   } catch {
     order.value = null
   } finally {
     loading.value = false
   }
-})
+}
+onMounted(loadTracking)
 </script>
 
 <template>
@@ -123,17 +132,19 @@ onMounted(async () => {
             <template v-else>Placed {{ formatDate(order.placedAt) }} · Delivery date will appear when the carrier confirms it.</template>
           </p>
         </div>
-        <StatusTag :status="order.status" />
+        <div class="flex items-center gap-2"><StatusTag :status="order.status" /><button type="button" class="btn-icon" :aria-label="$t('actions.refresh')" @click="loadTracking"><RefreshCw class="h-4 w-4" /></button></div>
       </div>
     </div>
+
+    <ShopDeliveryTracker v-if="allocations.length" class="mt-6" :allocations="allocations" :platform-shipment="platformShipment" />
 
     <div v-if="order.status === 'Delivered'" class="mt-6 flex items-center gap-2 rounded-xl bg-emerald-100 p-4 text-sm font-medium text-emerald-700">
       <Check class="h-5 w-5" />
       {{ $t('order.delivered_on', { date: formatDate(order.estimatedDelivery) }) }}
     </div>
 
-    <div class="card mt-6 p-6">
-      <h2 class="mb-6 text-lg font-bold text-ink dark:text-ink">{{ $t('order.order_progress') }}</h2>
+    <div v-if="!['Cancelled', 'Refunded'].includes(order.status)" class="card mt-6 p-6">
+      <h2 class="mb-6 text-lg font-bold text-ink dark:text-ink">{{ $t(allocations.length ? 'marketplace.overall_progress' : 'order.order_progress') }}</h2>
 
       <div class="hidden sm:flex sm:items-start">
         <template v-for="(status, i) in FLOW" :key="status">
@@ -214,7 +225,7 @@ onMounted(async () => {
       <h2 class="mb-4 text-lg font-bold text-ink dark:text-ink">{{ $t('order.items') }}</h2>
       <div class="divide-y divide-border-gray dark:divide-border-gray">
         <div v-for="item in order.items" :key="item.id" class="flex items-center gap-4 py-4">
-          <img :src="item.image" :alt="item.title" class="h-16 w-14 rounded-lg object-cover" />
+          <AssetImage :src="item.image" :alt="item.title" class="h-16 w-14 rounded-lg border border-border-gray" />
           <div class="min-w-0 flex-1">
             <p class="font-semibold text-ink dark:text-ink">{{ item.title }}</p>
             <p class="text-xs text-gray-500 dark:text-muted dark:text-gray-500">

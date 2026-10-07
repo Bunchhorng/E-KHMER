@@ -10,7 +10,6 @@ use App\Models\PaymentTransaction;
 use App\Models\Shipment;
 use App\Models\User;
 use App\Notifications\OrderStatusNotification;
-use App\Models\TrackingEvent;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -21,8 +20,8 @@ class OrderService
     public function __construct(
         private InventoryService $inventory,
         private CouponService $coupon,
-    ) {
-    }
+        private ShopOrderFulfillmentService $fulfillment,
+    ) {}
 
     /**
      * Paginated list of a user's orders, newest first.
@@ -30,7 +29,7 @@ class OrderService
     public function listFor(User $user, ?string $status = null): LengthAwarePaginator
     {
         return $user->orders()
-            ->with(['items', 'payment', 'shipments', 'trackingEvents.changedBy'])
+            ->with(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents'])
             ->when($status !== null, fn ($q) => $q->where('status', $status))
             ->latest('placed_at')
             ->paginate(10);
@@ -41,10 +40,10 @@ class OrderService
      */
     public function findByNumber(User $user, string $orderNumber): Order
     {
-        $order = $user->orders()->with(['items', 'payment', 'shipments', 'trackingEvents.changedBy'])->where('order_number', $orderNumber)->first();
+        $order = $user->orders()->with(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents'])->where('order_number', $orderNumber)->first();
 
         if ($order === null) {
-            throw new NotFoundHttpException();
+            throw new NotFoundHttpException;
         }
 
         return $order;
@@ -79,8 +78,17 @@ class OrderService
                 throw ValidationException::withMessages(['message' => "Invalid status transition from {$order->status} to {$to}"]);
             }
 
+            if ($from === Order::STATUS_PENDING && $to === Order::STATUS_CONFIRMED && $order->shopOrders()->exists()) {
+                if ($order->payment?->method !== 'cod' && $order->payment_status !== Order::PAYMENT_PAID) {
+                    throw ValidationException::withMessages(['status' => ['Online payment must be confirmed before this order can be fulfilled.']]);
+                }
+                $quantities = $order->items->whereNotNull('product_variant_id')->groupBy('product_variant_id')
+                    ->map(fn ($items) => (int) $items->sum('quantity'))->all();
+                $this->inventory->deductMany($quantities);
+            }
+
             if ($to === Order::STATUS_SHIPPED) {
-                $shipment = $order->shipments()->first();
+                $shipment = $order->shipments()->whereNull('shop_order_id')->first();
                 if ($shipment !== null) {
                     $shipment->status = Shipment::STATUS_SHIPPED;
                     $shipment->shipped_at = now();
@@ -89,7 +97,7 @@ class OrderService
             }
 
             if ($to === Order::STATUS_DELIVERED) {
-                $shipment = $order->shipments()->first();
+                $shipment = $order->shipments()->whereNull('shop_order_id')->first();
                 if ($shipment !== null) {
                     $shipment->status = Shipment::STATUS_DELIVERED;
                     $shipment->delivered_at = now();
@@ -101,6 +109,9 @@ class OrderService
             // to the pool and release coupon capacity so stock and usage are
             // never leaked.
             if ($to === Order::STATUS_CANCELLED || $to === Order::STATUS_REFUNDED) {
+                if ($to === Order::STATUS_CANCELLED && ! $order->canBeCancelled()) {
+                    throw ValidationException::withMessages(['status' => ['A delivery has already been dispatched. The whole order can no longer be cancelled.']]);
+                }
                 $this->revertFulfilment($order);
                 $this->coupon->releaseUsage($order);
             }
@@ -115,11 +126,12 @@ class OrderService
 
             $order->status = $to;
             $order->save();
+            $this->fulfillment->synchronizeAll($order, $to, $changedBy, $note);
 
             $this->recordTrackingEvent($order, $from, $to, $changedBy, $note);
             $this->notifyStatusChange($order, $to);
 
-            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents']);
         });
     }
 
@@ -225,7 +237,7 @@ class OrderService
 
             $allowed = [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PROCESSING];
 
-            if (! in_array($order->status, $allowed, true)) {
+            if (! in_array($order->status, $allowed, true) || ! $order->canBeCancelled()) {
                 throw ValidationException::withMessages(['message' => 'Order cannot be cancelled in its current state']);
             }
 
@@ -236,11 +248,12 @@ class OrderService
             $order->status = Order::STATUS_CANCELLED;
             $order->note = trim(($order->note ? $order->note.' ' : '').'cancelled');
             $order->save();
+            $this->fulfillment->synchronizeAll($order, Order::STATUS_CANCELLED, $changedBy);
 
             $this->recordTrackingEvent($order, $from, Order::STATUS_CANCELLED, $changedBy);
             $this->notifyStatusChange($order, Order::STATUS_CANCELLED);
 
-            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
+            return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents']);
         });
     }
 }

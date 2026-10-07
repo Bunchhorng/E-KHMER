@@ -5,6 +5,7 @@ namespace App\Http\Middleware;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\Shop;
+use App\Models\ShopOrder;
 use Closure;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\Response;
@@ -25,6 +26,11 @@ class EnsureManagedShop
         $inventory = $request->route('inventory');
         if ($inventory instanceof Inventory) {
             abort_unless((int) $inventory->shop_id === (int) $shop->id, 404);
+        }
+
+        $shopOrder = $request->route('shopOrder');
+        if ($shopOrder instanceof ShopOrder) {
+            abort_unless((int) $shopOrder->shop_id === (int) $shop->id, 404);
         }
 
         // Seller routes are never allowed to choose a different branch from the payload/query string.

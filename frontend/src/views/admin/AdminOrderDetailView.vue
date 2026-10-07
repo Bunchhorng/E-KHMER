@@ -7,8 +7,10 @@ import { adminApi } from '@/api/admin'
 import type { ApiOrder } from '@/api/checkout'
 import StatusTag from '@/components/StatusTag.vue'
 import BaseBadge from '@/components/BaseBadge.vue'
+import ShopOrderManagement from '@/components/ShopOrderManagement.vue'
 import { formatDateTime, formatPrice } from '@/utils/format'
 import { openPrintWindow, printBlob } from '@/utils/download'
+import { extractErrorMessage } from '@/api/errors'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -27,7 +29,7 @@ const transitionMap: Record<string, string[]> = {
 }
 
 const allowedTransitions = computed<string[]>(() =>
-  order.value ? (transitionMap[order.value.status] ?? []) : []
+  order.value ? (transitionMap[order.value.status] ?? []).filter(status => status !== 'cancelled' || order.value?.can_cancel !== false) : []
 )
 
 function capitalize(s: string): string {
@@ -79,8 +81,8 @@ async function transitionTo(status: string) {
   try {
     const { data } = await adminApi.transitionOrder(Number(route.params.id), status)
     order.value = data.data
-  } catch {
-    showToast(t('admin.order_detail.toast_transition_error'))
+  } catch (failure) {
+    showToast(extractErrorMessage(failure, t('admin.order_detail.toast_transition_error')))
   } finally {
     transitioning.value = false
   }
@@ -145,6 +147,8 @@ onMounted(loadOrder)
           </BaseBadge>
         </div>
       </div>
+
+      <section v-if="order.shop_orders?.length" class="space-y-6"><ShopOrderManagement v-for="allocation in order.shop_orders" :key="allocation.id" :allocation="allocation" mode="admin" @updated="loadOrder" /></section>
 
       <div class="grid gap-6 lg:grid-cols-3">
         <div class="card p-5">

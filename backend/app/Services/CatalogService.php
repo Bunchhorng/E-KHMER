@@ -8,7 +8,6 @@ use App\Models\AttributeValue;
 use App\Models\Brand;
 use App\Models\Product;
 use App\Models\ProductVariant;
-use App\Models\Shop;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -16,9 +15,7 @@ use Illuminate\Support\Str;
 
 class CatalogService
 {
-    public function __construct(protected CategoryService $categories)
-    {
-    }
+    public function __construct(protected CategoryService $categories) {}
 
     /**
      * Public catalog listing.
@@ -34,7 +31,7 @@ class CatalogService
             ->with(['brand', 'category', 'images', 'variants.inventory', 'variants.attributeValues.value.attribute']);
 
         if (($term = trim((string) ($filters['q'] ?? ''))) !== '') {
-            $needle = '%' . $this->escapeLike(mb_strtolower($term)) . '%';
+            $needle = '%'.$this->escapeLike(mb_strtolower($term)).'%';
             $query->where(function (Builder $q) use ($needle) {
                 $q->whereRaw('LOWER(name) LIKE ? ESCAPE ?', [$needle, '!'])
                     ->orWhereRaw('LOWER(short_description) LIKE ? ESCAPE ?', [$needle, '!'])
@@ -56,11 +53,11 @@ class CatalogService
         $this->applyPriceRange($query, $filters);
         $this->applyAttributeFilters($query, $filters);
 
-        if (!empty($filters['rating']) && (int) $filters['rating'] > 0) {
+        if (! empty($filters['rating']) && (int) $filters['rating'] > 0) {
             $query->where('rating_avg', '>=', (float) $filters['rating']);
         }
 
-        if (!empty($filters['stock'])) {
+        if (! empty($filters['stock'])) {
             $query->whereHas('variants', function (Builder $q) {
                 $q->where('is_active', true)->whereHas('inventory', function (Builder $iq) {
                     $iq->whereRaw('quantity - reserved_quantity > 0');
@@ -82,6 +79,7 @@ class CatalogService
             ->active()
             ->with([
                 'brand',
+                'shop',
                 'category',
                 'images',
                 'variants' => fn ($q) => $q->with(['inventory', 'attributeValues.value.attribute']),
@@ -228,7 +226,7 @@ class CatalogService
      * `variants_count` is pre-aggregated by the eager-loading `withCount` in
      * {@see facets()}; this method performs no queries of its own.
      *
-     * @param  \Illuminate\Support\Collection<int,AttributeValue>  $values
+     * @param  Collection<int,AttributeValue>  $values
      * @return array<int,array<string,mixed>>
      */
     protected function shapeValues(Collection $values): array

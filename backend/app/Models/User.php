@@ -2,11 +2,12 @@
 
 namespace App\Models;
 
-use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
+use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -56,7 +57,7 @@ class User extends Authenticatable implements MustVerifyEmail
 
     public function isAdmin(): bool
     {
-        return in_array($this->role, [self::ROLE_ADMIN, self::ROLE_SUPER_ADMIN], true);
+        return $this->isSuperAdmin();
     }
 
     public function isSuperAdmin(): bool
@@ -104,6 +105,12 @@ class User extends Authenticatable implements MustVerifyEmail
     public function shopMemberships()
     {
         return $this->hasMany(ShopUser::class);
+    }
+
+    public function managedShops(): BelongsToMany
+    {
+        return $this->shops()->where('shops.status', Shop::STATUS_ACTIVE)
+            ->wherePivot('status', 'active')->wherePivotIn('role_in_shop', ['owner', 'manager']);
     }
 
     public function ownsShop(Shop $shop): bool

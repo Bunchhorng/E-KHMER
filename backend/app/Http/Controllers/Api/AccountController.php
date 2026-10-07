@@ -25,7 +25,7 @@ class AccountController extends Controller
         $wishlistCount = $user->wishlist?->items()->count() ?? 0;
 
         return [
-            'user' => new UserResource($user),
+            'user' => new UserResource($user->load('managedShops')),
             'orders_count' => $user->orders_count,
             'reviews_count' => $user->reviews_count,
             'wishlist_count' => $wishlistCount,
@@ -42,7 +42,7 @@ class AccountController extends Controller
             'newsletter' => $request->boolean('newsletter'),
         ]);
 
-        return new UserResource($user);
+        return new UserResource($user->load('managedShops'));
     }
 
     public function updateAvatar(UpdateAvatarRequest $request, MediaUploadService $mediaService)
@@ -55,14 +55,14 @@ class AccountController extends Controller
 
         $user->update(['avatar' => $url]);
 
-        return new UserResource($user);
+        return new UserResource($user->load('managedShops'));
     }
 
     public function changePassword(ChangePasswordRequest $request)
     {
         $user = $request->user();
 
-        if (!Hash::check($request->current_password, $user->password)) {
+        if (! Hash::check($request->current_password, $user->password)) {
             throw ValidationException::withMessages([
                 'current_password' => ['The current password is incorrect.'],
             ]);

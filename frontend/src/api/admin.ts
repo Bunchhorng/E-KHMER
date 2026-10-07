@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { ApiOrder } from './checkout'
+import type { ApiOrder, ApiShopOrder, ShopOrderTransitionPayload, ShopShipmentPayload } from './checkout'
 import type { CatalogProduct, PaginatedResponse } from './catalog'
 
 export interface AdminDashboard {
@@ -306,6 +306,12 @@ export interface AdminNotification {
 }
 
 export const adminApi = {
+  transitionShopOrder(orderId: number, shopOrderId: number, payload: ShopOrderTransitionPayload) {
+    return apiClient.put<{ data: ApiShopOrder }>(`/admin/orders/${orderId}/shop-orders/${shopOrderId}/transition`, payload)
+  },
+  updateShopShipment(orderId: number, shopOrderId: number, payload: ShopShipmentPayload) {
+    return apiClient.put<{ data: ApiShopOrder }>(`/admin/orders/${orderId}/shop-orders/${shopOrderId}/shipment`, payload)
+  },
   getDashboard(range?: string, from?: string, to?: string, signal?: AbortSignal) {
     const params: Record<string, string> = {}
     if (range) params.range = range

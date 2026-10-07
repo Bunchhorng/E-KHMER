@@ -26,9 +26,7 @@ class AuthController extends Controller
      */
     private const REMEMBERED_TOKEN_LIFETIME_DAYS = 30;
 
-    public function __construct(private CartService $carts)
-    {
-    }
+    public function __construct(private CartService $carts) {}
 
     public function register(RegisterRequest $request)
     {
@@ -46,7 +44,7 @@ class AuthController extends Controller
         // creation. If any of them throw, the user is already persisted and should
         // still be able to complete registration rather than seeing a generic failure.
         try {
-            if (!$user->hasVerifiedEmail()) {
+            if (! $user->hasVerifiedEmail()) {
                 // Rendering the mail costs several seconds, which used to push the
                 // whole response past the client's request timeout: the browser gave
                 // up while the account was already created, and the retry came back
@@ -84,7 +82,7 @@ class AuthController extends Controller
         return response()->json([
             'data' => [
                 'token' => $token,
-                'user' => new UserResource($user),
+                'user' => new UserResource($user->load('managedShops')),
             ],
         ], 201);
     }
@@ -107,7 +105,7 @@ class AuthController extends Controller
             $valid = false;
         }
 
-        if (!$valid) {
+        if (! $valid) {
             throw ValidationException::withMessages([
                 'email' => ['Invalid credentials.'],
             ]);
@@ -126,7 +124,7 @@ class AuthController extends Controller
         return response()->json([
             'data' => [
                 'token' => $token,
-                'user' => new UserResource($user),
+                'user' => new UserResource($user->load('managedShops')),
             ],
         ]);
     }
@@ -140,7 +138,7 @@ class AuthController extends Controller
 
     public function me(Request $request)
     {
-        return new UserResource($request->user());
+        return new UserResource($request->user()->load('managedShops'));
     }
 
     /**
@@ -151,11 +149,11 @@ class AuthController extends Controller
     {
         $user = User::findOrFail((int) $request->route('id'));
 
-        if (!hash_equals(sha1($user->getEmailForVerification()), (string) $request->route('hash'))) {
+        if (! hash_equals(sha1($user->getEmailForVerification()), (string) $request->route('hash'))) {
             abort(403, 'Invalid email verification link.');
         }
 
-        if (!$user->hasVerifiedEmail()) {
+        if (! $user->hasVerifiedEmail()) {
             $user->markEmailAsVerified();
             $message = 'Email verified successfully.';
         } else {

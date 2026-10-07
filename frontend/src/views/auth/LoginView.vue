@@ -34,7 +34,7 @@ async function submit() {
     const user = await auth.login(form.email, form.password, form.remember)
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : undefined
     if (redirect) router.push(redirect)
-    else router.push(['admin', 'super_admin'].includes(user?.role ?? '') ? { name: 'admin-dashboard' } : { name: 'account-dashboard' })
+    else router.push(user?.role === 'super_admin' ? { name: 'admin-dashboard' } : auth.isSeller ? { name: 'seller-dashboard' } : { name: 'account-dashboard' })
   } catch (e) {
     error.value = extractErrorMessage(e, t('error.invalid_credentials'))
   }

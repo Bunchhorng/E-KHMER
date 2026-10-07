@@ -21,9 +21,50 @@ export interface CheckoutPayload {
   address?: CheckoutAddress
 }
 
+export interface ApiShopOrder {
+  id: number
+  order_id: number
+  order_number: string
+  shop_order_number: string
+  status: string
+  parent_status: string
+  payment_status: string
+  currency: string
+  customer_name: string | null
+  email: string | null
+  phone: string | null
+  shipping_address: Record<string, string> | null
+  placed_at: string | null
+  subtotal: number
+  discount_amount: number
+  tax_amount: number
+  shipping_amount: number
+  total: number
+  items_count: number
+  items: ApiOrder['items']
+  shop: { id: number; name: string; slug: string; logo: string | null } | null
+  shipment: { id: number; status: string; carrier: string | null; tracking_number: string | null; shipped_at: string | null; delivered_at: string | null } | null
+  tracking_events: { id: number; from_status: string | null; status: string; description: string | null; at: string }[]
+  allowed_transitions: string[]
+}
+
+export interface ShopOrderTransitionPayload {
+  status: string
+  note?: string
+  carrier?: string
+  tracking_number?: string
+}
+
+export interface ShopShipmentPayload {
+  status: string
+  carrier?: string
+  tracking_number?: string
+}
+
 export interface ApiOrder {
   order_number: string
   status: string
+  can_cancel?: boolean
   payment_status: string
   subtotal: number
   discount_amount: number
@@ -39,6 +80,7 @@ export interface ApiOrder {
   note: string | null
   coupon_code: string | null
   placed_at: string | null
+  shop_orders?: ApiShopOrder[]
   tracking_events?: {
     status: string
     description: string | null
@@ -65,6 +107,7 @@ export interface ApiOrder {
     paid_at: string | null
   } | null
   shipment: {
+    shop_order_id?: number | null
     tracking_number: string | null
     carrier: string | null
     status: string

@@ -29,19 +29,21 @@ class ShopOrderService
             'tax_amount' => (float) $order->tax_amount,
             'shipping_amount' => (float) $order->shipping_amount,
         ];
+        $amounts = $remaining;
+        $allAssigned = round((float) $groups->flatten(1)->sum('line_total'), 2) === round($subtotal, 2);
 
         foreach ($shopIds as $index => $shopId) {
             $items = $groups->get($shopId);
             $shopSubtotal = round((float) $items->sum('line_total'), 2);
-            $isLast = $index === $shopIds->count() - 1;
+            $isLast = $allAssigned && $index === $shopIds->count() - 1;
             $allocations = [];
 
-            foreach ($remaining as $field => $amount) {
+            foreach ($amounts as $field => $amount) {
                 $allocated = $isLast
-                    ? $amount
+                    ? $remaining[$field]
                     : round($subtotal > 0 ? $amount * ($shopSubtotal / $subtotal) : 0, 2);
                 $allocations[$field] = $allocated;
-                $remaining[$field] = round($amount - $allocated, 2);
+                $remaining[$field] = round($remaining[$field] - $allocated, 2);
             }
 
             $shopOrder = ShopOrder::create([
@@ -57,6 +59,7 @@ class ShopOrderService
             ]);
 
             $items->each->update(['shop_order_id' => $shopOrder->id]);
+            $shopOrder->trackingEvents()->create(['order_id' => $order->id, 'status' => Order::STATUS_PENDING, 'description' => 'Shop order placed']);
         }
     }
 }

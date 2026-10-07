@@ -88,7 +88,7 @@ class CheckoutController extends Controller
 
         $this->checkout->release($order);
 
-        return new OrderResource($order->fresh(['items', 'payment', 'shipments', 'trackingEvents']));
+        return new OrderResource($order->fresh(['items.shop', 'payment', 'shipments', 'trackingEvents', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents']));
     }
 
     protected function resolveOwnedOrder(Request $request, string $orderNumber): Order

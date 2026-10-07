@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onBeforeUnmount, ref, watch, onMounted } from "vue";
+import { computed, onBeforeUnmount, ref, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import type { RouteLocationRaw } from "vue-router";
 import { Heart, LogIn, LogOut, Menu, Search, ShoppingBag, User, X } from "lucide-vue-next";
@@ -33,13 +33,16 @@ const mobileOpen = ref(false);
 const userMenuOpen = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
 
-const accountLinks: Array<{ labelKey: string; to: RouteLocationRaw }> = [
+const accountLinks = computed<Array<{ labelKey: string; to: RouteLocationRaw }>>(() => [
+  ...(auth.isAdmin ? [{ labelKey: 'marketplace.platform_admin', to: { name: 'admin-dashboard' } }] : []),
+  ...(auth.isSeller ? [{ labelKey: 'marketplace.seller_center', to: { name: 'seller-dashboard' } }] : []),
   { labelKey: "nav.dashboard", to: { name: "account-dashboard" } },
   { labelKey: "nav.my_orders", to: { name: "account-orders" } },
   { labelKey: "nav.wishlist", to: { name: "account-wishlist" } },
   { labelKey: "nav.addresses", to: { name: "account-addresses" } },
   { labelKey: "nav.profile", to: { name: "account-profile" } },
-];
+  { labelKey: 'marketplace.become_seller', to: { name: 'seller-application' } },
+]);
 
 function submitSearch(): void {
   const q = searchTerm.value.trim();
@@ -90,7 +93,7 @@ async function signOut(): Promise<void> {
       {{ $t('header.announcement') }}
     </div>
     <div class="sticky-header">
-      <div class="container-app flex h-16 items-center gap-4 lg:h-20">
+      <div class="container-app flex h-16 items-center gap-2 sm:gap-4 lg:h-20">
         <button
           type="button"
           class="btn-icon lg:hidden"
@@ -102,7 +105,7 @@ async function signOut(): Promise<void> {
 
         <RouterLink
           to="/"
-          class="text-2xl font-extrabold tracking-tight text-primary"
+          class="shrink-0 whitespace-nowrap text-xl font-extrabold tracking-tight text-primary sm:text-2xl"
         >
           E-<span class="text-ink dark:text-ink">KHMER</span>
         </RouterLink>
@@ -125,7 +128,7 @@ async function signOut(): Promise<void> {
         </form>
 
         <div class="ml-auto flex items-center gap-1">
-          <LanguageSwitcher />
+          <LanguageSwitcher compact />
           <ThemeToggle />
 
           <RouterLink
@@ -140,7 +143,7 @@ async function signOut(): Promise<void> {
 
           <RouterLink
             to="/account/wishlist"
-            class="btn-icon relative"
+            class="btn-icon relative hidden sm:inline-flex"
             :aria-label="$t('nav.wishlist')"
           >
             <Heart :size="20" />

@@ -17,9 +17,7 @@ class AdminOrderController extends Controller
     public function __construct(
         protected OrderService $orders,
         protected ReceiptBrandingService $receiptBranding,
-    )
-    {
-    }
+    ) {}
 
     public function index(Request $request)
     {
@@ -48,7 +46,7 @@ class AdminOrderController extends Controller
         }
 
         if ($request->filled('q')) {
-            $term = '%' . trim((string) $request->q) . '%';
+            $term = '%'.trim((string) $request->q).'%';
             $query->where(function ($q) use ($term) {
                 $q->where('order_number', 'like', $term)
                     ->orWhere('customer_name', 'like', $term)
@@ -73,7 +71,7 @@ class AdminOrderController extends Controller
     {
         $this->authorize('view', $order);
 
-        $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
+        $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents']);
 
         $this->restrictItemsToActorShop($order, request());
 
@@ -101,7 +99,7 @@ class AdminOrderController extends Controller
             'order' => $order,
             'branding' => $this->receiptBranding->forOrder($order),
         ])
-            ->download('receipt-' . $order->order_number . '.pdf');
+            ->download('receipt-'.$order->order_number.'.pdf');
     }
 
     /**

@@ -471,6 +471,7 @@ const featureList = computed(() => {
         <div>
           <div class="text-sm font-semibold uppercase tracking-wide text-primary">{{ product.brand.name }}</div>
           <h1 class="mt-1 text-2xl font-bold text-ink dark:text-ink lg:text-3xl">{{ product.title }}</h1>
+          <div v-if="rawProduct?.shop" class="mt-3 flex items-center gap-2 text-sm text-gray-500 dark:text-muted"><img v-if="rawProduct.shop.logo" :src="rawProduct.shop.logo" :alt="rawProduct.shop.name" class="h-7 w-7 rounded-lg border border-border-gray object-contain" /><span>{{ $t('marketplace.sold_by', { shop: rawProduct.shop.name }) }}</span></div>
 
           <div class="mt-2 text-xs text-gray-500 dark:text-muted dark:text-gray-500">{{ $t('product.sku') }}: {{ selectedVariant?.sku ?? product.sku }}</div>
 

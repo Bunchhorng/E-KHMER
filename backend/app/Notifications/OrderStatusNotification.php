@@ -6,6 +6,7 @@ namespace App\Notifications;
 
 use App\Models\Order;
 use App\Models\Setting;
+use App\Models\ShopOrder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
@@ -17,8 +18,8 @@ class OrderStatusNotification extends Notification
     public function __construct(
         public readonly Order $order,
         public readonly string $status,
-    ) {
-    }
+        public readonly ?ShopOrder $shopOrder = null,
+    ) {}
 
     /**
      * @return array<int, string>
@@ -63,6 +64,19 @@ class OrderStatusNotification extends Notification
             Order::STATUS_CANCELLED => 'Your order #'.$this->order->order_number.' has been cancelled.',
             Order::STATUS_REFUNDED => 'A refund has been issued for order #'.$this->order->order_number.'.',
         ];
+
+        if ($this->shopOrder !== null) {
+            return [
+                'title' => ($this->shopOrder->shop?->name ?? 'Shop').' order '.$this->status,
+                'message' => 'Delivery '.$this->shopOrder->shop_order_number.' from '.($this->shopOrder->shop?->name ?? 'your shop').' is now '.$this->status.'.',
+                'order_number' => $this->order->order_number,
+                'shop_order_number' => $this->shopOrder->shop_order_number,
+                'shop_id' => $this->shopOrder->shop_id,
+                'total' => round((float) $this->shopOrder->total, 2),
+                'status' => $this->status,
+                'url' => '/account/orders/'.$this->order->order_number,
+            ];
+        }
 
         return [
             'title' => $titles[$this->status] ?? 'Order updated',

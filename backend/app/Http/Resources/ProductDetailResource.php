@@ -31,6 +31,7 @@ class ProductDetailResource extends JsonResource
                 'slug' => $this->shop->slug,
                 'name' => $this->shop->name,
                 'code' => $this->shop->code,
+                'logo' => $this->shop->logo,
             ]),
             'in_stock' => $this->inStock ?? $this->computeInStock(),
             'cover_image' => $this->resolveCoverImage(),
@@ -70,6 +71,7 @@ class ProductDetailResource extends JsonResource
         $images = $this->resolveGalleryImages();
         $cover = $images->firstWhere('is_cover', true);
         $image = $cover ?? $images->first();
+
         return $image?->image_path;
     }
 
@@ -99,6 +101,7 @@ class ProductDetailResource extends JsonResource
     protected function resolveActiveVariants()
     {
         $variants = $this->relationLoaded('variants') ? $this->variants : $this->variants()->get();
+
         return $variants->filter(fn ($variant) => (bool) $variant->is_active)->values();
     }
 
@@ -129,7 +132,7 @@ class ProductDetailResource extends JsonResource
                     continue;
                 }
                 $key = $attribute->id;
-                if (!isset($grouped[$key])) {
+                if (! isset($grouped[$key])) {
                     $grouped[$key] = [
                         'id' => $attribute->id,
                         'name' => $attribute->name,

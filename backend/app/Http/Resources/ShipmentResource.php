@@ -12,6 +12,10 @@ class ShipmentResource extends JsonResource
         return [
             'id' => $this->id,
             'order_id' => $this->order_id,
+            'shop_order_id' => $this->shop_order_id,
+            'shop' => $this->whenLoaded('shopOrder', fn () => $this->shopOrder?->shop === null ? null : [
+                'id' => $this->shopOrder->shop->id, 'name' => $this->shopOrder->shop->name,
+            ]),
             'order_number' => $this->order?->order_number,
             'customer_name' => $this->order?->customer_name,
             'shipping_method_id' => $this->shipping_method_id,

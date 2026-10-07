@@ -17,9 +17,7 @@ class OrderController extends Controller
     public function __construct(
         protected OrderService $orders,
         protected ReceiptBrandingService $receiptBranding,
-    )
-    {
-    }
+    ) {}
 
     public function index(Request $request)
     {
@@ -38,7 +36,7 @@ class OrderController extends Controller
 
     public function show(Request $request, string $orderNumber)
     {
-        return $this->resolveForUser($request->user(), $orderNumber);
+        return new OrderResource($this->resolveForUser($request->user(), $orderNumber));
     }
 
     public function guest(Request $request, string $orderNumber)
@@ -57,11 +55,11 @@ class OrderController extends Controller
 
         $stored = $order->payment?->provider_data['session_id'] ?? null;
 
-        if ($stored !== 'guest_' . md5((string) $sessionId)) {
+        if ($stored !== 'guest_'.md5((string) $sessionId)) {
             abort(404, 'Order not found.');
         }
 
-        return new OrderResource($order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']));
+        return new OrderResource($order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents']));
     }
 
     public function receipt(Request $request, string $orderNumber)
@@ -73,7 +71,7 @@ class OrderController extends Controller
             'order' => $order,
             'branding' => $this->receiptBranding->forOrder($order),
         ])
-            ->download('receipt-' . $order->order_number . '.pdf');
+            ->download('receipt-'.$order->order_number.'.pdf');
     }
 
     public function cancel(Request $request, string $orderNumber)
@@ -84,7 +82,7 @@ class OrderController extends Controller
         return new OrderResource($order);
     }
 
-    protected function resolveForUser($user, string $orderNumber): \App\Models\Order
+    protected function resolveForUser($user, string $orderNumber): Order
     {
         try {
             return $this->orders->findByNumber($user, $orderNumber);
