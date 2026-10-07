@@ -6,14 +6,14 @@ use App\Models\Brand;
 use App\Models\Category;
 use App\Models\Inventory;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Models\Product;
-use App\Models\ProductVariant;
 use App\Models\Review;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Facades\DB;
 
 class DashboardService
 {
@@ -40,8 +40,7 @@ class DashboardService
         // figure is read twice by the response (as `month_revenue` and as the
         // numerator of `revenue_delta`), so the old code also ran the same SUM
         // a second time.
-        $revenue = Order::query()
-            ->where('payment_status', Order::PAYMENT_PAID)
+        $revenue = $this->paidOrdersQuery()
             ->selectRaw(
                 'COALESCE(SUM(total), 0) as total_revenue,
                  COALESCE(SUM(CASE WHEN placed_at >= ? THEN total ELSE 0 END), 0) as today_revenue,
@@ -93,10 +92,30 @@ class DashboardService
             'total_categories' => Category::count(),
             'total_brands' => Brand::count(),
             'low_stock_products' => $this->lowStockQuery()->count(),
-            'out_of_stock_products' => ProductVariant::query()
-                ->where('is_active', true)
-                ->whereHas('inventory', fn ($q) => $q->whereRaw('quantity - reserved_quantity <= 0'))
-                ->count(),
+            'out_of_stock_products' => $this->lowStockQuery()->whereRaw('quantity - reserved_quantity <= 0')->count(),
+        ];
+    }
+
+    public function periodSummary(Carbon $from, Carbon $to): array
+    {
+        $dayCount = (int) $from->copy()->startOfDay()->diffInDays($to->copy()->startOfDay()) + 1;
+        $previousFrom = $from->copy()->subDays($dayCount)->startOfDay();
+        $previousTo = $from->copy()->subDay()->endOfDay();
+        $revenue = (float) $this->paidOrdersQuery($from, $to)->sum('total');
+        $paidCount = $this->paidOrdersQuery($from, $to)->count();
+        $orders = $this->ordersQuery($from, $to)->count();
+        $customers = User::where('role', User::ROLE_CUSTOMER)->whereBetween('created_at', [$from, $to])->count();
+
+        return [
+            'from' => $from->toDateString(),
+            'to' => $to->toDateString(),
+            'revenue' => round($revenue, 2),
+            'orders_count' => $orders,
+            'customers_count' => $customers,
+            'average_order_value' => $paidCount > 0 ? round($revenue / $paidCount, 2) : 0,
+            'revenue_delta' => $this->percentChange($revenue, (float) $this->paidOrdersQuery($previousFrom, $previousTo)->sum('total')),
+            'orders_delta' => $this->percentChange($orders, $this->ordersQuery($previousFrom, $previousTo)->count()),
+            'customers_delta' => $this->percentChange($customers, User::where('role', User::ROLE_CUSTOMER)->whereBetween('created_at', [$previousFrom, $previousTo])->count()),
         ];
     }
 
@@ -109,7 +128,7 @@ class DashboardService
 
         $dayCount = (int) $from->diffInDays($to) + 1;
 
-        $rows = Order::where('payment_status', Order::PAYMENT_PAID)
+        $rows = $this->paidOrdersQuery()
             ->where('placed_at', '>=', $from)
             ->where('placed_at', '<=', $to->copy()->endOfDay())
             ->selectRaw('DATE(placed_at) as day, SUM(total) as revenue')
@@ -157,9 +176,13 @@ class DashboardService
         return $series;
     }
 
-    public function orderStatusDistribution(): array
+    public function orderStatusDistribution(?Carbon $from = null, ?Carbon $to = null): array
     {
-        return $this->orderCountsByStatus()
+        $counts = $from === null && $to === null
+            ? $this->orderCountsByStatus()
+            : $this->ordersQuery($from, $to)->selectRaw('status, COUNT(*) as count')->groupBy('status')->pluck('count', 'status');
+
+        return $counts
             ->map(fn ($count, $status) => [
                 'status' => $status,
                 'count' => (int) $count,
@@ -168,9 +191,10 @@ class DashboardService
             ->all();
     }
 
-    public function paymentStatusDistribution(): array
+    public function paymentStatusDistribution(?Carbon $from = null, ?Carbon $to = null): array
     {
         return Payment::query()
+            ->whereHas('order', fn ($query) => $this->applyOrderRange($query, $from, $to))
             ->selectRaw('status, COUNT(*) as count')
             ->groupBy('status')
             ->pluck('count', 'status')
@@ -182,15 +206,16 @@ class DashboardService
             ->all();
     }
 
-    public function salesByCategory(): array
+    public function salesByCategory(?Carbon $from = null, ?Carbon $to = null): array
     {
-        return DB::table('categories')
-            ->leftJoin('products', 'products.category_id', '=', 'categories.id')
-            ->leftJoin('order_items', 'order_items.product_id', '=', 'products.id')
+        return OrderItem::query()
+            ->join('products', 'products.id', '=', 'order_items.product_id')
+            ->join('categories', 'categories.id', '=', 'products.category_id')
+            ->whereHas('order', fn ($query) => $this->applyPaidOrderFilters($query, $from, $to))
             ->where('categories.is_active', true)
             ->selectRaw('categories.id, categories.name, categories.slug,
                 COALESCE(SUM(order_items.line_total), 0) as revenue,
-                COUNT(DISTINCT order_items.id) as order_count')
+                COUNT(DISTINCT order_items.order_id) as order_count')
             ->groupBy('categories.id', 'categories.name', 'categories.slug')
             ->orderByDesc('revenue')
             ->get()
@@ -207,12 +232,8 @@ class DashboardService
 
     public function topSellingProducts(int $limit = 5, ?Carbon $from = null, ?Carbon $to = null): array
     {
-        return DB::table('order_items')
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->whereNotIn('orders.status', [Order::STATUS_CANCELLED, Order::STATUS_REFUNDED])
-            ->whereNotNull('orders.placed_at')
-            ->when($from !== null, fn ($q) => $q->where('orders.placed_at', '>=', $from))
-            ->when($to !== null, fn ($q) => $q->where('orders.placed_at', '<=', $to->copy()->endOfDay()))
+        return OrderItem::query()
+            ->whereHas('order', fn ($query) => $this->applyPaidOrderFilters($query, $from, $to))
             ->selectRaw('order_items.product_id, order_items.product_name,
                 SUM(order_items.quantity) as total_qty,
                 SUM(order_items.line_total) as revenue')
@@ -254,9 +275,16 @@ class DashboardService
             ->all();
     }
 
-    public function recentCustomers(int $limit = 5): array
+    public function recentOrders(int $limit = 5, ?Carbon $from = null, ?Carbon $to = null): Collection
+    {
+        return $this->ordersQuery($from, $to)->with(['items', 'user'])->orderByDesc('placed_at')->orderByDesc('id')->limit($limit)->get();
+    }
+
+    public function recentCustomers(int $limit = 5, ?Carbon $from = null, ?Carbon $to = null): array
     {
         return User::where('role', User::ROLE_CUSTOMER)
+            ->when($from, fn ($query) => $query->where('created_at', '>=', $from))
+            ->when($to, fn ($query) => $query->where('created_at', '<=', $to))
             ->latest()
             ->limit($limit)
             ->get()
@@ -271,9 +299,11 @@ class DashboardService
             ->all();
     }
 
-    public function recentReviews(int $limit = 5): array
+    public function recentReviews(int $limit = 5, ?Carbon $from = null, ?Carbon $to = null): array
     {
         return Review::query()
+            ->when($from, fn ($query) => $query->where('created_at', '>=', $from))
+            ->when($to, fn ($query) => $query->where('created_at', '<=', $to))
             ->with(['user', 'product'])
             ->latest()
             ->limit($limit)
@@ -292,30 +322,60 @@ class DashboardService
             ->all();
     }
 
-    public function recentPayments(int $limit = 5): array
+    public function recentPayments(int $limit = 5, ?Carbon $from = null, ?Carbon $to = null): array
     {
         return Payment::query()
+            ->whereHas('order', fn ($query) => $this->applyOrderRange($query, $from, $to))
             ->with('order')
             ->latest()
             ->limit($limit)
             ->get()
             ->map(fn (Payment $payment) => [
                 'id' => $payment->id,
+                'order_id' => $payment->order_id,
+                'currency' => $payment->order?->currency,
                 'order_number' => $payment->order?->order_number,
                 'method' => $payment->method,
                 'status' => $payment->status,
                 'amount' => (float) $payment->amount,
                 'transaction_id' => $payment->transaction_id,
                 'paid_at' => $payment->paid_at?->toISOString(),
+                'created_at' => $payment->created_at?->toISOString(),
             ])
             ->values()
             ->all();
     }
 
-    protected function lowStockQuery()
+    protected function lowStockQuery(): Builder
     {
         return Inventory::query()
+            ->whereHas('variant', fn ($query) => $query->where('is_active', true)
+                ->whereHas('product', fn ($product) => $product->where('is_active', true)))
             ->whereRaw('quantity - reserved_quantity <= low_stock_threshold');
+    }
+
+    protected function ordersQuery(?Carbon $from = null, ?Carbon $to = null): Builder
+    {
+        return $this->applyOrderRange(Order::query(), $from, $to);
+    }
+
+    protected function paidOrdersQuery(?Carbon $from = null, ?Carbon $to = null): Builder
+    {
+        return $this->applyPaidOrderFilters(Order::query(), $from, $to);
+    }
+
+    protected function applyOrderRange(Builder $query, ?Carbon $from, ?Carbon $to): Builder
+    {
+        return $query->whereNotNull('placed_at')
+            ->when($from, fn ($builder) => $builder->where('placed_at', '>=', $from))
+            ->when($to, fn ($builder) => $builder->where('placed_at', '<=', $to));
+    }
+
+    protected function applyPaidOrderFilters(Builder $query, ?Carbon $from, ?Carbon $to): Builder
+    {
+        return $this->applyOrderRange($query, $from, $to)
+            ->where('payment_status', Order::PAYMENT_PAID)
+            ->whereNotIn('status', [Order::STATUS_CANCELLED, Order::STATUS_REFUNDED]);
     }
 
     /**

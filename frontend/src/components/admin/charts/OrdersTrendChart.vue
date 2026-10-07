@@ -44,7 +44,7 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => ({
   scales: {
     x: {
       grid: { display: false },
-      ticks: { color: palette.value.text }
+      ticks: { color: palette.value.text, maxTicksLimit: 8 }
     },
     y: {
       beginAtZero: true,

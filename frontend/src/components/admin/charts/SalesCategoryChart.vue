@@ -4,7 +4,7 @@ import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import type { ChartData, ChartOptions, TooltipItem } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
 import { useChartTheme } from '@/composables/useChartTheme'
-import { formatCompactNumber } from '@/utils/format'
+import { formatPrice } from '@/utils/format'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 ChartJS.defaults.font.family = 'Inter, sans-serif'
@@ -46,7 +46,7 @@ const chartOptions = computed<ChartOptions<'doughnut'>>(() => ({
     },
     tooltip: {
       callbacks: {
-        label: (context: TooltipItem<'doughnut'>) => `${context.label || ''}: ${formatCompactNumber(context.parsed)}`
+        label: (context: TooltipItem<'doughnut'>) => `${context.label || ''}: ${formatPrice(context.parsed)}`
       }
     }
   }

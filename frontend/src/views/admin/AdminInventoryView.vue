@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { PackageSearch } from 'lucide-vue-next'
 import BasePagination from '@/components/BasePagination.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -13,6 +14,7 @@ import { formatDateTime } from '@/utils/format'
 import { extractErrorMessage } from '@/api/errors'
 
 const { t } = useI18n()
+const route = useRoute()
 
 const pageSize = 15
 const ledgerPageSize = 20
@@ -23,8 +25,9 @@ const totalCount = ref(0)
 const page = ref(1)
 const pageCount = ref(1)
 
-const search = ref('')
-const stockStatus = ref('all')
+const search = ref(typeof route.query.q === 'string' ? route.query.q : '')
+const initialStockStatus = typeof route.query.stock_status === 'string' ? route.query.stock_status : 'all'
+const stockStatus = ref(['all', 'in', 'low', 'out'].includes(initialStockStatus) ? initialStockStatus : 'all')
 const selectedId = ref<number | null>(null)
 
 const ledgerLoading = ref(false)
@@ -173,7 +176,7 @@ function onLedgerPageChange(p: number) {
   loadLedger(selectedId.value, { type: ledgerType.value === 'all' ? undefined : ledgerType.value, page: p })
 }
 
-onMounted(() => loadInventory())
+onMounted(() => loadInventory({ q: search.value.trim() || undefined, stock_status: stockStatus.value }))
 </script>
 
 <template>

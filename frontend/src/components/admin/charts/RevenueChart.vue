@@ -5,7 +5,7 @@ import type { ChartData, ChartOptions, TooltipItem } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { useI18n } from 'vue-i18n'
 import { useChartTheme } from '@/composables/useChartTheme'
-import { formatPrice } from '@/utils/format'
+import { formatCompactNumber, formatPrice } from '@/utils/format'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
 ChartJS.defaults.font.family = 'Inter, sans-serif'
@@ -30,7 +30,7 @@ const chartData = computed<ChartData<'line'>>(() => ({
       tension: 0.35,
       fill: true,
       borderWidth: 2,
-      pointRadius: 3,
+      pointRadius: props.data.length > 60 ? 0 : 3,
       pointHoverRadius: 5
     }
   ]
@@ -51,7 +51,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
   scales: {
     x: {
       grid: { display: false },
-      ticks: { color: palette.value.text }
+      ticks: { color: palette.value.text, maxTicksLimit: 8 }
     },
     y: {
       beginAtZero: true,
@@ -59,7 +59,7 @@ const chartOptions = computed<ChartOptions<'line'>>(() => ({
       grid: { color: palette.value.grid },
       ticks: {
         color: palette.value.text,
-        callback: (value: number | string) => `$${Number(value) / 1000}k`
+        callback: (value: number | string) => `$${formatCompactNumber(Number(value))}`
       }
     }
   }

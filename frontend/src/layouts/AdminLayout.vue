@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { Component } from 'vue'
-import { computed, ref, onMounted } from 'vue'
+import { computed, ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   LayoutDashboard,
@@ -26,7 +26,8 @@ import {
   PanelLeftOpen,
   LogOut,
   Settings,
-  Store
+  Store,
+  X
 } from 'lucide-vue-next'
 import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
@@ -53,10 +54,40 @@ const router = useRouter()
 const uiStore = useUiStore()
 const auth = useAuthStore()
 
-const expanded = computed(() => !uiStore.adminSidebarCollapsed)
+const desktopMedia = window.matchMedia('(min-width: 1024px)')
+const isDesktop = ref(desktopMedia.matches)
+const mobileSidebarOpen = ref(false)
+const expanded = computed(() => !isDesktop.value || !uiStore.adminSidebarCollapsed)
+const sidebarVisible = computed(() => isDesktop.value || mobileSidebarOpen.value)
 const profileOpen = ref(false)
 const notifications = ref<ApiNotification[]>([])
 const unreadCount = computed(() => notifications.value.filter((n) => !n.read_at).length)
+
+function updateViewport(event: MediaQueryListEvent) {
+  isDesktop.value = event.matches
+  mobileSidebarOpen.value = false
+}
+
+function toggleSidebar() {
+  if (isDesktop.value) uiStore.toggleAdminSidebar()
+  else mobileSidebarOpen.value = !mobileSidebarOpen.value
+}
+
+function closeMobileSidebar(event: KeyboardEvent) {
+  if (event.key === 'Escape') mobileSidebarOpen.value = false
+}
+
+watch(() => route.fullPath, () => { mobileSidebarOpen.value = false })
+
+onMounted(() => {
+  desktopMedia.addEventListener('change', updateViewport)
+  window.addEventListener('keydown', closeMobileSidebar)
+})
+
+onBeforeUnmount(() => {
+  desktopMedia.removeEventListener('change', updateViewport)
+  window.removeEventListener('keydown', closeMobileSidebar)
+})
 
 onMounted(async () => {
   try {
@@ -129,9 +160,13 @@ async function signOut() {
 
 <template>
   <div class="flex h-screen overflow-hidden bg-canvas">
+    <button v-if="mobileSidebarOpen" id="admin-sidebar-backdrop" type="button" class="fixed inset-0 z-40 bg-black/40 lg:hidden" :aria-label="$t('actions.close')" @click="mobileSidebarOpen = false"></button>
     <aside
-      class="flex shrink-0 flex-col border-r border-border-gray bg-surface transition-all duration-200"
-      :class="expanded ? 'w-64' : 'w-[72px]'"
+      id="admin-sidebar"
+      class="fixed inset-y-0 left-0 z-50 flex w-64 shrink-0 flex-col border-r border-border-gray bg-surface transition-all duration-200 lg:static lg:z-auto lg:translate-x-0"
+      :class="[expanded ? 'lg:w-64' : 'lg:w-[72px]', mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full']"
+      :aria-hidden="!sidebarVisible"
+      :inert="!sidebarVisible"
     >
       <div class="flex h-16 items-center border-b border-border-gray p-4" :class="expanded ? '' : 'justify-center'">
         <RouterLink v-if="expanded" to="/admin" class="flex items-center gap-2.5">
@@ -158,6 +193,7 @@ async function signOut() {
             :title="expanded ? undefined : $t(item.labelKey)"
             class="group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
             :class="[isActive(item) ? 'bg-primary/10 text-primary' : 'text-gray-600 hover:bg-gray-100 dark:text-muted dark:hover:bg-surface-hover', expanded ? '' : 'justify-center']"
+            @click="mobileSidebarOpen = false"
           >
             <component :is="item.icon" :size="18" />
             <span v-if="expanded">{{ $t(item.labelKey) }}</span>
@@ -165,7 +201,7 @@ async function signOut() {
         </template>
       </nav>
 
-      <div class="border-t border-border-gray p-3">
+      <div class="hidden border-t border-border-gray p-3 lg:block">
         <button
           class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-primary dark:text-muted dark:hover:bg-surface-hover dark:hover:text-primary"
           :class="expanded ? '' : 'justify-center'"
@@ -175,11 +211,12 @@ async function signOut() {
           <span v-if="expanded">{{ $t('admin.nav.collapse') }}</span>
         </button>
       </div>
+      <div class="border-t border-border-gray p-3 lg:hidden"><button type="button" class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-600 dark:text-muted" :aria-label="$t('actions.close')" @click="mobileSidebarOpen = false"><X :size="18" />{{ $t('actions.close') }}</button></div>
     </aside>
 
-    <div class="flex flex-1 flex-col overflow-hidden">
+    <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
       <header class="flex h-16 shrink-0 items-center gap-3 border-b border-border-gray bg-surface px-4 sm:px-6">
-        <button class="btn-icon" :title="$t('admin.nav.toggle_sidebar')" @click="uiStore.toggleAdminSidebar()">
+        <button type="button" class="btn-icon" :title="$t('admin.nav.toggle_sidebar')" :aria-label="$t('admin.nav.toggle_sidebar')" aria-controls="admin-sidebar" :aria-expanded="isDesktop ? expanded : mobileSidebarOpen" @click="toggleSidebar">
           <Menu class="h-5 w-5" />
         </button>
         <div class="flex-1"></div>
@@ -256,7 +293,7 @@ async function signOut() {
         </div>
       </header>
 
-      <main class="scrollbar-none flex-1 overflow-y-auto p-4 sm:p-6">
+      <main class="scrollbar-none min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
         <router-view />
       </main>
     </div>

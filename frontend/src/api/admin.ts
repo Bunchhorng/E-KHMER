@@ -4,6 +4,17 @@ import type { CatalogProduct, PaginatedResponse } from './catalog'
 
 export interface AdminDashboard {
   range?: string
+  period: {
+    from: string
+    to: string
+    revenue: number
+    orders_count: number
+    customers_count: number
+    average_order_value: number
+    revenue_delta: number | null
+    orders_delta: number | null
+    customers_delta: number | null
+  }
   metrics: {
     total_revenue: number
     today_revenue: number
@@ -45,7 +56,8 @@ export interface AdminDashboard {
   }[]
   recent_customers: { id: number; name: string; email: string; avatar: string | null; created_at: string }[]
   recent_reviews: { id: number; rating: number; title: string | null; body: string | null; status: string; user_name: string | null; product_name: string | null; created_at: string }[]
-  recent_payments: { id: number; order_number: string | null; method: string | null; status: string; amount: number; transaction_id: string | null; paid_at: string | null }[]
+  recent_payments: { id: number; order_id: number; currency: string | null; order_number: string | null; method: string | null; status: string; amount: number; transaction_id: string | null; paid_at: string | null; created_at: string | null }[]
+  recent_orders: (AdminOrderItem & { customer_name: string | null; email: string | null; currency: string; user: { id: number; name: string; email: string } | null })[]
 }
 
 export interface AdminProduct extends CatalogProduct {
@@ -146,7 +158,7 @@ export interface AdminOrderItem {
   total: number
   placed_at: string
   items_count: number
-  user?: { id: number; name: string; email: string }
+  user?: { id: number; name: string; email: string } | null
 }
 
 export interface AdminCoupon {
@@ -294,12 +306,12 @@ export interface AdminNotification {
 }
 
 export const adminApi = {
-  getDashboard(range?: string, from?: string, to?: string) {
+  getDashboard(range?: string, from?: string, to?: string, signal?: AbortSignal) {
     const params: Record<string, string> = {}
     if (range) params.range = range
     if (from) params.from = from
     if (to) params.to = to
-    return apiClient.get<{ data: AdminDashboard }>('/admin/dashboard/overview', { params })
+    return apiClient.get<{ data: AdminDashboard }>('/admin/dashboard/overview', { params, signal })
   },
 
   getOrdersCsv(status?: string, from?: string, to?: string) {

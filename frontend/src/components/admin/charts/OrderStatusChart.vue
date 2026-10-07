@@ -22,7 +22,8 @@ const statusColors: Record<string, string> = {
   processing: '#2563EB',
   shipped: '#8B5CF6',
   delivered: '#10B981',
-  cancelled: '#EF4444'
+  cancelled: '#EF4444',
+  refunded: '#64748B'
 }
 
 function capitalize(s: string): string {
@@ -63,7 +64,7 @@ const chartOptions = computed<ChartOptions<'bar'>>(() => ({
       beginAtZero: true,
       border: { display: false },
       grid: { color: palette.value.grid },
-      ticks: { color: palette.value.text }
+      ticks: { color: palette.value.text, precision: 0 }
     }
   }
 }))
