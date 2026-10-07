@@ -22,7 +22,15 @@ class InventoryPolicy
      */
     public function viewAny(User $user): bool
     {
-        return $user->isAdmin() || $user->shops()->exists();
+        $managedShop = request()->attributes->get('managed_shop');
+
+        if ($managedShop instanceof Shop) {
+            return $user->ownsShop($managedShop);
+        }
+
+        return $user->isAdmin() || $user->shops()
+            ->wherePivot('status', 'active')
+            ->exists();
     }
 
     public function view(User $user, Inventory $inventory): bool

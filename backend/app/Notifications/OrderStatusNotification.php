@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Notifications;
 
 use App\Models\Order;
+use App\Models\Setting;
 use Illuminate\Bus\Queueable;
+use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 class OrderStatusNotification extends Notification
@@ -23,7 +25,20 @@ class OrderStatusNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        return ['database'];
+        return Setting::boolean('emailOrderNotifications', true)
+            ? ['database', 'mail']
+            : ['database'];
+    }
+
+    public function toMail(object $notifiable): MailMessage
+    {
+        $data = $this->toArray($notifiable);
+
+        return (new MailMessage)
+            ->subject((string) $data['title'].': #'.$this->order->order_number)
+            ->greeting('Hello '.$notifiable->name.',')
+            ->line((string) $data['message'])
+            ->action('View order', rtrim((string) config('app.frontend_url'), '/').'/account/orders/'.$this->order->order_number);
     }
 
     /**
@@ -51,7 +66,7 @@ class OrderStatusNotification extends Notification
 
         return [
             'title' => $titles[$this->status] ?? 'Order updated',
-            'message' => $messages[$this->status] ?? 'Your order #'.$this->order->order_number.' status is now “'.$this->status.'”.',
+            'message' => $messages[$this->status] ?? 'Your order #'.$this->order->order_number.' status is now "'.$this->status.'".',
             'order_number' => $this->order->order_number,
             'total' => round((float) $this->order->total, 2),
             'status' => $this->status,

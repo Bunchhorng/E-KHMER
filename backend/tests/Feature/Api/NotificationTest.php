@@ -7,6 +7,7 @@ use App\Models\Order;
 use App\Models\OrderItem;
 use App\Models\Product;
 use App\Models\Review;
+use App\Models\Setting;
 use App\Models\User;
 use App\Notifications\LowStockNotification;
 use App\Notifications\OrderPlacedNotification;
@@ -133,6 +134,20 @@ class NotificationTest extends TestCase
 
         $service->reserve($this->variantId, 10);
         $this->assertSame(2, $admin->notifications()->where('type', LowStockNotification::class)->count());
+    }
+
+    public function test_email_preferences_keep_database_notifications_but_disable_mail_delivery(): void
+    {
+        $user = User::factory()->create();
+        $order = Order::factory()->create(['user_id' => $user->id]);
+        $inventory = Product::factory()->withVariant(10, 2)->create()->variants()->firstOrFail()->inventory;
+
+        Setting::set('emailOrderNotifications', '0');
+        Setting::set('emailLowStockAlerts', '0');
+
+        $this->assertSame(['database'], (new OrderPlacedNotification($order))->via($user));
+        $this->assertSame(['database'], (new OrderStatusNotification($order, Order::STATUS_PROCESSING))->via($user));
+        $this->assertSame(['database'], (new LowStockNotification($inventory, 'Product', 'Default', 2))->via($user));
     }
 
     public function test_notifications_list_returns_friendly_type_and_mark_read(): void

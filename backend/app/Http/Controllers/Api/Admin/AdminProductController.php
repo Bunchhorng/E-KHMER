@@ -11,6 +11,7 @@ use App\Models\AttributeValue;
 use App\Models\Inventory;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\Shop;
 use App\Models\VariantAttributeValue;
 use App\Services\InventoryService;
 use App\Services\MediaUploadService;
@@ -29,7 +30,9 @@ class AdminProductController extends Controller
 
     public function index(Request $request)
     {
-        $this->authorize('viewAny', Product::class);
+        if (! $this->isManagedShopRequest($request)) {
+            $this->authorize('viewAny', Product::class);
+        }
 
         $query = Product::with(['brand', 'category', 'shop', 'images', 'variants.inventory']);
 
@@ -86,7 +89,17 @@ class AdminProductController extends Controller
     {
         $data = $this->productData($request);
 
-        $this->authorize('create', Product::class, $data);
+        // A seller route has already authorized this exact shop in middleware.
+        // Do not let a body field choose a different shop, even if the request
+        // object was prepared before a form request was resolved.
+        $managedShop = $request->attributes->get('managed_shop');
+        if ($managedShop instanceof Shop) {
+            $data['shop_id'] = $managedShop->id;
+        }
+
+        if (! $this->isManagedShopRequest($request)) {
+            $this->authorize('create', [Product::class, $data]);
+        }
 
         // products.slug has a unique index and the payload may repeat a slug that
         // is already taken, so it has to be de-duplicated before the insert.
@@ -141,20 +154,32 @@ class AdminProductController extends Controller
         ))->response()->setStatusCode(201);
     }
 
-    public function show(Product $product)
+    public function show(Request $request, Product $product)
     {
-        $this->authorize('view', $product);
+        if (! $this->isManagedShopRequest($request)) {
+            $this->authorize('view', $product);
+        }
 
         return new ProductDetailResource($this->loadDetail($product));
     }
 
     public function update(AdminProductRequest $request, Product $product)
     {
-        $this->authorize('update', $product);
+        $managedShop = $request->attributes->get('managed_shop');
+        if (! $managedShop instanceof Shop) {
+            $this->authorize('update', $product);
+        }
 
         $data = $this->productData($request);
 
-        if (array_key_exists('shop_id', $data)) {
+        if ($managedShop instanceof Shop) {
+            // The seller middleware has already checked the product belongs to
+            // this shop. Keep a seller update in that same shop even if an
+            // older client submits a stale or manipulated body field.
+            $data['shop_id'] = $managedShop->id;
+        }
+
+        if (! $managedShop instanceof Shop && array_key_exists('shop_id', $data)) {
             $this->authorize('changeShop', $product, $data['shop_id'] === null ? null : (int) $data['shop_id']);
         }
 
@@ -210,9 +235,11 @@ class AdminProductController extends Controller
         return new ProductDetailResource($this->loadDetail($product));
     }
 
-    public function destroy(Product $product)
+    public function destroy(Request $request, Product $product)
     {
-        $this->authorize('delete', $product);
+        if (! $this->isManagedShopRequest($request)) {
+            $this->authorize('delete', $product);
+        }
 
         $product->delete();
 
@@ -506,6 +533,17 @@ protected function assertExistingSkusAvailableInShop(Product $product, ?int $tar
         return $data;
     }
 
+    /**
+     * Seller routes pass through EnsureManagedShop, which verifies both the
+     * authenticated manager and the exact route resource before a controller
+     * is invoked. Keep that checked context separate from platform-admin
+     * policy checks; a request body must never be the source of seller scope.
+     */
+    protected function isManagedShopRequest(Request $request): bool
+    {
+        return $request->attributes->get('managed_shop') instanceof Shop;
+    }
+
     protected function createVariants(Product $product, array $variants): void
     {
         foreach ($variants as $variantData) {
@@ -523,7 +561,6 @@ protected function assertExistingSkusAvailableInShop(Product $product, ?int $tar
                 'shop_id' => $product->shop_id,
                 'quantity' => max((int) ($variantData['quantity'] ?? 0), 0),
                 'reserved_quantity' => 0,
-                'low_stock_threshold' => 5,
             ]);
 
             $this->attachAttributes($variant, $variantData['attributes'] ?? []);
@@ -581,7 +618,6 @@ protected function assertExistingSkusAvailableInShop(Product $product, ?int $tar
                         'shop_id' => $product->shop_id,
                         'quantity' => 0,
                         'reserved_quantity' => 0,
-                        'low_stock_threshold' => 5,
                     ]
                 );
             } else {

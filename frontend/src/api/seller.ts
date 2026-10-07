@@ -1,5 +1,5 @@
 import apiClient from './client'
-import type { AdminInventoryItem, AdminProduct } from './admin'
+import type { AdminInventoryItem, AdminProduct, InventoryTransaction } from './admin'
 import type { PaginatedResponse } from './catalog'
 
 export interface SellerShop {
@@ -41,5 +41,11 @@ export const sellerApi = {
   updateProduct(shopId: number, productId: number, payload: Record<string, unknown>) { return apiClient.put<{ data: AdminProduct }>(`/seller/shops/${shopId}/products/${productId}`, payload) },
   deleteProduct(shopId: number, productId: number) { return apiClient.delete(`/seller/shops/${shopId}/products/${productId}`) },
   listInventory(shopId: number, params: { q?: string; stock_status?: string; page?: number } = {}) { return apiClient.get<PaginatedResponse<AdminInventoryItem>>(`/seller/shops/${shopId}/inventory`, { params }) },
+  listInventoryTransactions(shopId: number, inventoryId: number, params: { type?: string; page?: number } = {}) {
+    return apiClient.get<PaginatedResponse<InventoryTransaction>>(`/seller/shops/${shopId}/inventory/${inventoryId}/transactions`, { params })
+  },
+  adjustInventory(shopId: number, inventoryId: number, quantity: number) {
+    return apiClient.post<{ data: AdminInventoryItem }>(`/seller/shops/${shopId}/inventory/${inventoryId}/adjust`, { quantity })
+  },
   listOrders(shopId: number, params: { q?: string; status?: string; page?: number } = {}) { return apiClient.get<PaginatedResponse<SellerShopOrder>>(`/seller/shops/${shopId}/orders`, { params }) }
 }

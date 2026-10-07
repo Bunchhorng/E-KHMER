@@ -119,11 +119,11 @@ class AccountController extends Controller
         };
     }
 
-    public function markRead(Request $request, $notificationId)
+    public function markRead(Request $request, ?string $notificationId = null)
     {
         $user = $request->user();
 
-        if ($notificationId === 'all') {
+        if ($notificationId === null || $notificationId === 'all') {
             $user->unreadNotifications()->update(['read_at' => now()]);
 
             return response()->json(['data' => ['message' => 'All notifications marked as read.']]);

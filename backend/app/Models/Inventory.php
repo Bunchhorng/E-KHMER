@@ -11,6 +11,15 @@ class Inventory extends Model
 {
     use HasFactory;
 
+    protected static function booted(): void
+    {
+        static::creating(function (self $inventory): void {
+            if ($inventory->low_stock_threshold === null) {
+                $inventory->low_stock_threshold = (int) Setting::get('lowStockThreshold', 5);
+            }
+        });
+    }
+
     public function shop()
     {
         return $this->belongsTo(Shop::class);

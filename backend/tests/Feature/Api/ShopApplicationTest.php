@@ -11,7 +11,7 @@ class ShopApplicationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_customer_can_submit_one_pending_shop_application(): void
+    public function test_customer_can_submit_pending_shop_applications(): void
     {
         $user = User::factory()->create();
 
@@ -23,7 +23,9 @@ class ShopApplicationTest extends TestCase
         $shop = Shop::firstOrFail();
         $this->assertTrue($shop->hasStaff($user));
         $this->actingAs($user, 'sanctum')->postJson('/api/seller/application', ['name' => 'Second Shop'])
-            ->assertStatus(422);
+            ->assertCreated();
+
+        $this->assertSame(2, $user->fresh()->shops()->wherePivot('role_in_shop', 'owner')->count());
     }
 
     public function test_admin_can_reject_only_with_a_reason_and_reactivate_a_shop(): void

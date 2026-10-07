@@ -3,6 +3,9 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Order;
+use App\Models\Inventory;
+use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\Review;
 use App\Models\Setting;
 use App\Models\TrackingEvent;
@@ -64,6 +67,7 @@ class AccountAndSettingsTest extends TestCase
     public function test_admin_can_read_and_write_settings(): void
     {
         $admin = User::factory()->admin()->create();
+        $inventory = Product::factory()->withVariant(10, 5)->create()->variants()->firstOrFail()->inventory;
 
         $this->actingAs($admin, 'sanctum')
             ->getJson('/api/admin/settings')
@@ -82,6 +86,14 @@ class AccountAndSettingsTest extends TestCase
             ->assertJsonPath('data.emailLowStockAlerts', false);
 
         $this->assertSame('My Shop', Setting::get('storeName'));
+        $this->assertSame(3, $inventory->fresh()->low_stock_threshold);
+
+        $newInventory = Inventory::create([
+            'product_variant_id' => ProductVariant::factory()->create()->id,
+            'quantity' => 0,
+            'reserved_quantity' => 0,
+        ]);
+        $this->assertSame(3, $newInventory->low_stock_threshold);
     }
 
     public function test_admin_can_delete_a_review(): void

@@ -29,6 +29,9 @@ class EnsureManagedShop
 
         // Seller routes are never allowed to choose a different branch from the payload/query string.
         $request->merge(['shop_id' => $shop->id]);
+        // Controllers and policies can use this server-validated model as their
+        // authorization context. It must never be derived from request input.
+        $request->attributes->set('managed_shop', $shop);
 
         return $next($request);
     }

@@ -19,6 +19,8 @@ return Application::configure(basePath: dirname(__DIR__))
             'shop.manager' => \App\Http\Middleware\EnsureManagedShop::class,
         ]);
 
+        $middleware->appendToGroup('api', \App\Http\Middleware\EnsureStoreIsAvailable::class);
+
         $middleware->redirectGuestsTo(fn () => null);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

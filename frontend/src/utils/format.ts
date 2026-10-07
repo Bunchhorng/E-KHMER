@@ -13,7 +13,9 @@ export function formatCompactNumber(value: number): string {
   }).format(value)
 }
 
-export function formatDate(value: string, options?: Intl.DateTimeFormatOptions): string {
+export function formatDate(value: string | null | undefined, options?: Intl.DateTimeFormatOptions): string {
+  if (!value) return '—'
+
   return new Date(value).toLocaleDateString('en-US', options ?? { month: 'short', day: 'numeric', year: 'numeric' })
 }
 

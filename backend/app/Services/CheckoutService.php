@@ -174,7 +174,7 @@ class CheckoutService
                 $this->coupon->applyUsage($coupon, $order, $user);
             }
 
-            return $order->load(['items.shop', 'shopOrders.shop.items', 'payment', 'shipments', 'trackingEvents.changedBy']);
+            return $order->load(['items.shop', 'shopOrders.shop', 'shopOrders.items.shop', 'payment', 'shipments', 'trackingEvents.changedBy']);
         });
     }
 

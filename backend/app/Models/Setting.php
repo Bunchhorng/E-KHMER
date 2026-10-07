@@ -22,4 +22,15 @@ class Setting extends Model
             ['value' => $value]
         );
     }
+
+    public static function boolean(string $key, bool $default = false): bool
+    {
+        $value = static::get($key);
+
+        if ($value === null) {
+            return $default;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOL, FILTER_NULL_ON_FAILURE) ?? $default;
+    }
 }

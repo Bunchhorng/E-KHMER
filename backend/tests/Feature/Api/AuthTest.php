@@ -417,13 +417,13 @@ class AuthTest extends TestCase
     {
         $this->seed(UserSeeder::class);
 
-        $admin = User::where('role', User::ROLE_ADMIN)->firstOrFail();
+        $admin = User::where('role', User::ROLE_SUPER_ADMIN)->firstOrFail();
 
         $this->assertNotNull($admin->email_verified_at);
         $this->assertTrue(Hash::check('password', $admin->password));
 
         $customers = User::where('role', User::ROLE_CUSTOMER)->get();
-        $this->assertCount(6, $customers);
+        $this->assertCount(2, $customers);
         $customers->each(fn (User $customer) => $this->assertNotNull($customer->email_verified_at));
     }
 
@@ -434,7 +434,7 @@ class AuthTest extends TestCase
         $login = $this->postJson('/api/auth/login', [
             'email' => 'admin@ekhmer.dev',
             'password' => 'password',
-        ])->assertOk()->assertJsonPath('data.user.role', User::ROLE_ADMIN);
+        ])->assertOk()->assertJsonPath('data.user.role', User::ROLE_SUPER_ADMIN);
 
         $this->withToken($login->json('data.token'))
             ->getJson('/api/admin/dashboard/overview')

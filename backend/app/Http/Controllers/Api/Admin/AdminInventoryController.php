@@ -7,6 +7,7 @@ use App\Http\Requests\AdminInventoryAdjustRequest;
 use App\Http\Resources\InventoryResource;
 use App\Http\Resources\InventoryTransactionResource;
 use App\Models\Inventory;
+use App\Models\Shop;
 use App\Services\InventoryService;
 use Illuminate\Http\Request;
 
@@ -14,7 +15,9 @@ class AdminInventoryController extends Controller
 {
     public function index(Request $request)
     {
-        $this->authorize('viewAny', Inventory::class);
+        if (! $this->isManagedShopRequest($request)) {
+            $this->authorize('viewAny', Inventory::class);
+        }
 
         $query = Inventory::query()->with([
             'shop',
@@ -58,13 +61,15 @@ class AdminInventoryController extends Controller
         ];
     }
 
-    public function transactions(Inventory $inventory, Request $request)
+    public function transactions(Request $request, Inventory $inventory)
     {
-        $this->authorize('view', $inventory);
+        if (! $this->isManagedShopRequest($request)) {
+            $this->authorize('view', $inventory);
+        }
 
         $query = $inventory->transactions()->with('createdBy');
 
-        if ($request->filled('type') && in_array($request->type, ['reserve', 'release', 'deduct', 'adjust'], true)) {
+        if ($request->filled('type') && in_array($request->type, ['reserve', 'release', 'deduct', 'restock', 'adjust'], true)) {
             $query->where('type', $request->type);
         }
 
@@ -83,7 +88,9 @@ class AdminInventoryController extends Controller
 
     public function adjust(AdminInventoryAdjustRequest $request, Inventory $inventory, InventoryService $inventoryService)
     {
-        $this->authorize('update', $inventory);
+        if (! $this->isManagedShopRequest($request)) {
+            $this->authorize('update', $inventory);
+        }
 
         $inventoryService->adjust(
             (int) $inventory->product_variant_id,
@@ -98,5 +105,10 @@ class AdminInventoryController extends Controller
         ]);
 
         return new InventoryResource($inventory);
+    }
+
+    protected function isManagedShopRequest(Request $request): bool
+    {
+        return $request->attributes->get('managed_shop') instanceof Shop;
     }
 }

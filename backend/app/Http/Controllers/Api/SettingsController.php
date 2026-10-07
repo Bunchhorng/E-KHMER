@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\Inventory;
 use App\Models\Setting;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -53,6 +54,13 @@ class SettingsController extends Controller
 
         foreach ($data as $key => $value) {
             Setting::set($key, $this->castStored($key, $value));
+        }
+
+        // The admin setting is the platform-wide default. Synchronize existing
+        // rows as well, so changing it has an immediate, visible effect on low
+        // stock badges and notifications rather than only future variants.
+        if (array_key_exists('lowStockThreshold', $data)) {
+            Inventory::query()->update(['low_stock_threshold' => (int) $data['lowStockThreshold']]);
         }
 
         return $this->response($this->loadAll());
