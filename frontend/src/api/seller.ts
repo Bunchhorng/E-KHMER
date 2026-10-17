@@ -33,8 +33,15 @@ export const sellerApi = {
   dashboardForShop(shopId: number) { return apiClient.get<{ data: SellerDashboard }>(`/seller/shops/${shopId}/dashboard`) },
   listProducts(shopId: number, params: { q?: string; page?: number } = {}) { return apiClient.get<PaginatedResponse<AdminProduct>>(`/seller/shops/${shopId}/products`, { params }) },
   getProduct(shopId: number, productId: number) { return apiClient.get<{ data: AdminProduct }>(`/seller/shops/${shopId}/products/${productId}`) },
-  createProduct(shopId: number, payload: Record<string, unknown>) { return apiClient.post<{ data: AdminProduct }>(`/seller/shops/${shopId}/products`, payload) },
-  updateProduct(shopId: number, productId: number, payload: Record<string, unknown>) { return apiClient.put<{ data: AdminProduct }>(`/seller/shops/${shopId}/products/${productId}`, payload) },
+  createProduct(shopId: number, payload: Record<string, unknown> | FormData) { return apiClient.post<{ data: AdminProduct }>(`/seller/shops/${shopId}/products`, payload) },
+  updateProduct(shopId: number, productId: number, payload: Record<string, unknown> | FormData) {
+    // PHP parses multipart files on POST; Laravel honors the PUT method override.
+    if (payload instanceof FormData) {
+      payload.set('_method', 'PUT')
+      return apiClient.post<{ data: AdminProduct }>(`/seller/shops/${shopId}/products/${productId}`, payload)
+    }
+    return apiClient.put<{ data: AdminProduct }>(`/seller/shops/${shopId}/products/${productId}`, payload)
+  },
   deleteProduct(shopId: number, productId: number) { return apiClient.delete(`/seller/shops/${shopId}/products/${productId}`) },
   listInventory(shopId: number, params: { q?: string; stock_status?: string; page?: number } = {}) { return apiClient.get<PaginatedResponse<AdminInventoryItem>>(`/seller/shops/${shopId}/inventory`, { params }) },
   listInventoryTransactions(shopId: number, inventoryId: number, params: { type?: string; page?: number } = {}) {

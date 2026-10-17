@@ -14,7 +14,7 @@ This README is the **team setup guide**. It covers:
 - [Option B — Native, no Docker](#option-b--native-without-docker) on Windows / Linux / macOS
 - Environment cheat-sheet, demo accounts, tests, and troubleshooting
 
-Full architecture / API / frontend docs live in [`docs/`](./docs). Team workflow & task ownership: [`docs/TEAM-WORK-BREAKDOWN.md`](./docs/TEAM-WORK-BREAKDOWN.md) and [`docs/project-management/`](./docs/project-management/).
+Full architecture, API, frontend, and project-management documentation is indexed in [`docs/`](./docs/README.md).
 
 ---
 
@@ -354,20 +354,9 @@ php artisan schedule:work
 
 ## Related documentation
 
-| Doc | What it covers |
-| --- | --- |
-| [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md) | Layered architecture, DB schema, business-logic engine |
-| [`docs/API-REFERENCE.md`](./docs/API-REFERENCE.md) | Live API reference: every route, request, response |
-| [`docs/FRONTEND.md`](./docs/FRONTEND.md) | Vue project layout, routing, stores, API client, i18n |
-| [`docs/DEVELOPMENT.md`](./docs/DEVELOPMENT.md) | Docker workflow, git conventions |
-| [`docs/TEAM-WORK-BREAKDOWN.md`](./docs/TEAM-WORK-BREAKDOWN.md) | Task ownership across the 5-member team, git workflow |
-| [`docs/project-management/`](./docs/project-management/) | Charter, plan, task sheet, timeline, meeting/minutes, risk/decision logs |
+See the maintained [documentation index](./docs/README.md) for architecture, API, frontend, development, quality, and project-management documentation.
 
 ## License
 
 Developed for educational and academic purposes.
-
-
-
-testing bot
 

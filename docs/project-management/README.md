@@ -20,4 +20,4 @@ Manager's single entry point for all project-management records. Every document 
 - **Meeting minutes**: one file per meeting under `06-Meeting-Minutes/`, named `YYYY-MM-DD-meeting.md`.
 - **Progress reports**: one file per week under `07-Progress-Reports/`, named `week-01.md`, `week-02.md`, …
 - **Registers/logs**: append new rows to the table, newest on top, never delete history.
-- **Referenced by the work breakdown**: module/API/DB ownership lives in [`../TEAM-WORK-BREAKDOWN.md`](../TEAM-WORK-BREAKDOWN.md).
+- **Ownership**: record module, API, and database ownership in the [task-assignment sheet](./04-Task-Assignment-Sheet.md).

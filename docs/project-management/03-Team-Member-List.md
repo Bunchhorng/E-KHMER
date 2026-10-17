@@ -27,5 +27,5 @@
 - [ ] Access to repo (read/write) + Docker Desktop
 - [ ] `docker compose up -d` works locally
 - [ ] Read `docs/DEVELOPMENT.md` (Docker-only rule) + `AGENTS.md`
-- [ ] Read module ownership in `docs/TEAM-WORK-BREAKDOWN.md`
+- [ ] Review assigned work in `04-Task-Assignment-Sheet.md`
 - [ ] Branch naming + commit format agreed

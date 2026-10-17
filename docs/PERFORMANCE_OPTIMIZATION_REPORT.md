@@ -1,6 +1,6 @@
 # Performance Optimization Report
 
-Full-application performance pass over the E-KHMER stack (Laravel 13 API, Vue 3 + TypeScript, MySQL 8, Redis, Nginx, Docker Compose), following `docs/full-application-Performance.md`.
+Full-application performance pass over the E-KHMER stack (Laravel 13 API, Vue 3 + TypeScript, MySQL 8, Redis, Nginx, Docker Compose), using a measure, identify, optimize, test, and verify workflow.
 
 Workflow followed: **INSPECT → MEASURE → IDENTIFY → OPTIMIZE → TEST → VERIFY**.
 

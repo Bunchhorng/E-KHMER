@@ -15,13 +15,13 @@
 
 ## 1.2 Background
 
-The company owns an existing single-branch e-commerce codebase (Laravel REST API + Vue 3/TypeScript SPA, MySQL, Redis, Docker). This project turns that codebase into a production-quality, multi-branch marketplace managed by a 5-person team.
+The company owns an e-commerce codebase (Laravel REST API + Vue 3/TypeScript SPA, MySQL, Redis, Docker). This project delivers a production-quality customer storefront and administrative management system managed by a 5-person team.
 
 ## 1.3 Objectives
 
 1. Deliver all customer-webstore and admin-dashboard modules end-to-end with no mock data.
-2. Implement multi-branch (multi-shop) ownership and authorization so branch data is fully isolated.
-3. Pass QA, security, and performance gates (see `docs/QA-REPORT.md`, `docs/Performance-Report.md`).
+2. Enforce secure role-based access and protect customer, inventory, and order data.
+3. Pass QA, security, and performance gates (see `docs/QA-REPORT.md` and `docs/PERFORMANCE_OPTIMIZATION_REPORT.md`).
 4. Ship a documented, deployable release via Docker.
 
 ## 1.4 Scope
@@ -39,7 +39,7 @@ The company owns an existing single-branch e-commerce codebase (Laravel REST API
 | M4 | Payment, Shipping, Inventory, Dashboard, Reports |
 | M5 | Frontend Foundation, UI Integration, Testing |
 
-Full breakdown: [`docs/TEAM-WORK-BREAKDOWN.md`](../TEAM-WORK-BREAKDOWN.md)
+Assignments and ownership are maintained in [`04-Task-Assignment-Sheet.md`](./04-Task-Assignment-Sheet.md).
 
 ## 1.6 Success Criteria
 

@@ -8,6 +8,8 @@ import { categoriesApi, brandsApi, type ApiBrand, type ApiCategory } from '@/api
 import { extractErrorMessage, extractFieldErrors } from '@/api/errors'
 import { useSellerWorkspace } from '@/stores/sellerWorkspace'
 import SellerPageHeader from '@/components/seller/SellerPageHeader.vue'
+import SellerProductPhotos from '@/components/seller/SellerProductPhotos.vue'
+import type { ProductPhoto } from '@/types/productPhotos'
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
@@ -23,10 +25,13 @@ const fields = ref<Record<string, string>>({})
 const multiVariant = ref(false)
 const categories = ref<ApiCategory[]>([])
 const brands = ref<ApiBrand[]>([])
+const photos = ref<ProductPhoto[]>([])
+const photoError = computed(() => Object.entries(fields.value).find(([key]) => key === 'images' || key.startsWith('images.') || key === 'image_files' || key.startsWith('image_files.'))?.[1])
 const form = reactive({ name: '', sku: '', category_id: 0, brand_id: 0, short_description: '', description: '', price: 0, compare_at_price: null as number | null, weight: null as number | null, initial_stock: 0, is_active: true })
 const baseline = ref('')
 const saved = ref(false)
-function canLeave() { return !saving.value && (!loaded.value || saved.value || JSON.stringify(form) === baseline.value || window.confirm(t('seller.unsaved'))) }
+function snapshot() { return JSON.stringify({ form, photos: photos.value.map(photo => photo.url) }) }
+function canLeave() { return !saving.value && (!loaded.value || saved.value || snapshot() === baseline.value || window.confirm(t('seller.unsaved'))) }
 onBeforeRouteLeave(canLeave)
 onBeforeRouteUpdate(canLeave)
 const productList = computed(() => ({ name: 'seller-shop-products', params: { id: shopId } }))
@@ -37,11 +42,12 @@ async function load() {
     categories.value = categoryResponse.data.data; brands.value = brandResponse.data.data
     if (isEdit) {
       const product = (await sellerApi.getProduct(shopId, productId)).data.data
+      photos.value = [...product.gallery].sort((a, b) => Number(b.is_cover) - Number(a.is_cover) || a.sort_order - b.sort_order).map(image => ({ key: `saved-${image.id}`, url: image.image_path }))
       const simple = product.variants.length === 1 && product.variants[0]?.is_default ? product.variants[0] : null
       multiVariant.value = product.variants.length > 1
       Object.assign(form, { name: product.name, sku: product.sku ?? '', category_id: product.category?.id ?? 0, brand_id: product.brand?.id ?? 0, short_description: product.short_description ?? '', description: product.description ?? '', price: simple?.price ?? product.price, compare_at_price: simple ? simple.compare_at_price : product.compare_at_price, weight: product.weight, is_active: product.is_active })
     }
-    baseline.value = JSON.stringify(form)
+    baseline.value = snapshot()
     loaded.value = true
   } catch (cause) { error.value = extractErrorMessage(cause, t('seller.load_failed')) }
   finally { loading.value = false }
@@ -52,8 +58,19 @@ async function save() {
   try {
     const nullableNumber = (value: unknown) => value === '' || value == null ? null : Number(value)
     const payload: Record<string, unknown> = { ...form, name: form.name.trim(), sku: form.sku.trim() || null, category_id: form.category_id || null, brand_id: form.brand_id || null, compare_at_price: nullableNumber(form.compare_at_price), weight: nullableNumber(form.weight) }
-    if (isEdit) { delete payload.initial_stock; await sellerApi.updateProduct(shopId, productId, payload) }
-    else await sellerApi.createProduct(shopId, payload)
+    if (isEdit) delete payload.initial_stock
+    const multipart = new FormData()
+    for (const [key, value] of Object.entries(payload)) {
+      multipart.append(key, value == null ? '' : typeof value === 'boolean' ? (value ? '1' : '0') : String(value))
+    }
+    let uploadIndex = 0
+    multipart.append('images', JSON.stringify(photos.value.map(photo => {
+      if (!photo.file) return photo.url
+      multipart.append(`image_files[${uploadIndex}]`, photo.file)
+      return `upload:${uploadIndex++}`
+    })))
+    if (isEdit) await sellerApi.updateProduct(shopId, productId, multipart)
+    else await sellerApi.createProduct(shopId, multipart)
     if (workspace.selectedId === shopId) workspace.dashboard = null
     saved.value = true
     saving.value = false
@@ -71,6 +88,7 @@ onMounted(() => void load())
     <div v-if="loading" class="card h-80 animate-pulse bg-border-gray/20" aria-busy="true"><span class="sr-only">{{ t('common.loading') }}</span></div>
     <div v-else-if="loaded" class="grid items-start gap-6 xl:grid-cols-[minmax(0,1fr)_320px]">
       <div class="min-w-0 space-y-6">
+        <SellerProductPhotos v-model="photos" :disabled="saving" :server-error="photoError" />
         <section class="card rounded-2xl p-5 sm:p-6"><h2 class="font-semibold">{{ t('seller.details') }}</h2><p class="mt-1 text-xs text-muted">{{ t('seller.details_help') }}</p>
           <div class="mt-6 grid gap-5 sm:grid-cols-2">
             <label class="sm:col-span-2"><span class="label">{{ t('seller.name') }} *</span><input v-model="form.name" required class="input w-full" maxlength="255" :aria-invalid="!!fields.name" /><span v-if="fields.name" class="mt-1 block text-xs text-red-600">{{ fields.name }}</span></label>

@@ -4,7 +4,7 @@
 
 ## 2.1 Approach
 
-- **Backend-first, feature-branch per module**, one owner per module (see `docs/TEAM-WORK-BREAKDOWN.md`).
+- **Backend-first, feature-branch per module**, with ownership recorded in the task-assignment sheet.
 - Contract-first API development: `docs/API-REFERENCE.md` + `frontend/src/types/index.ts` updated in the same PR as the backend change.
 - Milestones reviewed each week; plan updated after every sprint.
 
@@ -25,7 +25,7 @@
 
 ## 2.3 Key references
 
-- Work breakdown (modules, ownership, git rules): `../TEAM-WORK-BREAKDOWN.md`
+- Task assignments and ownership: `04-Task-Assignment-Sheet.md`
 - Architecture: `../ARCHITECTURE.md` · Frontend: `../FRONTEND.md` · API live ref: `../API-REFERENCE.md`
 - Development workflow (Docker/git): `../DEVELOPMENT.md` · QA baseline: `../QA-REPORT.md`
 

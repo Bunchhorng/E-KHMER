@@ -157,7 +157,7 @@ Reviews are **moderated** and **verified**. Before allowing creation, the servic
 
 ### 3.7 Reports (`DashboardService`, `AdminReportController`)
 
-Admin reporting aggregates key metrics (revenue, orders, customers) from the core tables and exposes an exportable `orders.csv` report. Charts on the frontend consume these aggregates via Recharts/Chart.js.
+Admin reporting aggregates key metrics (revenue, orders, customers) from the core tables and exposes an exportable `orders.csv` report. Charts on the frontend consume these aggregates via Chart.js.
 
 ---
 

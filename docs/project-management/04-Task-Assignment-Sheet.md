@@ -1,6 +1,6 @@
 # 4. Task Assignment Sheet
 
-> Who does what. Newest on top. Duplicates the module ownership in `docs/TEAM-WORK-BREAKDOWN.md` for quick tracking.
+> Who does what. Newest on top. This is the source of truth for current task ownership.
 
 ## 4.1 Open / In-progress tasks
 

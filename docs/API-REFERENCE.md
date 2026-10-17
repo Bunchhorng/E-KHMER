@@ -14,6 +14,28 @@ This reference was generated from the **live Laravel backend** running inside Do
 
 ## 1. Notation
 
+### Seller product photos
+
+Authenticated shop owners and managers can create products at
+`POST /api/seller/shops/{shop}/products` and edit them at
+`PUT /api/seller/shops/{shop}/products/{product}`. Access is restricted to the
+selected shop and its products.
+
+For photos, send multipart form data. When editing, use `POST` with `_method=PUT`
+so PHP receives the uploaded files. Include ordinary product fields, plus:
+
+- `image_files[0]`, `image_files[1]`, etc.: uploaded or camera-captured image files.
+- `images`: a JSON-encoded ordered array containing existing photo URLs from that
+  product and `upload:0`, `upload:1`, etc., referencing the new files. The first
+  entry becomes the cover. Omitted existing photos are removed on save; `[]`
+  removes the gallery. Omitting `images` leaves existing photos unchanged.
+
+Example: `images=["upload:0","/storage/images/products/existing.jpg"]`.
+Each new file must be referenced exactly once. Galleries accept up to 20 photos;
+each new JPG, PNG, WebP, or GIF must be at most 5 MB, with at most 10 MB of new
+files per save. Invalid uploads return field-level `422` validation errors.
+The seller product response includes the saved `gallery` and cover image.
+
 | Marker | Meaning |
 | --- | --- |
 | `Public` | No authentication required |

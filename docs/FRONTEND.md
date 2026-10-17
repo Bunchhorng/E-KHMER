@@ -10,9 +10,9 @@ This document describes the Vue 3 + TypeScript frontend: its structure, routing,
 - **Vue Router** — SPA routing
 - **Pinia** — global state
 - **Axios** — API client
-- **Bootstrap 5** — styling
+- **Tailwind CSS** — styling
 - **SweetAlert2** — dialogs
-- **Recharts / Chart.js** — admin charts
+- **Chart.js** — admin charts
 - **i18n** — English (`en`) and Khmer (`km`) locales
 
 ## 2. Project Layout (`frontend/src`)
