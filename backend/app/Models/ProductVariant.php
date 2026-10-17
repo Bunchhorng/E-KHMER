@@ -7,16 +7,19 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-#[Fillable(['product_id', 'image_id', 'shop_id', 'name', 'sku', 'price', 'compare_at_price', 'is_default', 'is_active'])]
+#[Fillable(['product_id', 'image_id', 'shop_id', 'name', 'sku', 'barcode', 'cost_price', 'price', 'compare_at_price', 'is_default', 'is_active'])]
 class ProductVariant extends Model
 {
     use HasFactory;
     use SoftDeletes;
 
+    protected $hidden = ['cost_price'];
+
     protected function casts(): array
     {
         return [
             'price' => 'decimal:2',
+            'cost_price' => 'decimal:2',
             'is_default' => 'boolean',
             'is_active' => 'boolean',
         ];

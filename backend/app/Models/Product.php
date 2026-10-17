@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -14,10 +14,13 @@ class Product extends Model
     use HasFactory;
     use SoftDeletes;
 
+    protected $hidden = ['cost_price'];
+
     protected function casts(): array
     {
         return [
             'price' => 'decimal:2',
+            'cost_price' => 'decimal:2',
             'is_featured' => 'boolean',
             'is_active' => 'boolean',
         ];

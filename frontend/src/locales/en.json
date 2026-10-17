@@ -1,4 +1,17 @@
 {
+  "barcode_scanner": {
+    "scan": "Scan barcode",
+    "help": "Point the rear camera at the printed barcode. Hold steady with all bars in view and good lighting. The code fills in automatically; review it before saving.",
+    "scanning": "Looking for a barcode… Move a little closer or farther away if needed.",
+    "privacy": "Scanning happens on your device. Camera images are not uploaded. You can cancel and type the barcode instead.",
+    "success": "Barcode scanned: {barcode}. Review it, then save your product.",
+    "https_required": "Camera scanning requires HTTPS (or localhost). Open the secure shop website on your phone, or enter the barcode manually.",
+    "denied": "Camera access was blocked. Allow camera access in your browser settings, then retry, or type the barcode instead.",
+    "no_camera": "No camera was found. Connect a camera, or type the barcode or use a USB/Bluetooth scanner.",
+    "unavailable": "Could not start the camera. Close other apps using it and retry, or enter the barcode manually.",
+    "failed": "The barcode scanner could not read the camera. Retry, or enter the printed barcode manually.",
+    "invalid": "This barcode cannot be used as a product code. Scan another barcode, or enter the printed code manually."
+  },
   "shop_settings": {
     "name": "Shop name",
     "shipping_name": "Delivery method name",
@@ -110,6 +123,10 @@
     "reply": "Send reply"
   },
   "seller": {
+    "barcode": "Product barcode",
+    "barcode_help": "Scan the printed product barcode with your camera, type it, or use a USB/Bluetooth scanner. Leading zeros are kept; this is separate from your SKU.",
+    "purchase_price": "Purchase price",
+    "purchase_help": "Your purchase cost per unit. Only shop managers and administrators can see it; customers cannot. Leave blank if unknown.",
     "settings": "Settings",
     "returns": "Returns",
     "payments": "Payments",
@@ -193,7 +210,7 @@
     "stock_ready": "Make stock available",
     "setup_help": "Complete these steps to get ready for customers.",
     "products_help": "Add, edit, or hide the products customers see in your shop.",
-    "search_products": "Search by product name or SKU",
+    "search_products": "Search by product name, SKU or barcode",
     "search": "Search",
     "no_results": "No matching results",
     "no_results_help": "Try another search or clear your filters.",
@@ -211,7 +228,7 @@
     "delete_product": "Delete product?",
     "delete_help": "“{name}” will be removed from your catalog. Previous orders will keep their saved item details.",
     "stock_intro": "See what customers can buy and update your total stock count.",
-    "search_stock": "Search by product name or SKU",
+    "search_stock": "Search by product name, SKU or barcode",
     "all_stock": "All stock",
     "healthy": "Healthy stock",
     "out": "Out of stock",

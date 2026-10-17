@@ -16,6 +16,8 @@ class ProductDetailResource extends JsonResource
             'short_description' => $this->short_description,
             'description' => $this->description,
             'sku' => $this->sku,
+            'barcode' => $this->barcode,
+            'cost_price' => $this->when($request->is('api/admin/*') || $request->is('api/seller/*'), fn () => $this->cost_price === null ? null : (float) $this->cost_price),
             'weight' => $this->weight !== null ? (float) $this->weight : null,
             'meta_title' => $this->meta_title,
             'meta_description' => $this->meta_description,
@@ -174,6 +176,8 @@ class ProductDetailResource extends JsonResource
                 return [
                     'id' => $variant->id,
                     'sku' => $variant->sku,
+                    'barcode' => $variant->barcode,
+                    'cost_price' => $this->when(request()->is('api/admin/*') || request()->is('api/seller/*'), fn () => $variant->cost_price === null ? null : (float) $variant->cost_price),
                     'name' => $variant->name,
                     'price' => $variant->price !== null ? (float) $variant->price : (float) $this->price,
                     'compare_at_price' => $variant->compare_at_price !== null ? (float) $variant->compare_at_price : null,

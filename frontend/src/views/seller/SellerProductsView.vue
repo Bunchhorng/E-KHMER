@@ -70,7 +70,7 @@ onMounted(() => void load())
         <div class="divide-y divide-border-gray">
           <article v-for="product in products" :key="product.id" class="grid items-center gap-4 p-4 sm:p-6 xl:grid-cols-[minmax(0,1fr)_120px_100px_240px]">
             <RouterLink :to="{ name: 'seller-shop-product-edit', params: { id: shopId, productId: product.id } }" class="flex min-w-0 items-center gap-4"><AssetImage :src="product.cover_image" :alt="product.name" class="h-16 w-16 shrink-0 rounded-xl border border-border-gray bg-canvas object-cover" /><div class="min-w-0"><h2 class="text-sm font-semibold hover:text-primary">{{ product.name }}</h2><p class="mt-1 truncate text-xs text-muted">{{ product.sku }}<span v-if="product.category"> · {{ product.category.name }}</span></p><p class="mt-1 text-xs" :class="product.in_stock ? 'text-muted' : 'text-amber-700 dark:text-amber-400'">{{ t(product.in_stock ? 'seller.healthy' : 'seller.out') }}</p></div></RouterLink>
-            <p class="text-sm font-semibold tabular-nums">{{ formatPrice(product.price) }}</p>
+            <div class="space-y-1"><p v-if="product.barcode" class="break-all font-mono text-xs text-muted">{{ t('seller.barcode') }}: {{ product.barcode }}</p><p class="text-sm font-semibold tabular-nums">{{ formatPrice(product.price) }}</p></div>
             <div><BaseBadge :variant="product.is_active ? 'success' : 'neutral'" dot>{{ t(product.is_active ? 'seller.live' : 'seller.hidden') }}</BaseBadge></div>
             <div class="flex flex-wrap items-center gap-2 xl:justify-end">
               <RouterLink :to="{ name: 'seller-shop-product-edit', params: { id: shopId, productId: product.id } }" class="btn-secondary btn-sm"><Pencil :size="15" />{{ t('actions.edit') }}</RouterLink>

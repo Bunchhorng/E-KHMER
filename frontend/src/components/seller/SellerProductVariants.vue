@@ -3,11 +3,12 @@ import { Plus, Trash2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import type { SellerVariant } from '@/types/sellerVariants'
 import type { ProductPhoto } from '@/types/productPhotos'
-const props = defineProps<{ modelValue: SellerVariant[]; photos: ProductPhoto[]; disabled: boolean; price: number }>()
+import SellerBarcodeField from '@/components/seller/SellerBarcodeField.vue'
+const props = defineProps<{ modelValue: SellerVariant[]; photos: ProductPhoto[]; disabled: boolean; price: number; costPrice: number | null; errors?: Record<string, string> }>()
 const emit = defineEmits<{ 'update:modelValue': [variants: SellerVariant[]] }>()
 const { t } = useI18n()
 function add() {
-  emit('update:modelValue', [...props.modelValue, { key: `new-${Date.now()}-${Math.random()}`, name: '', sku: '', price: props.price, compare_at_price: null, quantity: 0, reserved_quantity: 0, is_active: true, image_id: null, attributes: [{ attribute: 'Color', value: '' }, { attribute: 'Size', value: '' }] }])
+  emit('update:modelValue', [...props.modelValue, { key: `new-${Date.now()}-${Math.random()}`, name: '', sku: '', barcode: '', cost_price: props.costPrice, price: props.price, compare_at_price: null, quantity: 0, reserved_quantity: 0, is_active: true, image_id: null, attributes: [{ attribute: 'Color', value: '' }, { attribute: 'Size', value: '' }] }])
 }
 function remove(row: SellerVariant) {
   if (row.reserved_quantity || props.disabled || !window.confirm(t('seller_variants.remove_confirm'))) return
@@ -23,6 +24,8 @@ function remove(row: SellerVariant) {
       <div class="grid gap-4 sm:grid-cols-2">
         <label><span class="label">{{ t('seller.name') }}</span><input v-model="row.name" class="input w-full" maxlength="255" :placeholder="t('seller_variants.name_example')" /></label>
         <label><span class="label">{{ t('seller.sku') }}</span><input v-model="row.sku" class="input w-full" maxlength="255" /></label>
+        <SellerBarcodeField v-model="row.barcode" :disabled="disabled" :error="errors?.[`variants.${index}.barcode`]" />
+        <label><span class="label">{{ t('seller.purchase_price') }} (USD)</span><input v-model.number="row.cost_price" type="number" min="0" max="99999999.99" step="0.01" class="input w-full" :aria-label="`${t('seller.purchase_price')} (USD)`" :aria-describedby="`variant-cost-help-${index}`" :aria-invalid="!!errors?.[`variants.${index}.cost_price`]" /><span :id="`variant-cost-help-${index}`" class="mt-1 block text-xs" :class="errors?.[`variants.${index}.cost_price`] ? 'text-red-600' : 'text-muted'">{{ errors?.[`variants.${index}.cost_price`] || t('seller.purchase_help') }}</span></label>
         <label><span class="label">{{ t('seller.price') }} (USD)</span><input v-model.number="row.price" required type="number" min="0" max="99999999.99" step="0.01" class="input w-full" /></label>
         <label><span class="label">{{ t('seller.original_price') }} (USD)</span><input v-model.number="row.compare_at_price" type="number" min="0" max="99999999.99" step="0.01" class="input w-full" /></label>
         <label v-if="!row.id"><span class="label">{{ t('seller.initial_stock') }}</span><input v-model.number="row.quantity" required type="number" min="0" max="1000000" step="1" class="input w-full" /></label>

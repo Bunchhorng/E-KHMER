@@ -41,8 +41,8 @@ class SellerProductController extends Controller
             $variants = $product->variants()->get();
             $variant = $variants->count() === 1 && ! $variants->first()->attributeValues()->exists() ? $variants->first() : null;
             if ($variant !== null) {
-                $data = $variant->only(['id', 'name', 'sku', 'price', 'compare_at_price', 'is_active']);
-                foreach (['price', 'compare_at_price', 'is_active'] as $key) {
+                $data = $variant->only(['id', 'name', 'sku', 'barcode', 'cost_price', 'price', 'compare_at_price', 'is_active']);
+                foreach (['barcode', 'cost_price', 'price', 'compare_at_price', 'is_active'] as $key) {
                     if ($request->has($key)) {
                         $data[$key] = $request->input($key);
                     }

@@ -35,7 +35,8 @@ class AdminInventoryController extends Controller
             $term = mb_strtolower(trim((string) $request->q));
             $query->where(function ($q) use ($term) {
                 $q->whereHas('variant.product', fn ($p) => $p->whereRaw('LOWER(name) LIKE ?', ["%{$term}%"]))
-                    ->orWhereHas('variant', fn ($v) => $v->whereRaw('LOWER(sku) LIKE ?', ["%{$term}%"]));
+                    ->orWhereHas('variant.product', fn ($p) => $p->where('barcode', 'like', "%{$term}%"))
+                    ->orWhereHas('variant', fn ($v) => $v->where(fn ($variant) => $variant->whereRaw('LOWER(sku) LIKE ?', ["%{$term}%"])->orWhere('barcode', 'like', "%{$term}%")));
             });
         }
 

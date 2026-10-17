@@ -1,5 +1,13 @@
 # QA Report — E-KHMER E-Commerce System
 
+## Camera barcode scanning verification — 2026-10-17
+
+The frontend-only camera extension passed the full **40 desktop/mobile Chromium checks**, the Vue TypeScript/production build and a production npm audit (**0 vulnerabilities**). New checks decode real EAN-8 bar pixels (`00001236`) from a simulated camera MediaStream with the actual ZXing reader, verify selected-variant isolation and explicit-save behavior, and cover permission denial/retry, missing cameras, insecure contexts, cancel-before-permission and component teardown. The scanner dialog was visually inspected at desktop and Pixel 7 sizes. Camera frames remain local; English/Khmer prompts, HTTPS guidance and manual/USB/Bluetooth fallback are present. ZXing dependencies are lazy-loaded and pinned to Node-22-compatible releases. Physical phone cameras, Safari and dedicated scanner hardware still need acceptance testing; Chromium mobile emulation is not device certification. No backend changes or migration were needed for this camera-only extension; the backend results below belong to the preceding barcode/pricing verification.
+
+## Barcode and purchase pricing verification — 2026-10-17
+
+The barcode/pricing extension passed **380 backend tests / 1,911 assertions**, **26 desktop/mobile browser checks**, and the Vue TypeScript/production build. The nullable variant barcode/cost columns and shop-scoped barcode indexes were migrated locally. Coverage includes preserved leading zeros, independent variant values, partial edits, optional-field clearing, shop-scoped product/stock search, private purchase costs, scanner Enter handling and existing-record editing. Scheduler tests now freeze their clock so reservation assertions do not depend on wall-clock jumps. USB/Bluetooth scanner support is keyboard-input based. Camera decoding was added and verified separately above; no physical-scanner hardware certification is implied.
+
 ## Commerce implementation verification — 2026-10-17
 
 The older audit below is retained as historical evidence, not the current release status.

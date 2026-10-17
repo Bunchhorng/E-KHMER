@@ -31,6 +31,8 @@ class AdminProductRequest extends FormRequest
             // products.description is a text column (65 535 bytes).
             'description' => ['nullable', 'string', 'max:60000'],
             'price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'cost_price' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
+            'barcode' => ['nullable', 'string', 'max:255', 'regex:/^[\x20-\x7E]+$/'],
             'initial_stock' => ['nullable', 'integer', 'min:0', 'max:1000000'],
             'compare_at_price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             // products.sku carries a unique index, so the clash has to be a 422
@@ -50,6 +52,8 @@ class AdminProductRequest extends FormRequest
             'variants.*.sku' => ['nullable', 'string', 'max:255'],
             'variants.*.name' => ['nullable', 'string', 'max:255'],
             'variants.*.price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
+            'variants.*.cost_price' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
+            'variants.*.barcode' => ['nullable', 'string', 'max:255', 'regex:/^[\x20-\x7E]+$/'],
             'variants.*.compare_at_price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             'variants.*.is_active' => ['nullable', 'boolean'],
             'variants.*.quantity' => ['nullable', 'integer', 'min:0', 'max:10000000'],
@@ -78,6 +82,25 @@ class AdminProductRequest extends FormRequest
 
         if ($this->has('sku')) {
             $this->merge(['sku' => $this->trimmedOrNull('sku')]);
+        }
+        if ($this->has('barcode') && is_string($this->input('barcode'))) {
+            $this->merge(['barcode' => $this->trimmedOrNull('barcode')]);
+        }
+        if (is_array($variants = $this->input('variants'))) {
+            foreach ($variants as &$variant) {
+                if (! is_array($variant)) {
+                    continue;
+                }
+                if (isset($variant['barcode']) && is_string($variant['barcode'])) {
+                    $barcode = trim($variant['barcode']);
+                    $variant['barcode'] = $barcode === '' ? null : $barcode;
+                }
+                if (isset($variant['cost_price']) && is_string($variant['cost_price']) && trim($variant['cost_price']) === '') {
+                    $variant['cost_price'] = null;
+                }
+            }
+            unset($variant);
+            $this->merge(['variants' => $variants]);
         }
     }
 

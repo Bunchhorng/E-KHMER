@@ -61,6 +61,8 @@ export interface AdminDashboard {
 }
 
 export interface AdminProduct extends CatalogProduct {
+  barcode?: string | null
+  cost_price?: number | null
   description: string | null
   sku: string
   weight: number | null
@@ -76,6 +78,8 @@ export interface AdminProduct extends CatalogProduct {
   }[]
   variants: {
     id: number
+    barcode?: string | null
+    cost_price?: number | null
     sku: string
     name: string
     price: number
@@ -206,6 +210,7 @@ export interface AdminSettings {
 }
 
 export interface AdminInventoryItem {
+  barcode?: string | null
   id: number
   product_variant_id: number
   product: { id: number; name: string; slug: string }

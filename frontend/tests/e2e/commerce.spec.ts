@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { installBarcodeCamera, type BarcodeCameraWindow } from './barcode-camera'
 const shop = { id: 1, name: 'Test Shop', slug: 'test-shop', status: 'active', logo: null, banner: null, code: 'TEST', description: 'Our test catalog', email: 'seller@example.com', phone: '', address_line: '', city: 'Phnom Penh', province: '', postal_code: '', country: 'KH', bakong_account_id: 'seller@bank', bakong_merchant_name: 'Seller', bakong_merchant_city: 'Phnom Penh', rejection_reason: null, products_count: 1, rating_avg: 4.5, rating_count: 2 }
 const user = { id: 1, name: 'Seller', email: 'seller@example.com', role: 'customer', managed_shops: [{ id: 1, name: shop.name, slug: shop.slug, role: 'owner' }] }
 const meta = { current_page: 1, last_page: 1, per_page: 12, total: 1 }
@@ -68,6 +69,176 @@ test('owners can create product options without losing their stock fields', asyn
   await expect(page).toHaveURL(/\/seller\/shops\/1\/products$/)
   expect(payload).toContain('BLUE-L'); expect(payload).toContain('RED-S'); expect(payload).toContain('quantity')
 })
+
+test('owners can enter a printed barcode with purchase and selling prices', async ({ page }) => {
+  await setup(page, true)
+  let submitted = ''
+  await page.route('**/api/seller/shops/1/products', async route => {
+    if (route.request().method() === 'POST') {
+      submitted = route.request().postData() ?? ''
+      await route.fulfill({ status: 201, json: { data: { id: 2 } } })
+    } else await route.fulfill({ json: { data: [], meta: { ...meta, total: 0 } } })
+  })
+  await page.goto('/seller/shops/1/products/new')
+  await page.getByLabel('Product name *').fill('Barcoded item')
+  const barcode = page.getByLabel('Product barcode', { exact: true })
+  await barcode.fill('0012345678905')
+  await barcode.press('Enter')
+  await expect(page).toHaveURL(/\/products\/new$/)
+  expect(submitted).toBe('')
+  await page.getByLabel('Purchase price (USD)', { exact: true }).fill('4.25')
+  await page.getByLabel('Selling price (USD) *', { exact: true }).fill('7.50')
+  await page.getByRole('button', { name: 'Save product', exact: true }).first().click()
+  await expect(page).toHaveURL(/\/seller\/shops\/1\/products$/)
+  expect(submitted).toContain('0012345678905')
+  expect(submitted).toContain('name="cost_price"')
+  expect(submitted).toContain('4.25')
+  expect(submitted).toContain('7.5')
+})
+
+test('owners can reload and edit existing barcodes and purchase prices', async ({ page }) => {
+  await setup(page, true)
+  let submitted = ''
+  await page.route('**/api/seller/shops/1/products/2', async route => {
+    if (route.request().method() === 'POST') submitted = route.request().postData() ?? ''
+    await route.fulfill({ json: { data: { ...product, barcode: '00001234', cost_price: 3.5, sku: 'BLUE', gallery: [],
+      variants: [{ ...product.variants[0], barcode: '00001234', cost_price: 3.5, is_default: true, is_active: true, quantity: 5, reserved_quantity: 0, image_id: null }] } } })
+  })
+  await page.goto('/seller/shops/1/products/2/edit')
+  await expect(page.getByLabel('Product barcode', { exact: true })).toHaveValue('00001234')
+  await expect(page.getByLabel('Purchase price (USD)', { exact: true })).toHaveValue('3.5')
+  await page.getByLabel('Product barcode', { exact: true }).fill('00005678')
+  await page.getByLabel('Purchase price (USD)', { exact: true }).fill('3.75')
+  await page.getByRole('button', { name: 'Save product', exact: true }).first().click()
+  await expect(page).toHaveURL(/\/seller\/shops\/1\/products$/)
+  expect(submitted).toContain('00005678')
+  expect(submitted).toContain('3.75')
+})
+
+test('product variants have independent barcode and purchase price fields', async ({ page }) => {
+  await setup(page, true)
+  let submitted = ''
+  await page.route('**/api/seller/shops/1/products', async route => {
+    if (route.request().method() === 'POST') {
+      submitted = route.request().postData() ?? ''
+      await route.fulfill({ status: 201, json: { data: { id: 2 } } })
+    } else await route.fulfill({ json: { data: [], meta: { ...meta, total: 0 } } })
+  })
+  await page.goto('/seller/shops/1/products/new')
+  await page.getByLabel('Product name *').fill('Variant prices')
+  await page.getByRole('checkbox', { name: 'This product has options such as color or size' }).check()
+  await page.getByRole('button', { name: 'Add variant', exact: true }).click()
+  const rows = page.locator('fieldset')
+  for (const [index, barcode, purchase, selling] of [[0, '00001111', '3.25', '8'], [1, '00002222', '4.5', '10']] as const) {
+    await rows.nth(index).getByLabel('Product barcode', { exact: true }).fill(barcode)
+    await rows.nth(index).getByLabel('Purchase price (USD)', { exact: true }).fill(purchase)
+    await rows.nth(index).getByLabel('Selling price (USD)', { exact: true }).fill(selling)
+  }
+  await page.getByRole('button', { name: 'Save product', exact: true }).first().click()
+  await expect(page).toHaveURL(/\/seller\/shops\/1\/products$/)
+  expect(submitted).toContain('"barcode":"00001111"')
+  expect(submitted).toContain('"barcode":"00002222"')
+  expect(submitted).toContain('"cost_price":3.25')
+  expect(submitted).toContain('"cost_price":4.5')
+})
+test('camera barcode scanning decodes real EAN-8 bars and saves only after review', async ({ page }) => {
+  await setup(page, true)
+  await installBarcodeCamera(page)
+  let submitted = ''
+  await page.route('**/api/seller/shops/1/products', async route => {
+    if (route.request().method() === 'POST') {
+      submitted = route.request().postData() ?? ''
+      await route.fulfill({ status: 201, json: { data: { id: 2 } } })
+    } else await route.fulfill({ json: { data: [], meta: { ...meta, total: 0 } } })
+  })
+  await page.goto('/seller/shops/1/products/new')
+  await page.getByLabel('Product name *').fill('Camera-scanned item')
+  await page.getByRole('button', { name: 'Scan barcode', exact: true }).click()
+  await expect(page.getByLabel('Product barcode', { exact: true })).toHaveValue('00001236', { timeout: 15000 })
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByRole('status')).toContainText('Barcode scanned: 00001236')
+  await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.stops)).toBe(1)
+  expect(submitted).toBe('')
+  await page.getByRole('button', { name: 'Save product', exact: true }).first().click()
+  await expect(page).toHaveURL(/\/seller\/shops\/1\/products$/)
+  expect(submitted).toContain('00001236')
+})
+
+test('camera barcode scanning fills only the selected variant', async ({ page }) => {
+  await setup(page, true)
+  await installBarcodeCamera(page)
+  await page.goto('/seller/shops/1/products/new')
+  await page.getByRole('checkbox', { name: 'This product has options such as color or size' }).check()
+  await page.getByRole('button', { name: 'Add variant', exact: true }).click()
+  const rows = page.locator('fieldset')
+  await rows.nth(0).getByLabel('Product barcode', { exact: true }).fill('KEEP-FIRST')
+  await rows.nth(1).getByRole('button', { name: 'Scan barcode', exact: true }).click()
+  await expect(rows.nth(1).getByLabel('Product barcode', { exact: true })).toHaveValue('00001236', { timeout: 15000 })
+  await expect(rows.nth(0).getByLabel('Product barcode', { exact: true })).toHaveValue('KEEP-FIRST')
+  await expect(page.getByLabel('Product barcode', { exact: true }).last()).toHaveValue('')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.stops)).toBe(1)
+})
+
+test('camera barcode scanning explains permission denial and supports retry or manual input', async ({ page }, testInfo) => {
+  await setup(page, true)
+  await installBarcodeCamera(page, 'denied')
+  await page.goto('/seller/shops/1/products/new')
+  const barcode = page.getByLabel('Product barcode', { exact: true })
+  await barcode.fill('KEEP-ORIGINAL')
+  await page.getByRole('button', { name: 'Scan barcode', exact: true }).click()
+  await expect(page.getByRole('alert')).toContainText('Camera access was blocked')
+  await page.evaluate(() => { (window as BarcodeCameraWindow).barcodeCamera.denied = false })
+  await page.getByRole('button', { name: 'Retry', exact: true }).click()
+  await expect(page.getByRole('dialog').getByRole('status')).toContainText('Looking for a barcode', { timeout: 15000 })
+  await page.screenshot({ path: testInfo.outputPath('barcode-scanner.png') })
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.stops)).toBe(1)
+  await expect(barcode).toHaveValue('KEEP-ORIGINAL')
+  await barcode.fill('00005678')
+  await expect(barcode).toHaveValue('00005678')
+})
+
+test('closing the barcode scanner stops a late camera permission response', async ({ page }) => {
+  await setup(page, true)
+  await installBarcodeCamera(page, 'pending')
+  await page.goto('/seller/shops/1/products/new')
+  await page.getByRole('button', { name: 'Scan barcode', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.calls)).toBe(1)
+  await page.getByRole('dialog').getByRole('button', { name: 'Close', exact: true }).click()
+  await page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.release?.())
+  await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.stops)).toBe(1)
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect(page.getByLabel('Product barcode', { exact: true })).toHaveValue('')
+})
+
+test('unmounting a variant barcode scanner stops its camera', async ({ page }) => {
+  await setup(page, true)
+  await installBarcodeCamera(page, 'blank')
+  await page.goto('/seller/shops/1/products/new')
+  await page.getByRole('checkbox', { name: 'This product has options such as color or size' }).check()
+  await page.locator('fieldset').getByRole('button', { name: 'Scan barcode', exact: true }).click()
+  await expect(page.getByRole('dialog').getByRole('status')).toContainText('Looking for a barcode', { timeout: 15000 })
+  // Simulate a parent state change while the teleported scanner dialog is open.
+  await page.getByRole('checkbox', { name: 'This product has options such as color or size' }).evaluate(element => (element as HTMLInputElement).click())
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+  await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.stops)).toBe(1)
+})
+
+for (const [mode, message] of [['missing', 'No camera was found'], ['insecure', 'Camera scanning requires HTTPS']] as const) {
+  test(`camera barcode scanning handles a ${mode} camera context`, async ({ page }) => {
+    await setup(page, true)
+    await installBarcodeCamera(page, mode)
+    await page.goto('/seller/shops/1/products/new')
+    await page.getByRole('button', { name: 'Scan barcode', exact: true }).click()
+    await expect(page.getByRole('alert')).toContainText(message)
+    await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+    await page.getByLabel('Product barcode', { exact: true }).fill('MANUAL')
+    await expect(page.getByLabel('Product barcode', { exact: true })).toHaveValue('MANUAL')
+    if (mode === 'insecure') expect(await page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.calls)).toBe(0)
+  })
+}
+
 test('product photos support upload, cover choice, and removal', async ({ page }) => {
   await setup(page, true); await page.goto('/seller/shops/1/products/new')
   const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jB9kAAAAASUVORK5CYII=', 'base64')

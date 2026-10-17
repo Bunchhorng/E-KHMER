@@ -14,6 +14,7 @@ class ProductResource extends JsonResource
             'id' => $this->id,
             'slug' => $this->slug,
             'name' => $this->name,
+            'barcode' => $this->when($request->is('api/admin/*') || $request->is('api/seller/*'), $this->barcode),
             'shop_id' => $this->shop_id === null ? null : (int) $this->shop_id,
             'shop' => $this->whenLoaded('shop', fn () => $this->shop === null ? null : [
                 'id' => (int) $this->shop->id,

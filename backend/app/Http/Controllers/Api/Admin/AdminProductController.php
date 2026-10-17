@@ -44,7 +44,9 @@ class AdminProductController extends Controller
             $term = mb_strtolower(trim((string) $request->q));
             $query->where(function ($q) use ($term) {
                 $q->whereRaw('LOWER(name) LIKE ?', ["%{$term}%"])
-                    ->orWhereRaw('LOWER(sku) LIKE ?', ["%{$term}%"]);
+                    ->orWhereRaw('LOWER(sku) LIKE ?', ["%{$term}%"])
+                    ->orWhere('barcode', 'like', "%{$term}%")
+                    ->orWhereHas('variants', fn ($variants) => $variants->where('barcode', 'like', "%{$term}%"));
             });
         }
 
@@ -114,6 +116,8 @@ class AdminProductController extends Controller
             $variants = [[
                 'name' => 'Default',
                 'sku' => $data['sku'] ?? null,
+                'barcode' => $data['barcode'] ?? null,
+                'cost_price' => $data['cost_price'] ?? null,
                 'price' => $data['price'] ?? 0,
                 'compare_at_price' => $data['compare_at_price'] ?? null,
                 'quantity' => max((int) $request->input('initial_stock', 0), 0),
@@ -510,7 +514,7 @@ class AdminProductController extends Controller
     {
         $data = $request->only([
             'name', 'slug', 'category_id', 'brand_id', 'shop_id', 'short_description',
-            'description', 'price', 'compare_at_price', 'sku', 'weight',
+            'description', 'price', 'compare_at_price', 'sku', 'barcode', 'cost_price', 'weight',
             'is_featured', 'is_active',
         ]);
 
@@ -519,7 +523,7 @@ class AdminProductController extends Controller
             'is_active' => true,
             'price' => 0,
         ] as $key => $default) {
-            if (! array_key_exists($key, $data) || $data[$key] === null) {
+            if (($request->isMethod('post') && ! array_key_exists($key, $data)) || (array_key_exists($key, $data) && $data[$key] === null)) {
                 $data[$key] = $default;
             }
         }
@@ -552,6 +556,8 @@ class AdminProductController extends Controller
                 'shop_id' => $product->shop_id,
                 'name' => $variantData['name'] ?? null,
                 'sku' => $variantData['sku'] ?? null,
+                'barcode' => $variantData['barcode'] ?? null,
+                'cost_price' => array_key_exists('cost_price', $variantData) ? $variantData['cost_price'] : $product->cost_price,
                 'price' => ($variantData['price'] ?? null) !== null ? max((float) $variantData['price'], 0) : null,
                 'compare_at_price' => ($variantData['compare_at_price'] ?? null) !== null ? max((float) $variantData['compare_at_price'], 0) : null,
                 'is_active' => $variantData['is_active'] ?? true,
@@ -610,6 +616,8 @@ class AdminProductController extends Controller
                     'shop_id' => $product->shop_id,
                     'name' => $variantData['name'] ?? null,
                     'sku' => $variantData['sku'] ?? null,
+                    'barcode' => $variantData['barcode'] ?? null,
+                    'cost_price' => array_key_exists('cost_price', $variantData) ? $variantData['cost_price'] : $product->cost_price,
                     'price' => $variantData['price'] ?? null,
                     'compare_at_price' => $variantData['compare_at_price'] ?? null,
                     'is_active' => $variantData['is_active'] ?? true,
@@ -631,6 +639,8 @@ class AdminProductController extends Controller
                     'name' => $variantData['name'] ?? $variant->name,
                     // Never let the temporary SKU from phase 1 become the real one.
                     'sku' => $variantData['sku'] ?? ($originalSku[(int) $variant->id] ?? null),
+                    'barcode' => array_key_exists('barcode', $variantData) ? $variantData['barcode'] : $variant->barcode,
+                    'cost_price' => array_key_exists('cost_price', $variantData) ? $variantData['cost_price'] : $variant->cost_price,
                     'price' => array_key_exists('price', $variantData) ? $variantData['price'] : $variant->price,
                     'compare_at_price' => array_key_exists('compare_at_price', $variantData) ? $variantData['compare_at_price'] : $variant->compare_at_price,
                     'is_active' => $variantData['is_active'] ?? $variant->is_active,

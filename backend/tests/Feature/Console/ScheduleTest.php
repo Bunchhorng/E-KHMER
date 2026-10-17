@@ -11,7 +11,7 @@ use Tests\TestCase;
 
 class ScheduleTest extends TestCase
 {
-    use RefreshDatabase, CheckoutGuest;
+    use CheckoutGuest, RefreshDatabase;
 
     public function test_schedule_registers_reservation_cleanup_task(): void
     {
@@ -22,6 +22,7 @@ class ScheduleTest extends TestCase
 
     public function test_schedule_run_expires_stale_reservations(): void
     {
+        $this->freezeTime();
         $user = User::factory()->create();
         $this->productWithStock(10, 100.00);
         $this->authAs($user);
@@ -42,6 +43,7 @@ class ScheduleTest extends TestCase
 
     public function test_schedule_run_keeps_recent_reservations(): void
     {
+        $this->freezeTime();
         $user = User::factory()->create();
         $this->productWithStock(10, 100.00);
         $this->authAs($user);

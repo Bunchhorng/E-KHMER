@@ -41,6 +41,7 @@ class InventoryResource extends JsonResource
             'variant_label' => $this->variantLabel(),
             'product_name' => $this->variant?->product?->name,
             'sku' => $this->variant?->sku,
+            'barcode' => $this->variant?->barcode ?? $this->variant?->product?->barcode,
             'quantity' => (int) $this->quantity,
             'reserved_quantity' => (int) $this->reserved_quantity,
             'available_quantity' => (int) $this->available_quantity,
