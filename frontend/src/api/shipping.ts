@@ -1,6 +1,7 @@
 import apiClient from './client'
 
 export interface ApiShippingMethod {
+  shop_id?: number | null
   id: number
   name: string
   code: string

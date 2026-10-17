@@ -117,6 +117,7 @@ class AdminProductController extends Controller
                 'price' => $data['price'] ?? 0,
                 'compare_at_price' => $data['compare_at_price'] ?? null,
                 'quantity' => max((int) $request->input('initial_stock', 0), 0),
+                'is_default' => true,
                 'is_active' => (bool) ($data['is_active'] ?? true),
             ]];
         }
@@ -287,17 +288,17 @@ class AdminProductController extends Controller
         return ['data' => ['updated' => $products->count()]];
     }
 
-/**
- * SKU uniqueness is scoped per branch by `product_variants_shop_sku_unique`
- * (migration 2026_09_27_000002): two shops may stock the same manufacturer SKU,
- * but one shop may not list it twice.
- *
- * Rows referenced by the current payload are excluded from the clash check.
- * They are about to be rewritten, and excluding them is what lets an admin swap
- * two SKUs between two variants of the same product instead of tripping the
- * index on the first UPDATE.
- */
-protected function assertUniqueSkus(array $variants, ?int $shopId = null): void
+    /**
+     * SKU uniqueness is scoped per branch by `product_variants_shop_sku_unique`
+     * (migration 2026_09_27_000002): two shops may stock the same manufacturer SKU,
+     * but one shop may not list it twice.
+     *
+     * Rows referenced by the current payload are excluded from the clash check.
+     * They are about to be rewritten, and excluding them is what lets an admin swap
+     * two SKUs between two variants of the same product instead of tripping the
+     * index on the first UPDATE.
+     */
+    protected function assertUniqueSkus(array $variants, ?int $shopId = null): void
     {
         $incoming = [];
         $referencedIds = [];
@@ -447,11 +448,11 @@ protected function assertUniqueSkus(array $variants, ?int $shopId = null): void
         return Storage::disk('public')->exists($relative);
     }
 
-/**
- * Fallback slug for a product whose name cannot produce one (for example a
- * name written entirely in a non-latin script).
- */
-protected function slugForNewProduct(array $data): string
+    /**
+     * Fallback slug for a product whose name cannot produce one (for example a
+     * name written entirely in a non-latin script).
+     */
+    protected function slugForNewProduct(array $data): string
     {
         $slug = trim((string) ($data['slug'] ?? ''));
 
@@ -467,7 +468,7 @@ protected function slugForNewProduct(array $data): string
      * per-branch SKU index applies to. A shop reassignment is part of the same
      * payload, so the incoming value wins over the stored one.
      */
-protected function targetShopId(array $data, ?Product $product = null): ?int
+    protected function targetShopId(array $data, ?Product $product = null): ?int
     {
         if (array_key_exists('shop_id', $data)) {
             return $data['shop_id'] === null ? null : (int) $data['shop_id'];
@@ -477,10 +478,10 @@ protected function targetShopId(array $data, ?Product $product = null): ?int
     }
 
     /**
- * Guard a branch reassignment: every SKU the product already uses must be free
- * in the destination branch.
- */
-protected function assertExistingSkusAvailableInShop(Product $product, ?int $targetShopId): void
+     * Guard a branch reassignment: every SKU the product already uses must be free
+     * in the destination branch.
+     */
+    protected function assertExistingSkusAvailableInShop(Product $product, ?int $targetShopId): void
     {
         $ownSkus = ProductVariant::withTrashed()
             ->where('product_id', $product->id)
@@ -554,6 +555,8 @@ protected function assertExistingSkusAvailableInShop(Product $product, ?int $tar
                 'price' => ($variantData['price'] ?? null) !== null ? max((float) $variantData['price'], 0) : null,
                 'compare_at_price' => ($variantData['compare_at_price'] ?? null) !== null ? max((float) $variantData['compare_at_price'], 0) : null,
                 'is_active' => $variantData['is_active'] ?? true,
+                'is_default' => count($variants) === 1,
+                'image_id' => $variantData['image_id'] ?? null,
             ]);
 
             Inventory::create([
@@ -609,14 +612,16 @@ protected function assertExistingSkusAvailableInShop(Product $product, ?int $tar
                     'sku' => $variantData['sku'] ?? null,
                     'price' => $variantData['price'] ?? null,
                     'compare_at_price' => $variantData['compare_at_price'] ?? null,
-                    'is_active' => true,
+                    'is_active' => $variantData['is_active'] ?? true,
+                    'is_default' => count($variants) === 1,
+                    'image_id' => $variantData['image_id'] ?? null,
                 ]);
 
                 Inventory::firstOrCreate(
                     ['product_variant_id' => $variant->id],
                     [
                         'shop_id' => $product->shop_id,
-                        'quantity' => 0,
+                        'quantity' => max((int) ($variantData['quantity'] ?? 0), 0),
                         'reserved_quantity' => 0,
                     ]
                 );
@@ -629,6 +634,8 @@ protected function assertExistingSkusAvailableInShop(Product $product, ?int $tar
                     'price' => array_key_exists('price', $variantData) ? $variantData['price'] : $variant->price,
                     'compare_at_price' => array_key_exists('compare_at_price', $variantData) ? $variantData['compare_at_price'] : $variant->compare_at_price,
                     'is_active' => $variantData['is_active'] ?? $variant->is_active,
+                    'is_default' => count($variants) === 1,
+                    'image_id' => array_key_exists('image_id', $variantData) ? $variantData['image_id'] : $variant->image_id,
                 ]);
 
                 if (array_key_exists('quantity', $variantData)) {

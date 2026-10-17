@@ -10,7 +10,7 @@ use App\Models\ShopOrder;
 class ShopOrderService
 {
     /** Create one seller-facing order per shop from immutable parent item snapshots. */
-    public function split(Order $order): void
+    public function split(Order $order, array $shippingByShop = []): void
     {
         // Preserve platform/legacy products that predate shop ownership. They
         // remain part of the parent order; seller-owned lines are split below.
@@ -39,6 +39,11 @@ class ShopOrderService
             $allocations = [];
 
             foreach ($amounts as $field => $amount) {
+                if ($field === 'shipping_amount' && array_key_exists($shopId, $shippingByShop)) {
+                    $allocations[$field] = round($shippingByShop[$shopId], 2);
+
+                    continue;
+                }
                 $allocated = $isLast
                     ? $remaining[$field]
                     : round($subtotal > 0 ? $amount * ($shopSubtotal / $subtotal) : 0, 2);

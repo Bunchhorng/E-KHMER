@@ -41,6 +41,8 @@ class CartItemResource extends JsonResource
                     'slug' => $product->slug,
                     'name' => $product->name,
                     'cover_image' => $coverImage,
+                    'shop_id' => $product->shop_id,
+                    'shop_name' => $product->shop?->name,
                 ] : null,
             ];
         });
@@ -56,10 +58,12 @@ class CartItemResource extends JsonResource
     {
         if ($variant->relationLoaded('inventory')) {
             $inventory = $variant->inventory;
+
             return $inventory !== null && ((int) $inventory->quantity - (int) $inventory->reserved_quantity) > 0;
         }
 
         $inventory = $variant->inventory()->first();
+
         return $inventory !== null && ((int) $inventory->quantity - (int) $inventory->reserved_quantity) > 0;
     }
 }

@@ -46,6 +46,10 @@ export const useSellerWorkspace = defineStore('seller-workspace', () => {
     }
   }
 
+  function updateShop(shop: SellerShop) {
+    shops.value = shops.value.map(existing => existing.id === shop.id ? shop : existing)
+  }
+
   function selectShop(id: number | null) {
     if (id !== null && !shops.value.some(shop => shop.id === id)) return
     if (selectedId.value !== id) {
@@ -72,5 +76,5 @@ export const useSellerWorkspace = defineStore('seller-workspace', () => {
     }
   }
 
-  return { shops, selectedId, currentShop, dashboard, loading, overviewLoading, reset, loadShops, selectShop, loadOverview }
+  return { shops, selectedId, currentShop, dashboard, loading, overviewLoading, reset, loadShops, updateShop, selectShop, loadOverview }
 })

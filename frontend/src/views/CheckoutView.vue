@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import {
   ArrowRight,
   ArrowLeft,
@@ -8,9 +9,7 @@ import {
   Lock,
   Check,
   Banknote,
-  CreditCard,
   Landmark,
-  Wallet
 } from 'lucide-vue-next'
 import type { Address, ShippingMethod, PaymentMethod } from '@/types'
 import { addressesApi, type ApiAddress } from '@/api/addresses'
@@ -23,6 +22,7 @@ import { formatPrice } from '@/utils/format'
 import { extractErrorMessage } from '@/api/errors'
 
 const router = useRouter()
+const { t } = useI18n()
 const cartStore = useCartStore()
 
 const step = ref(1)
@@ -49,25 +49,38 @@ const newAddress = reactive<Omit<Address, 'id' | 'isDefault'>>({
   phone: ''
 })
 
-const shipping = ref<ShippingMethod[]>([])
-const selectedShippingId = ref<string | null>(null)
-const selectedShipping = ref<ShippingMethod | null>(null)
+const shipping = ref<(ShippingMethod & { shopId: number | null })[]>([])
 const loadingShipping = ref(true)
-watch(selectedShippingId, (id) => {
-  const found = shipping.value.find((s) => s.id === id)
-  if (found) selectedShipping.value = found
-})
+const shippingSelections = reactive<Record<number, string>>({})
+const shopGroups = computed(() => [...new Map(cartStore.items.map(item => [item.shopId ?? 0, { id: item.shopId ?? 0, name: item.shopName || 'E-KHMER' }])).values()])
+function optionsFor(shopId: number) { return shipping.value.filter(method => method.shopId === null || method.shopId === shopId) }
+watch([shipping, shopGroups], () => {
+  for (const group of shopGroups.value) {
+    const options = optionsFor(group.id)
+    if (!options.some(method => method.id === shippingSelections[group.id])) shippingSelections[group.id] = options[0]?.id ?? ''
+  }
+}, { immediate: true })
+const shippingReady = computed(() => shopGroups.value.length > 0 && shopGroups.value.every(group => optionsFor(group.id).some(method => method.id === shippingSelections[group.id])))
+const selectedShipping = computed(() => shippingReady.value ? { id: shippingSelections[shopGroups.value[0]!.id], name: shopGroups.value.map(group => group.name + ': ' + optionsFor(group.id).find(method => method.id === shippingSelections[group.id])?.name).join(', '), price: shopGroups.value.reduce((sum, group) => sum + (optionsFor(group.id).find(method => method.id === shippingSelections[group.id])?.price ?? 0), 0) } : null)
 
 const paymentOptions = [
   { id: 'cod', label: 'Cash on Delivery', desc: 'Pay when your order arrives', icon: Banknote },
-  { id: 'card', label: 'Credit / Debit Card', desc: 'Visa, Mastercard, Amex', icon: CreditCard },
-  { id: 'bank', label: 'Bank Transfer', desc: 'Direct bank transfer instructions', icon: Landmark },
-  { id: 'gateway', label: 'Online Gateway', desc: 'PayPal, Apple Pay, Google Pay', icon: Wallet }
+  { id: 'bakong', label: 'Bakong / KHQR', desc: 'Scan a QR to pay each seller directly in USD', icon: Landmark }
 ]
 const paymentMethod = ref<PaymentMethod>('cod')
 
 const placing = ref(false)
 const checkoutError = ref('')
+function requestKey(): string {
+  const signature = JSON.stringify([cartStore.items.map(item => [item.id, item.quantity]), selectedAddress.value, shippingSelections, paymentMethod.value, cartStore.appliedCoupon?.code])
+  try {
+    const previous = JSON.parse(sessionStorage.getItem('ekhmer_checkout_attempt') ?? 'null') as { signature: string; key: string } | null
+    if (previous?.signature === signature) return previous.key
+  } catch { /* A fresh key is safe if session storage is unavailable. */ }
+  const key = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  try { sessionStorage.setItem('ekhmer_checkout_attempt', JSON.stringify({ signature, key })) } catch { /* Optional persistence. */ }
+  return key
+}
 
 const selectedAddress = computed(
   () => addresses.value.find((a) => a.id === selectedAddressId.value) ?? addresses.value[0]
@@ -126,11 +139,8 @@ async function fetchShipping() {
   loadingShipping.value = true
   try {
     const { data } = await shippingApi.getActive()
-    shipping.value = data.data.map(mapShippingFromApi)
-    if (shipping.value.length > 0 && selectedShippingId.value === null) {
-      selectedShippingId.value = shipping.value[0].id
-      selectedShipping.value = shipping.value[0]
-    }
+    shipping.value = data.data.map(method => ({ ...mapShippingFromApi(method), shopId: method.shop_id ?? null }))
+
   } catch {
     shipping.value = []
   } finally {
@@ -194,11 +204,21 @@ async function placeOrder() {
   try {
     const { data } = await checkoutApi.begin({
       shipping_method_id: Number(selectedShipping.value.id),
+      shipping_methods: Object.fromEntries(shopGroups.value.map(group => [String(group.id), Number(shippingSelections[group.id])])),
       payment_method: paymentMethod.value,
       coupon_code: cartStore.appliedCoupon?.code,
       address_id: Number(selectedAddress.value.id)
-    })
-    await checkoutApi.confirm(data.data.order_number)
+    }, requestKey())
+    if (['cancelled', 'refunded'].includes(data.data.status)) {
+      try { sessionStorage.removeItem('ekhmer_checkout_attempt') } catch { /* Optional persistence. */ }
+      checkoutError.value = t('checkout.expired_attempt')
+      return
+    }
+    if (paymentMethod.value === 'bakong' && data.data.payment_status !== 'paid') {
+      await router.push({ name: 'bakong-payment', params: { orderNumber: data.data.order_number } })
+      return
+    }
+    if (data.data.status === 'pending') await checkoutApi.confirm(data.data.order_number)
     // Confirmation clears the cart on the server. Refresh instead of issuing a
     // second destructive request, so a transient refresh failure cannot make a
     // successful order look failed to the customer.
@@ -329,41 +349,16 @@ async function placeOrder() {
 
             <div v-if="loadingShipping" class="text-sm text-gray-500 dark:text-muted">Loading shipping methods...</div>
 
-            <div v-else class="space-y-3">
-              <label
-                v-for="method in shipping"
-                :key="method.id"
-                class="block cursor-pointer"
-              >
-                <input
-                  v-model="selectedShippingId"
-                  type="radio"
-                  name="shipping"
-                  :value="method.id"
-                  class="peer sr-only"
-                />
-                <div
-                  class="flex items-center justify-between gap-4 rounded-xl border-2 border-border-gray dark:border-border-gray p-4 transition-colors peer-checked:border-primary peer-checked:bg-primary/5"
-                >
-                  <div class="flex items-center gap-3">
-                    <span
-                      class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 border-gray-300 dark:border-gray-600"
-                      :class="{ 'border-primary': selectedShippingId === method.id }"
-                    >
-                      <span v-if="selectedShippingId === method.id" class="h-2.5 w-2.5 rounded-full bg-primary"></span>
-                    </span>
-                    <div>
-                      <p class="font-semibold text-ink dark:text-ink">{{ method.name }}</p>
-                      <p class="text-sm text-gray-600 dark:text-muted">{{ method.description }}</p>
-                      <span class="chip mt-1">{{ method.etaDays }}–{{ method.etaDays + 1 }} days</span>
-                    </div>
-                  </div>
-                  <div class="text-right">
-                    <span v-if="method.price === 0" class="chip bg-accent !text-ink dark:!text-gray-900">Free</span>
-                    <span v-else class="font-semibold text-ink dark:text-ink">{{ formatPrice(method.price) }}</span>
-                  </div>
-                </div>
-              </label>
+            <div v-else class="space-y-6">
+              <fieldset v-for="group in shopGroups" :key="group.id" class="space-y-3 rounded-xl border border-border-gray p-4">
+                <legend class="px-2 font-semibold">{{ group.name }}</legend>
+                <p v-if="!optionsFor(group.id).length" class="text-sm text-red-600">This shop has no available delivery method. Contact support before ordering.</p>
+                <label v-for="method in optionsFor(group.id)" :key="method.id" class="flex cursor-pointer items-center gap-3 rounded-xl border border-border-gray p-4" :class="shippingSelections[group.id] === method.id ? 'border-primary bg-primary/5' : ''">
+                  <input v-model="shippingSelections[group.id]" type="radio" :name="'shipping-' + group.id" :value="method.id" />
+                  <span class="flex-1"><span class="block font-semibold">{{ method.name }}</span><span class="text-xs text-muted">{{ method.description }} · {{ method.etaDays }} days</span></span>
+                  <span class="font-semibold">{{ formatPrice(method.price) }}</span>
+                </label>
+              </fieldset>
             </div>
 
             <div class="flex items-center justify-between">
@@ -371,7 +366,7 @@ async function placeOrder() {
                 <ArrowLeft class="h-4 w-4" />
                 Back
               </button>
-              <button type="button" class="btn-primary" @click="step = 3">
+              <button type="button" class="btn-primary" :disabled="!shippingReady" @click="step = 3">
                 Continue to Payment
                 <ArrowRight class="h-4 w-4" />
               </button>
@@ -415,35 +410,6 @@ async function placeOrder() {
                   </div>
                 </div>
               </label>
-            </div>
-
-            <div v-if="paymentMethod === 'card'" class="space-y-4 rounded-xl bg-canvas p-4 dark:bg-canvas">
-              <div>
-                <label class="label" for="card-name">Name on card</label>
-                <input id="card-name" type="text" class="input" placeholder="Alex Morgan" />
-              </div>
-              <div>
-                <label class="label" for="card-number">Card number</label>
-                <input id="card-number" type="text" class="input" placeholder="1234 5678 9012 3456" />
-              </div>
-              <div class="grid grid-cols-2 gap-4">
-                <div>
-                  <label class="label" for="card-expiry">Expiry MM/YY</label>
-                  <input id="card-expiry" type="text" class="input" placeholder="12/28" />
-                </div>
-                <div>
-                  <label class="label" for="card-cvc">CVC</label>
-                  <input id="card-cvc" type="text" class="input" placeholder="123" />
-                </div>
-              </div>
-            </div>
-
-            <div v-else-if="paymentMethod === 'bank'" class="rounded-xl bg-canvas p-4 text-sm text-gray-600 dark:text-muted dark:bg-canvas">
-              After placing your order, transfer to: A/C 1234-5678-90 · E-KHMER Inc. · Swift code SVUS33
-            </div>
-
-            <div v-else-if="paymentMethod === 'gateway'" class="rounded-xl bg-canvas p-4 text-sm text-gray-600 dark:text-muted dark:bg-canvas">
-              You'll be redirected to our secure payment partner to complete checkout.
             </div>
 
             <div class="flex items-center justify-between">
@@ -565,7 +531,7 @@ async function placeOrder() {
           </div>
 
           <p class="mt-4 text-xs text-gray-500 dark:text-muted">
-            {{ cartStore.totalItemCount }} {{ cartStore.totalItemCount === 1 ? 'item' : 'items' }} · Free shipping on orders over $100
+            {{ cartStore.totalItemCount }} {{ cartStore.totalItemCount === 1 ? 'item' : 'items' }}
           </p>
         </div>
       </div>

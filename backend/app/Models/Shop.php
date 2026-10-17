@@ -28,6 +28,7 @@ class Shop extends Model
         'phone', 'email', 'address_line', 'mall', 'city', 'province',
         'postal_code', 'country', 'latitude', 'longitude',
         'status', 'rejection_reason', 'is_default', 'commission_rate',
+        'bakong_account_id', 'bakong_merchant_name', 'bakong_merchant_city',
     ];
 
     protected function casts(): array
@@ -75,6 +76,11 @@ class Shop extends Model
     public function coupons()
     {
         return $this->hasMany(Coupon::class);
+    }
+
+    public function reviews(): HasMany
+    {
+        return $this->hasMany(Review::class);
     }
 
     public function scopeActive($query)

@@ -27,9 +27,14 @@ const router = createRouter({
       children: [
         { path: '', name: 'home', component: () => import('@/views/HomeView.vue'), meta: { title: 'Home' } },
         { path: 'shop', name: 'shop', component: () => import('@/views/ShopView.vue'), meta: { title: 'Shop' } },
+        { path: 'shops', name: 'shops', component: () => import('@/views/ShopsView.vue'), meta: { title: 'Explore shops' } },
+        { path: 'support', name: 'support', component: () => import('@/views/SupportView.vue'), meta: { title: 'Contact support' } },
+        { path: 'help/:page', name: 'help-page', component: () => import('@/views/HelpPageView.vue'), meta: { title: 'Help' } },
+        { path: 'shops/:slug', name: 'shop-storefront', component: () => import('@/views/ShopStorefrontView.vue'), meta: { title: 'Shop storefront' } },
         { path: 'product/:slug', name: 'product-detail', component: () => import('@/views/ProductDetailView.vue'), meta: { title: 'Product' } },
         { path: 'cart', name: 'cart', component: () => import('@/views/CartView.vue'), meta: { title: 'Cart' } },
         { path: 'checkout', name: 'checkout', component: () => import('@/views/CheckoutView.vue'), meta: { title: 'Checkout' } },
+        { path: 'checkout/:orderNumber/payment', name: 'bakong-payment', component: () => import('@/views/BakongPaymentView.vue'), meta: { title: 'Bakong payment' } },
         { path: 'order/success/:orderId', name: 'order-success', component: () => import('@/views/OrderSuccessView.vue'), meta: { title: 'Order Confirmed' } },
         { path: 'order/tracking/:orderId', name: 'order-tracking', component: () => import('@/views/OrderTrackingView.vue'), meta: { title: 'Track Order' } }
       ]
@@ -42,6 +47,9 @@ const router = createRouter({
         { path: 'application', name: 'seller-application', component: () => import('@/views/seller/SellerApplicationView.vue'), meta: { title: 'Become a Seller', requiresAuth: true } },
         { path: '', name: 'seller-dashboard', component: () => import('@/views/seller/SellerDashboardView.vue'), meta: { title: 'Seller Center', requiresAuth: true } },
         { path: 'shops/:id', name: 'seller-shop-dashboard', component: () => import('@/views/seller/SellerDashboardView.vue'), meta: { title: 'Shop Dashboard', requiresAuth: true } },
+        { path: 'shops/:id/settings', name: 'seller-shop-settings', component: () => import('@/views/seller/SellerShopSettingsView.vue'), meta: { title: 'Shop settings', requiresAuth: true } },
+        { path: 'shops/:id/returns', name: 'seller-shop-returns', component: () => import('@/views/ReturnsView.vue'), props: { manage: true }, meta: { title: 'Shop returns', requiresAuth: true } },
+        { path: 'shops/:id/payments', name: 'seller-shop-payments', component: () => import('@/views/seller/SellerPaymentsView.vue'), meta: { title: 'Shop payments', requiresAuth: true } },
         { path: 'shops/:id/products', name: 'seller-shop-products', component: () => import('@/views/seller/SellerProductsView.vue'), meta: { title: 'Shop Products', requiresAuth: true } },
         { path: 'shops/:id/products/new', name: 'seller-shop-product-create', component: () => import('@/views/seller/SellerProductFormView.vue'), meta: { title: 'Add Shop Product', requiresAuth: true } },
         { path: 'shops/:id/products/:productId/edit', name: 'seller-shop-product-edit', component: () => import('@/views/seller/SellerProductFormView.vue'), meta: { title: 'Edit Shop Product', requiresAuth: true } },
@@ -65,7 +73,9 @@ const router = createRouter({
         { path: 'profile', name: 'account-profile', component: () => import('@/views/account/ProfileView.vue'), meta: { title: 'Profile' } },
         { path: 'notifications', name: 'account-notifications', component: () => import('@/views/account/NotificationsView.vue'), meta: { title: 'Notifications' } },
         { path: 'reviews', name: 'account-reviews', component: () => import('@/views/account/ReviewsView.vue'), meta: { title: 'My Reviews' } },
-        { path: 'password', name: 'account-password', component: () => import('@/views/account/ChangePasswordView.vue'), meta: { title: 'Change Password' } }
+        { path: 'password', name: 'account-password', component: () => import('@/views/account/ChangePasswordView.vue'), meta: { title: 'Change Password' } },
+        { path: 'returns', name: 'account-returns', component: () => import('@/views/ReturnsView.vue'), meta: { title: 'Returns' } },
+        { path: 'support', name: 'account-support', component: () => import('@/views/SupportInboxView.vue'), meta: { title: 'Support requests' } }
       ]
     },
     {
@@ -75,6 +85,8 @@ const router = createRouter({
       redirect: { name: 'admin-dashboard' },
       children: [
         { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/AdminDashboardView.vue'), meta: { title: 'Dashboard' } },
+        { path: 'returns', name: 'admin-returns', component: () => import('@/views/ReturnsView.vue'), props: { manage: true }, meta: { title: 'Return requests' } },
+        { path: 'support', name: 'admin-support', component: () => import('@/views/SupportInboxView.vue'), props: { admin: true }, meta: { title: 'Support requests' } },
         { path: 'shops', name: 'admin-shops', component: () => import('@/views/admin/AdminShopsView.vue'), meta: { title: 'Marketplace Shops' } },
         { path: 'shop-owners', name: 'admin-shop-owners', component: () => import('@/views/admin/AdminShopMembersView.vue'), props: { role: 'owner' }, meta: { title: 'Shop Owners' } },
         { path: 'shop-owners/new', name: 'admin-shop-owner-create', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: { role: 'owner' }, meta: { title: 'Create Shop Owner' } },

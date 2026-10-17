@@ -64,6 +64,7 @@ export interface ProductDetail extends CatalogProduct {
     compare_at_price: number | null
     is_default: boolean
     is_active: boolean
+    image_id?: number | null
     available_quantity: number
     in_stock: boolean
     attributes: { attribute_slug: string; name: string; value: string }[]

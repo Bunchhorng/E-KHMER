@@ -1,0 +1,38 @@
+name: Application checks
+on:
+  pull_request:
+  push:
+    branches: [main, develop, dev]
+permissions:
+  contents: read
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare local environment
+        run: cp backend/.env.example backend/.env
+      - name: Start development services
+        run: docker compose up -d --build mysql redis app frontend
+      - name: Install backend dependencies
+        run: docker compose exec -T app composer install --no-interaction --prefer-dist
+      - name: Backend tests
+        run: |
+          docker compose exec -T app php artisan key:generate --no-interaction
+          docker compose exec -T app php artisan test --compact
+      - name: Frontend production build
+        run: docker compose exec -T frontend npm run build
+      - name: Production dependency security audit
+        run: |
+          docker compose exec -T app composer audit --no-dev
+          docker compose exec -T frontend npm audit --omit=dev --package-lock-only
+      - name: Browser tests
+        run: docker compose --profile test run --rm browser-tests
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --tail=80
+      - name: Stop services
+        if: always()
+        run: docker compose down
+

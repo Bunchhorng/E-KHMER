@@ -16,6 +16,8 @@ export interface ApiCartItem {
       slug: string
       name: string
       cover_image: string | null
+      shop_id?: number | null
+      shop_name?: string | null
     }
   }
 }

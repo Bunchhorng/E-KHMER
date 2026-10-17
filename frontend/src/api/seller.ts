@@ -2,6 +2,7 @@ import apiClient from './client'
 import type { AdminInventoryItem, AdminProduct, InventoryTransaction } from './admin'
 import type { PaginatedResponse } from './catalog'
 import type { ApiShopOrder, ShopOrderTransitionPayload, ShopShipmentPayload } from './checkout'
+import type { ApiShippingMethod } from './shipping'
 
 export interface SellerShop {
   id: number
@@ -11,6 +12,17 @@ export interface SellerShop {
   logo: string | null
   code: string
   description: string | null
+  banner: string | null
+  email: string | null
+  phone: string | null
+  address_line: string | null
+  city: string | null
+  province: string | null
+  postal_code: string | null
+  country: string
+  bakong_account_id: string | null
+  bakong_merchant_name: string | null
+  bakong_merchant_city: string | null
   rejection_reason: string | null
 }
 
@@ -24,6 +36,11 @@ export interface SellerDashboard {
 export type SellerShopOrder = ApiShopOrder
 
 export const sellerApi = {
+  getSettings(shopId: number) { return apiClient.get<{ data: SellerShop }>(`/seller/shops/${shopId}/settings`) },
+  updateSettings(shopId: number, payload: FormData) { payload.set('_method', 'PUT'); return apiClient.post<{ data: SellerShop }>(`/seller/shops/${shopId}/settings`, payload) },
+  shippingMethods(shopId: number) { return apiClient.get<{ data: ApiShippingMethod[] }>(`/seller/shops/${shopId}/shipping-methods`) },
+  createShippingMethod(shopId: number, payload: object) { return apiClient.post(`/seller/shops/${shopId}/shipping-methods`, payload) },
+  updateShippingMethod(shopId: number, id: number, payload: object) { return apiClient.put(`/seller/shops/${shopId}/shipping-methods/${id}`, payload) },
   getApplication() { return apiClient.get<{ data: SellerShop }>('/seller/application') },
   apply(payload: { name: string; description?: string; email?: string; phone?: string; address_line?: string; city?: string; province?: string; postal_code?: string; country?: string }) {
     return apiClient.post<{ data: SellerShop }>('/seller/application', payload)

@@ -83,6 +83,9 @@ export interface AdminProduct extends CatalogProduct {
     is_default: boolean
     is_active: boolean
     available_quantity: number
+    quantity: number
+    reserved_quantity: number
+    image_id: number | null
     in_stock: boolean
     attributes: { attribute_slug: string; name: string; value: string }[]
   }[]

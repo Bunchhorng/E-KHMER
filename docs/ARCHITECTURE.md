@@ -2,6 +2,21 @@
 
 This document describes the architectural design of the E-Commerce System: the layered application architecture, the database schema and relationships, and the core business-logic engine that powers transactional correctness.
 
+## Commerce extensions (2026-10-17)
+
+The current seller/public-shop, Bakong, returns and support behavior is described in the [commerce operating guide](./COMMERCE-COMPLETION.md); the [API additions](./API-REFERENCE.md#commerce-additions-2026-10-17) document its endpoints. Production runs behind a single HTTPS origin; see [Oracle Cloud](./ORACLE-CLOUD.md). Local Vue is exposed on port 5174 (5173 inside its container).
+
+| Entity | Ownership and purpose |
+| --- | --- |
+| `shops` | Public profile/delivery settings plus owner-controlled private bank recipient fields. |
+| `bakong_payments` | One payment per shop-order allocation; recipient/amount/QR snapshots and unique bank capture references. A parent `payments` row tracks aggregate order status, not a platform custody account. |
+| `checkout_attempts` | User/session-scoped idempotency key and payload hash referencing a created order. |
+| `order_returns` | Customer/order-item/shop-scoped quantities, private evidence, receipt/restock decisions and refund amount. |
+| `payment_refunds` | Audited bank-verified or cash-receipt refunds; unique proof reference and optional link to a return. No bank transfer is initiated by this ledger. |
+| `support_requests`, `newsletter_subscriptions` | Persisted support conversations and consent/unsubscribe state; queued email is dispatched after commit. |
+
+`BakongService` verifies receipts; `KhqrService` generates dynamic payloads; `ReturnService` owns eligibility/state progression; `RefundService` verifies order-bound refund proof. Checkout and refunds lock the parent order before allocation/ledger mutations. Scheduler jobs release expired reservations and reconcile unsettled receipts, including late payments on cancelled orders. Bank integration tests use mocked provider responses; real-account acceptance remains a launch gate.
+
 ---
 
 ## 1. System Overview

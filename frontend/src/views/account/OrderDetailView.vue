@@ -99,6 +99,7 @@ onMounted(async () => {
     </div>
 
     <div class="flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap gap-3"><RouterLink v-if="order.payment?.method === 'bakong' && order.status === 'pending'" :to="{ name: 'bakong-payment', params: { orderNumber: order.order_number } }" class="btn-primary">{{ $t('bakong.title') }}</RouterLink><RouterLink :to="{ name: 'account-returns', query: { order: order.order_number } }" class="btn-secondary">{{ $t('returns.title') }}</RouterLink></div>
       <RouterLink :to="`/order/tracking/${order.order_number}`" class="card flex items-center gap-4 p-5 transition hover:bg-canvas/40">
         <div class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Package class="h-6 w-6" />

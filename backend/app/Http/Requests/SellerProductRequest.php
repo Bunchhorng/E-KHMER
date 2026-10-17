@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Product;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class SellerProductRequest extends AdminProductRequest
@@ -18,12 +19,23 @@ class SellerProductRequest extends AdminProductRequest
             }
         }
 
+        if (is_string($this->input('variants'))) {
+            $variants = json_decode($this->input('variants'), true);
+            if (is_array($variants) && array_is_list($variants)) {
+                $this->merge(['variants' => $variants]);
+            }
+        }
+
         parent::prepareForValidation();
     }
 
     public function rules(): array
     {
         return array_replace(parent::rules(), [
+            'variants' => ['sometimes', 'array', 'min:1', 'max:200'],
+            'variants.*.id' => ['nullable', 'integer', 'distinct', Rule::exists('product_variants', 'id')->where('product_id', $this->route('product')?->id ?? 0)->whereNull('deleted_at')],
+            'variants.*.image_id' => ['nullable', 'integer', Rule::exists('product_images', 'id')->where('product_id', $this->route('product')?->id ?? 0)],
+            'variants.*.is_default' => ['sometimes', 'boolean'],
             'images.*' => ['required', 'string', 'max:255', 'distinct'],
             'image_files' => ['sometimes', 'array', 'max:20'],
             'image_files.*' => ['required', 'file', 'image', 'mimes:jpeg,png,webp,gif', 'max:5120'],
@@ -55,6 +67,13 @@ class SellerProductRequest extends AdminProductRequest
 
             if (count($referenced) !== count($files)) {
                 $validator->errors()->add('images', 'Every uploaded photo must be included in the product gallery.');
+            }
+
+            if ($product instanceof Product && $this->has('variants')) {
+                $kept = array_column($this->input('variants', []), 'id');
+                if ($product->variants()->whereNotIn('id', $kept)->whereHas('inventory', fn ($q) => $q->where('reserved_quantity', '>', 0))->exists()) {
+                    $validator->errors()->add('variants', 'A variant with reserved stock cannot be removed. Hide it instead.');
+                }
             }
         });
     }

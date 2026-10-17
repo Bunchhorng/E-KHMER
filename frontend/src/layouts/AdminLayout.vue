@@ -125,6 +125,8 @@ const navGroups: NavGroup[] = [
       { labelKey: 'admin.nav.payments', route: { name: 'admin-payments' }, icon: CreditCard },
       { labelKey: 'admin.nav.shipments', route: { name: 'admin-shipments' }, icon: Ship },
       { labelKey: 'admin.nav.reports', route: { name: 'admin-reports' }, icon: FileBarChart },
+      { labelKey: 'returns.title', route: { name: 'admin-returns' }, icon: FileBarChart },
+      { labelKey: 'support.inbox', route: { name: 'admin-support' }, icon: FileBarChart },
       { labelKey: 'admin.nav.shipping_methods', route: { name: 'admin-shipping' }, icon: Truck }
     ]
   },

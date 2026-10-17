@@ -1,5 +1,19 @@
 # QA Report — E-KHMER E-Commerce System
 
+## Commerce implementation verification — 2026-10-17
+
+The older audit below is retained as historical evidence, not the current release status.
+
+- Final full Laravel suite: **373 tests / 1,837 assertions passed** after security updates. The focused new-feature regression also passed **28 tests / 221 assertions** before the dependency upgrade.
+- Desktop + Pixel 7 Chromium: **20 checks passed**, covering shop discovery/search, settings/Bakong recipient save, product options, photo upload/cover/removal, camera capture, support persistence, per-seller payment progress, refund-ledger proof submission, scoped delivery, expired-checkout retries and customer/admin routing. UI APIs are mocked; financial and authorization behavior is tested separately on Laravel.
+- Vue TypeScript check and production build passed. The final multi-stage production image built successfully, including PHP dependencies without development packages; Nginx configuration validation passed.
+- Compatible security updates applied: Laravel **13.37.0**, CommonMark **2.10.3**, Symfony HttpFoundation **7.4.21**, and Laravel Prompts **0.3.26**. The final backend production dependency audit returned no advisories. The npm production dependency audit also reported no vulnerabilities; seven npm development-only findings remain pending a tested Tailwind major upgrade. CI now checks both production dependency audits.
+- All four new migrations applied locally. Production Compose configuration validated. Worker/scheduler/database/cache heartbeat check passed after moving app/worker/scheduler dependencies to a shared Docker vendor volume and restarting the services. The host's ignored vendor directory is not used at runtime.
+- Database/media backup archive integrity passed and the SQL dump restored to a separate disposable MySQL server: **53 migration records, 14 orders, 13 products**. The live database was not overwritten. Off-server replication and full disaster-recovery acceptance remain operator launch tasks.
+- Real Bakong transfers, SMTP delivery and remote OCI/DNS/TLS activation have **not** been performed; no live-payment or remote deployment success is implied. Production currency remains USD.
+
+See [commerce completion](./COMMERCE-COMPLETION.md) and [Oracle deployment](./ORACLE-CLOUD.md) for operating rules and remaining activation requirements.
+
 - **Date:** 2026-09-24
 - **Environment:** Docker Compose (`app`, `scheduler`, `nginx`, `mysql`, `redis`, `phpmyadmin`, `frontend`)
 - **Backend:** Laravel 13 (PHP 8.3, Sanctum)

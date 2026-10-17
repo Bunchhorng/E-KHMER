@@ -12,6 +12,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
+    allowedHosts: ['frontend'],
     port: 5173,
     watch: {
       usePolling: process.env.VITE_USE_POLLING === 'true',

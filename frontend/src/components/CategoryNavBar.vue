@@ -32,6 +32,7 @@ function isActive(slug: string): boolean {
             {{ $t('nav.all_products') }}
           </RouterLink>
         </li>
+        <li><RouterLink to="/shops" class="nav-link" exact-active-class="!bg-primary/10 !text-primary">{{ $t('storefront.title') }}</RouterLink></li>
         <li v-for="category in navCategories" :key="category.id">
           <RouterLink
             :to="{ name: 'shop', query: { category: category.slug } }"

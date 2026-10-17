@@ -8,7 +8,38 @@ This reference was generated from the **live Laravel backend** running inside Do
 - **Guest cart/checkout:** requires the `X-Session-Id` header (E.g. a UUID stored in `localStorage`).
 - **Errors:** Laravel renders validation errors as `422` with a `message` key, unauthorized as `401`, forbidden as `403`, and not-found as `404` with a `message`.
 
-**Dispatch details** obtained via `artisan route:list --path=api` — **72 routes**.
+The original endpoint inventory below is historical. Use `docker compose exec app php artisan route:list --path=api` for the current complete route list. The 2026-10-17 additions are documented next.
+
+## Commerce additions (2026-10-17)
+
+All paths in this section are relative to `/api`. Seller endpoints require Sanctum and active membership of the selected shop. Return evidence is private and must be downloaded using authenticated requests, not public storage URLs.
+
+| Method / path | Contract |
+| --- | --- |
+| `GET /shops` | Active public directory, `q`, bounded `per_page` (1–48), `page`. No bank/commission fields. |
+| `GET /shops/{slug}` | Active public profile; inactive shops return 404. |
+| `GET /shops/{slug}/products` | Catalog query/sort/filter parameters, forcibly scoped to the active shop's published products. |
+| `GET`, `PUT /seller/shops/{shop}/settings` | Seller settings; name/contact/address, Bakong account/name/city, `logo_file`, `banner_file`, remove flags. Files use multipart POST with `_method=PUT`. Bank-field changes require owner or super administrator. |
+| `GET`, `POST /seller/shops/{shop}/shipping-methods` | Shop methods; name/code/description/price, estimated min/max days, active flag. |
+| `PUT`, `DELETE /seller/shops/{shop}/shipping-methods/{shippingMethod}` | Only that shop's methods. Delete disables a method to preserve order history. |
+| `GET /checkout/{orderNumber}/bakong` | Stable per-shop QR payloads, amount/currency/status/expiry and shop name. Requires order ownership or the original guest session. |
+| `POST /checkout/{orderNumber}/bakong/verify` | Server queries Bakong; returns the updated parent order. A partial payment does not confirm checkout. |
+| `GET /seller/shops/{shop}/payments` | Paginated verified bank receipts/refund-required records, refunded amount and order-specific `refund_memo`. |
+| `POST /seller/shops/{shop}/payments/{bakongPayment}/refund` | `reference`: full 64-hex bank transfer hash. Only refund-required payments; verifies amount, sender, recipient, currency, hash and exact memo. Does not send money. |
+| `GET`, `POST /returns` | Customer's requests. Create: order_item_id, quantity, reason (10–2000 chars), optional photos (max 3 × 2 MB JPEG/PNG/WebP). Delivered/paid/return-window checks are server-side. |
+| `GET /returns/{orderReturn}/photos/{index}` | Authorized private evidence with no-store headers. Zero-based index. |
+| `GET /seller/shops/{shop}/returns`, `GET /admin/returns` | Scoped seller / administrator review queue. |
+| `PUT /seller/shops/{shop}/returns/{orderReturn}`, `PUT /admin/returns/{orderReturn}` | Status approved/rejected/received/refunded, optional note/reference/restock. Rejection requires a note. Receiving restocks only when explicitly requested. Refunding requires bank proof or a unique COD cash receipt reference. |
+| `GET /seller/shops/{shop}/returns/{orderReturn}/photos/{index}`, `GET /admin/returns/{orderReturn}/photos/{index}` | Private evidence for authorized reviewers. |
+| `POST /support` | Guest/customer ticket: email, subject, message. Persists before success; rate limited. |
+| `GET /support` | Authenticated customer's own ticket history. |
+| `GET /admin/support`, `PUT /admin/support/{supportRequest}` | Admin list and reply/status; replies queue email. |
+| `POST /newsletter` | Email and accepted consent; persists subscription and queues confirmation. |
+| `GET /newsletter/unsubscribe/{token}` | Unsubscribe using an unguessable token whose hash is stored on the server. |
+
+Checkout accepts `payment_method=bakong|cod` in the storefront. `shipping_methods` maps each cart shop ID to its selected shipping-method ID (legacy platform products use key `0`). A method must be global or belong to the corresponding shop. The legacy `shipping_method_id` remains supported. Supply a stable `Idempotency-Key` header (8–80 safe characters) for retry-safe checkout; a changed payload with the same key returns 422. Idempotency is scoped to the authenticated user or guest session. Cancelled replays remain cancelled, not a new order.
+
+Seller product multipart requests may include a JSON `variants` array with id (existing rows), SKU/name/price/compare price/active state, attributes and optional existing gallery image_id. New rows may set initial quantity; existing stock should be changed through inventory endpoints. Referencing another shop's product, variant or image is rejected. A reserved variant cannot be removed.
 
 ---
 

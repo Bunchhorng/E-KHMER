@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Http\Resources\AddressResource;
+use App\Models\BakongPayment;
 use App\Models\Cart;
 use App\Models\Order;
 use App\Models\OrderItem;
@@ -57,8 +58,28 @@ class CheckoutService
                 $couponCode = $coupon->code;
             }
 
-            $shippingMethod = ShippingMethod::where('is_active', true)->findOrFail($payload['shipping_method_id']);
-            $shippingAmount = round((float) $shippingMethod->price, 2);
+            $cartItems = $cart->items()->with('variant.product.shop')->lockForUpdate()->get();
+            $shippingByShop = [];
+            $shippingMethods = [];
+            if (is_array($payload['shipping_methods'] ?? null)) {
+                foreach ($cartItems->groupBy(fn ($item) => $item->variant?->product?->shop_id ?? 0) as $shopId => $items) {
+                    $methodId = $payload['shipping_methods'][$shopId] ?? null;
+                    $method = ShippingMethod::where('is_active', true)->find($methodId);
+                    if (! $method || ($method->shop_id !== null && (int) $method->shop_id !== (int) $shopId)) {
+                        throw ValidationException::withMessages(['shipping_methods' => 'Choose an available delivery method for every shop.']);
+                    }
+                    $shippingMethods[$shopId] = $method;
+                    $shippingByShop[$shopId] = (float) $method->price;
+                }
+                $shippingMethod = reset($shippingMethods);
+                $shippingAmount = round(array_sum($shippingByShop), 2);
+            } else {
+                $shippingMethod = ShippingMethod::where('is_active', true)->findOrFail($payload['shipping_method_id']);
+                if ($shippingMethod->shop_id !== null && $cartItems->contains(fn ($item) => (int) $item->variant?->product?->shop_id !== (int) $shippingMethod->shop_id)) {
+                    throw ValidationException::withMessages(['shipping_method_id' => 'This delivery method belongs to a different shop.']);
+                }
+                $shippingAmount = round((float) $shippingMethod->price, 2);
+            }
 
             $taxAmount = round(($subtotal - $discount) * 0.10, 2);
             $total = round($subtotal - $discount + $taxAmount + $shippingAmount, 2);
@@ -66,10 +87,18 @@ class CheckoutService
             // Re-read cart rows under the checkout transaction. A cart can go
             // stale after it is displayed: products may be unpublished,
             // variants disabled, or stock consumed by another checkout.
-            $cartItems = $cart->items()
-                ->with('variant.product')
-                ->lockForUpdate()
-                ->get();
+
+            if (($payload['payment_method'] ?? '') === 'bakong') {
+                if (! config('ecommerce.bakong_token')) {
+                    throw ValidationException::withMessages(['payment' => 'Bakong is not configured yet. Choose cash on delivery.']);
+                }
+                foreach ($cartItems as $item) {
+                    $shop = $item->variant?->product?->shop;
+                    if (! $shop?->bakong_account_id || ! $shop->bakong_merchant_name || ! $shop->bakong_merchant_city) {
+                        throw ValidationException::withMessages(['payment' => 'A shop in your cart has not enabled Bakong. Choose cash on delivery.']);
+                    }
+                }
+            }
 
             $reservations = [];
             foreach ($cartItems as $item) {
@@ -150,7 +179,11 @@ class CheckoutService
                 ]);
             }
 
-            $this->shopOrders->split($order);
+            $this->shopOrders->split($order, $shippingByShop);
+
+            if (($payload['payment_method'] ?? '') === 'bakong' && $order->shopOrders()->where('total', '<=', 0)->exists()) {
+                throw ValidationException::withMessages(['payment' => 'A shop total is zero. Choose cash on delivery to complete this order without a bank transfer.']);
+            }
 
             Payment::create([
                 'order_id' => $order->id,
@@ -169,7 +202,7 @@ class CheckoutService
                 Shipment::create([
                     'order_id' => $order->id,
                     'shop_order_id' => $shopOrder->id,
-                    'shipping_method_id' => $shippingMethod->id,
+                    'shipping_method_id' => ($shippingMethods[$shopOrder->shop_id] ?? $shippingMethod)->id,
                     'status' => Shipment::STATUS_PENDING,
                     'address_snapshot' => $snapshot,
                 ]);
@@ -177,7 +210,7 @@ class CheckoutService
             if ($order->items()->whereNull('shop_order_id')->exists()) {
                 Shipment::create([
                     'order_id' => $order->id,
-                    'shipping_method_id' => $shippingMethod->id,
+                    'shipping_method_id' => ($shippingMethods[0] ?? $shippingMethod)->id,
                     'status' => Shipment::STATUS_PENDING,
                     'address_snapshot' => $snapshot,
                 ]);
@@ -194,13 +227,13 @@ class CheckoutService
     /**
      * Confirm payment and permanently deduct reserved stock.
      */
-    public function confirm(Order $order, ?string $transactionId = null): Order
+    public function confirm(Order $order, ?string $transactionId = null, bool $verifiedBakong = false): Order
     {
-        return DB::transaction(function () use ($order, $transactionId): Order {
+        return DB::transaction(function () use ($order, $transactionId, $verifiedBakong): Order {
             $order = Order::with(['items', 'payment'])->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
             $fromStatus = $order->status;
 
-            if ($order->payment_status !== Order::PAYMENT_UNPAID || $order->status !== Order::STATUS_PENDING) {
+            if (! in_array($order->payment_status, [Order::PAYMENT_UNPAID, 'partial'], true) || $order->status !== Order::STATUS_PENDING) {
                 throw ValidationException::withMessages(['message' => 'Order already settled']);
             }
 
@@ -211,7 +244,11 @@ class CheckoutService
 
             $isCashOnDelivery = $payment->method === 'cod';
 
-            if (! $isCashOnDelivery && config('ecommerce.payment_mode') !== 'sandbox') {
+            if ($payment->method === 'bakong' && (! $verifiedBakong || BakongPayment::where('order_id', $order->id)->where('status', '!=', 'paid')->exists() || ! BakongPayment::where('order_id', $order->id)->exists())) {
+                throw ValidationException::withMessages(['payment' => 'Complete and verify every shop payment before confirming this order.']);
+            }
+
+            if (! $isCashOnDelivery && ! ($payment->method === 'bakong' && $verifiedBakong) && config('ecommerce.payment_mode') !== 'sandbox') {
                 throw ValidationException::withMessages([
                     'message' => 'Online payment confirmation is disabled until a payment gateway is configured.',
                 ]);
@@ -273,7 +310,7 @@ class CheckoutService
             $order = Order::with(['items', 'payment'])->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
             $fromStatus = $order->status;
 
-            if ($order->payment_status !== Order::PAYMENT_UNPAID || $order->status !== Order::STATUS_PENDING) {
+            if (! in_array($order->payment_status, [Order::PAYMENT_UNPAID, 'partial'], true) || $order->status !== Order::STATUS_PENDING) {
                 return;
             }
 
@@ -285,6 +322,11 @@ class CheckoutService
             $this->coupon->releaseUsage($order);
 
             $order->status = Order::STATUS_CANCELLED;
+            $paid = BakongPayment::where('order_id', $order->id)->where('status', 'paid')->update(['status' => 'refund_required']);
+            if ($paid || BakongPayment::where('order_id', $order->id)->where('status', 'refund_required')->exists()) {
+                $order->payment_status = 'refund_pending';
+                $order->payment?->update(['status' => 'refund_pending']);
+            }
             $order->note = trim(($order->note ? $order->note.' ' : '').'reservation released');
             $order->save();
             $this->fulfillment->synchronizeAll($order, Order::STATUS_CANCELLED);
@@ -312,7 +354,7 @@ class CheckoutService
         $count = 0;
 
         $orders = Order::where('status', Order::STATUS_PENDING)
-            ->where('payment_status', Order::PAYMENT_UNPAID)
+            ->whereIn('payment_status', [Order::PAYMENT_UNPAID, 'partial'])
             ->where('placed_at', '<', $cutoff)
             ->get();
 

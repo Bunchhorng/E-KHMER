@@ -50,8 +50,8 @@ class ProductDetailResource extends JsonResource
             // submits only the active rows and syncVariants() interprets every
             // omitted inactive row as a deletion. Storefront responses remain
             // limited to sellable variants.
-            'attributes' => $this->resolveAttributes($request->is('api/admin/*')),
-            'variants' => $this->resolveVariants($request->is('api/admin/*')),
+            'attributes' => $this->resolveAttributes($request->is('api/admin/*') || $request->is('api/seller/*')),
+            'variants' => $this->resolveVariants($request->is('api/admin/*') || $request->is('api/seller/*')),
         ];
     }
 
@@ -180,6 +180,9 @@ class ProductDetailResource extends JsonResource
                     'is_default' => (bool) $variant->is_default,
                     'is_active' => (bool) $variant->is_active,
                     'available_quantity' => $this->variantAvailable($variant),
+                    'quantity' => $this->when(request()->is('api/admin/*') || request()->is('api/seller/*'), fn () => (int) ($variant->inventory?->quantity ?? 0)),
+                    'reserved_quantity' => $this->when(request()->is('api/admin/*') || request()->is('api/seller/*'), fn () => (int) ($variant->inventory?->reserved_quantity ?? 0)),
+                    'image_id' => $variant->image_id,
                     'in_stock' => $this->variantAvailable($variant) > 0,
                     'attributes' => $attributes,
                 ];

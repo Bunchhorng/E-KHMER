@@ -30,6 +30,10 @@ class CatalogService
             ->active()
             ->with(['brand', 'category', 'images', 'variants.inventory', 'variants.attributeValues.value.attribute']);
 
+        if (isset($filters['shop_id'])) {
+            $query->where('shop_id', (int) $filters['shop_id']);
+        }
+
         if (($term = trim((string) ($filters['q'] ?? ''))) !== '') {
             $needle = '%'.$this->escapeLike(mb_strtolower($term)).'%';
             $query->where(function (Builder $q) use ($needle) {

@@ -12,6 +12,7 @@ services:
     working_dir: /var/www
     volumes:
       - ./backend:/var/www
+      - backend_vendor:/var/www/vendor
       - ./docker/php/opcache.ini:/usr/local/etc/php/conf.d/zz-opcache.ini:ro
       - ./docker/php/uploads.ini:/usr/local/etc/php/conf.d/zz-uploads.ini:ro
     depends_on:
@@ -33,7 +34,25 @@ services:
     command: php artisan schedule:work
     volumes:
       - ./backend:/var/www
+      - backend_vendor:/var/www/vendor
       - ./docker/php/opcache.ini:/usr/local/etc/php/conf.d/zz-opcache.ini:ro
+    depends_on:
+      - mysql
+      - redis
+    networks:
+      - ecommerce
+
+  worker:
+    image: ${COMPOSE_PROJECT_NAME:-e-ecommerce}-app
+    build:
+      context: ./docker/php
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    working_dir: /var/www
+    command: php artisan queue:work --sleep=3 --tries=3 --timeout=90 --max-time=3600
+    volumes:
+      - ./backend:/var/www
+      - backend_vendor:/var/www/vendor
     depends_on:
       - mysql
       - redis
@@ -130,11 +149,70 @@ services:
     networks:
       - ecommerce
 
+  browser-tests:
+    image: mcr.microsoft.com/playwright:v1.64.1-noble
+    profiles: [test]
+    init: true
+    working_dir: /app
+    shm_size: 1gb
+    environment:
+      PLAYWRIGHT_BASE_URL: http://localhost:5173
+      CI: "true"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: npx playwright test
+    depends_on:
+      - frontend
+    network_mode: service:frontend
+
+  restore-db:
+    image: mysql:8.0
+    profiles: [maintenance]
+    environment:
+      MYSQL_ROOT_PASSWORD: restore-check-local-only
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "MYSQL_PWD=$$MYSQL_ROOT_PASSWORD mysql -uroot --execute='SELECT 1' >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+    networks:
+      - ecommerce
+
+  backup-check:
+    image: mysql:8.0
+    profiles: [maintenance]
+    environment:
+      MYSQL_DATABASE: ecommerce_db
+      MYSQL_USER: ecommerce_user
+      MYSQL_PASSWORD: ecommerce_password
+      RESTORE_HOST: restore-db
+      RESTORE_USER: root
+      RESTORE_PASSWORD: restore-check-local-only
+      RESTORE_DATABASE: ecommerce_restore_check
+    entrypoint: ["sh", "-ec"]
+    command: ["sh /opt/backup.sh && sh /opt/restore-check.sh"]
+    tmpfs:
+      - /backups
+    volumes:
+      - ./docker/production/backup.sh:/opt/backup.sh:ro
+      - ./docker/production/restore-check.sh:/opt/restore-check.sh:ro
+      - ./backend/storage/app/public:/media/public:ro
+      - ./backend/storage/app/private:/media/private:ro
+    depends_on:
+      restore-db:
+        condition: service_healthy
+    networks:
+      - ecommerce
+
 networks:
   ecommerce:
     driver: bridge
 
 volumes:
+  backend_vendor:
   mysql_data:
   redis_data:
   frontend_node_modules:

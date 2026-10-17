@@ -28,6 +28,8 @@ function toDisplayItem(api: ApiCartItem): CartItem {
   const variant = api.variant
   return {
     id: String(api.id),
+    shopId: variant.product?.shop_id,
+    shopName: variant.product?.shop_name,
     productId: String(variant.product?.id ?? variant.id),
     slug: variant.product?.slug ?? '',
     title: variant.product?.name ?? variant.name,

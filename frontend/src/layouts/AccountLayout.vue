@@ -61,6 +61,8 @@ onMounted(async () => {
 const navItems = computed<NavItem[]>(() => [
   { nameKey: 'nav.dashboard', route: 'account-dashboard', icon: LayoutDashboard },
   { nameKey: 'nav.my_orders', route: 'account-orders', icon: ShoppingBag, count: ordersCount.value || undefined },
+  { nameKey: 'returns.title', route: 'account-returns', icon: ShoppingBag },
+  { nameKey: 'support.inbox', route: 'account-support', icon: Bell },
   { nameKey: 'nav.wishlist', route: 'account-wishlist', icon: Heart, count: wishlist.count || undefined },
   { nameKey: 'nav.addresses', route: 'account-addresses', icon: MapPin },
   { nameKey: 'nav.profile', route: 'account-profile', icon: User },

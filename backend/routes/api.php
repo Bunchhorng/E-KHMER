@@ -29,16 +29,20 @@ use App\Http\Controllers\Api\CategoryController;
 use App\Http\Controllers\Api\CheckoutController;
 use App\Http\Controllers\Api\CouponController;
 use App\Http\Controllers\Api\OrderController;
+use App\Http\Controllers\Api\ReturnController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\Seller\SellerDashboardController;
 use App\Http\Controllers\Api\Seller\SellerInventoryController;
+use App\Http\Controllers\Api\Seller\SellerPaymentController;
 use App\Http\Controllers\Api\Seller\SellerProductController;
+use App\Http\Controllers\Api\Seller\SellerReturnController;
 use App\Http\Controllers\Api\Seller\SellerShopController;
 use App\Http\Controllers\Api\Seller\SellerShopOrderController;
 use App\Http\Controllers\Api\SettingsController;
 use App\Http\Controllers\Api\ShippingMethodController;
 use App\Http\Controllers\Api\ShopApplicationController;
 use App\Http\Controllers\Api\ShopController;
+use App\Http\Controllers\Api\SupportController;
 use App\Http\Controllers\Api\WishlistController;
 use Illuminate\Support\Facades\Route;
 
@@ -60,12 +64,27 @@ Route::get('auth/email/verify/{id}/{hash}', [AuthController::class, 'verify'])
     ->name('verification.verify');
 
 Route::middleware('auth:sanctum')->group(function () {
+    Route::get('returns', [ReturnController::class, 'index']);
+    Route::post('returns', [ReturnController::class, 'store'])->middleware('throttle:10,1');
+    Route::get('returns/{orderReturn}/photos/{index}', [ReturnController::class, 'photo'])->whereNumber('index');
+    Route::get('support', [SupportController::class, 'index']);
     Route::get('seller/application', [ShopApplicationController::class, 'show']);
     Route::post('seller/application', [ShopApplicationController::class, 'store']);
     Route::get('seller/dashboard', [SellerDashboardController::class, 'show']);
     Route::get('seller/shops', [SellerShopController::class, 'index']);
     Route::get('seller/shops/{shop}/dashboard', [SellerShopController::class, 'dashboard']);
     Route::prefix('seller/shops/{shop}')->middleware('shop.manager')->group(function () {
+        Route::get('returns', [SellerReturnController::class, 'index']);
+        Route::put('returns/{orderReturn}', [SellerReturnController::class, 'transition']);
+        Route::get('returns/{orderReturn}/photos/{index}', [SellerReturnController::class, 'photo'])->whereNumber('index');
+        Route::get('payments', [SellerPaymentController::class, 'index']);
+        Route::post('payments/{bakongPayment}/refund', [SellerPaymentController::class, 'refund'])->middleware('throttle:10,1');
+        Route::get('settings', [SellerShopController::class, 'settings']);
+        Route::put('settings', [SellerShopController::class, 'updateSettings']);
+        Route::get('shipping-methods', [SellerShopController::class, 'shippingMethods']);
+        Route::post('shipping-methods', [SellerShopController::class, 'storeShippingMethod']);
+        Route::put('shipping-methods/{method}', [SellerShopController::class, 'updateShippingMethod']);
+        Route::delete('shipping-methods/{method}', [SellerShopController::class, 'deleteShippingMethod']);
         Route::get('products', [SellerProductController::class, 'index']);
         Route::post('products', [SellerProductController::class, 'store']);
         Route::get('products/{product}', [SellerProductController::class, 'show']);
@@ -96,6 +115,9 @@ Route::prefix('catalog')->group(function () {
 });
 
 Route::get('categories', [CategoryController::class, 'index']);
+Route::post('support', [SupportController::class, 'store'])->middleware('throttle:5,1');
+Route::post('newsletter', [SupportController::class, 'subscribe'])->middleware('throttle:3,1');
+Route::get('newsletter/unsubscribe/{token}', [SupportController::class, 'unsubscribe'])->middleware('throttle:30,1');
 Route::get('brands', [BrandController::class, 'index']);
 Route::get('attributes', [AttributeController::class, 'index']);
 Route::get('shipping-methods', [ShippingMethodController::class, 'index']);
@@ -123,6 +145,8 @@ Route::prefix('cart')->group(function () {
 });
 
 Route::prefix('checkout')->group(function () {
+    Route::get('{orderNumber}/bakong', [CheckoutController::class, 'bakongPayments'])->middleware('throttle:30,1');
+    Route::post('{orderNumber}/bakong/verify', [CheckoutController::class, 'verifyBakong'])->middleware('throttle:12,1');
     Route::post('/', [CheckoutController::class, 'begin']);
     Route::post('{orderNumber}/confirm', [CheckoutController::class, 'confirm'])
         ->where('orderNumber', '[A-Za-z0-9-]+');
@@ -167,6 +191,11 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::prefix('admin')
     ->middleware(['auth:sanctum', 'admin'])
     ->group(function () {
+        Route::get('returns', [ReturnController::class, 'index']);
+        Route::put('returns/{orderReturn}', [ReturnController::class, 'transition']);
+        Route::get('returns/{orderReturn}/photos/{index}', [ReturnController::class, 'photo'])->whereNumber('index');
+        Route::get('support', [SupportController::class, 'index']);
+        Route::put('support/{supportRequest}', [SupportController::class, 'reply']);
         Route::get('dashboard/overview', [DashboardController::class, 'overview']);
 
         Route::get('shops', [AdminShopController::class, 'index']);

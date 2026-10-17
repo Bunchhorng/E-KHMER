@@ -20,6 +20,8 @@ Full architecture, API, frontend, and project-management documentation is indexe
 
 ## 0. What you get when it runs
 
+Seller workspace: **http://localhost:5174/seller**. Owners can open **Settings → View my shop** for their public URL (`/shops/:slug`). See the [commerce operating guide](./docs/COMMERCE-COMPLETION.md) and [Oracle Cloud deployment guide](./docs/ORACLE-CLOUD.md) for direct-to-seller Bakong payments and production activation.
+
 | Service | Docker setup | Native setup |
 | --- | --- | --- |
 | Frontend (Vue dev server + HMR) | http://localhost:**5174** | http://localhost:**5173** |

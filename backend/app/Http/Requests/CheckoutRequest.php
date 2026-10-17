@@ -14,9 +14,11 @@ class CheckoutRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'shipping_method_id' => ['required', 'integer', 'exists:shipping_methods,id'],
+            'shipping_method_id' => ['required_without:shipping_methods', 'nullable', 'integer', 'exists:shipping_methods,id'],
+            'shipping_methods' => ['sometimes', 'array', 'min:1', 'max:50'],
+            'shipping_methods.*' => ['required', 'integer', 'exists:shipping_methods,id'],
             'coupon_code' => ['nullable', 'string'],
-            'payment_method' => ['required', 'string', 'in:card,cod,bank,gateway'],
+            'payment_method' => ['required', 'string', 'in:card,cod,bank,gateway,bakong'],
             'email' => ['nullable', 'email'],
             'note' => ['nullable', 'string', 'max:1000'],
             'address_id' => ['nullable', 'integer', 'exists:addresses,id'],
@@ -34,7 +36,7 @@ class CheckoutRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
-        if (!$this->has('payment_method')) {
+        if (! $this->has('payment_method')) {
             $this->merge(['payment_method' => 'card']);
         }
     }

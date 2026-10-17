@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\BakongPayment;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentTransaction;
@@ -71,6 +72,10 @@ class OrderService
         return DB::transaction(function () use ($order, $to, $changedBy, $note): Order {
             $order = Order::with(['items', 'payment'])->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
             $from = $order->status;
+
+            if ($to === Order::STATUS_REFUNDED && $order->payment?->method === 'bakong') {
+                throw ValidationException::withMessages(['status' => 'Use the item return workflow and verify the bank refund before marking it refunded.']);
+            }
 
             $allowed = $this->transitions()[$order->status] ?? [];
 
@@ -205,7 +210,22 @@ class OrderService
     {
         $payment = $order->payment;
 
-        if ($payment === null || $order->payment_status !== Order::PAYMENT_PAID) {
+        if ($payment === null) {
+            return;
+        }
+
+        if ($payment->method === 'bakong') {
+            if (! BakongPayment::where('order_id', $order->id)->whereIn('status', ['paid', 'refund_required'])->exists()) {
+                return;
+            }
+            BakongPayment::where('order_id', $order->id)->where('status', 'paid')->update(['status' => 'refund_required']);
+            $payment->update(['status' => 'refund_pending']);
+            $order->payment_status = 'refund_pending';
+
+            return;
+        }
+
+        if ($order->payment_status !== Order::PAYMENT_PAID) {
             return;
         }
 

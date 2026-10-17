@@ -92,7 +92,7 @@ function mapToProduct(api: ProductDetail): Product {
       compareAtPrice: v.compare_at_price,
       stockQuantity: v.available_quantity,
       isInStock: v.in_stock,
-      imageId: null
+      imageId: v.image_id ? String(v.image_id) : null
     })),
     stockQuantity: defaultVariant?.available_quantity ?? totalStock,
     isInStock: api.in_stock,
@@ -471,7 +471,7 @@ const featureList = computed(() => {
         <div>
           <div class="text-sm font-semibold uppercase tracking-wide text-primary">{{ product.brand.name }}</div>
           <h1 class="mt-1 text-2xl font-bold text-ink dark:text-ink lg:text-3xl">{{ product.title }}</h1>
-          <div v-if="rawProduct?.shop" class="mt-3 flex items-center gap-2 text-sm text-gray-500 dark:text-muted"><img v-if="rawProduct.shop.logo" :src="rawProduct.shop.logo" :alt="rawProduct.shop.name" class="h-7 w-7 rounded-lg border border-border-gray object-contain" /><span>{{ $t('marketplace.sold_by', { shop: rawProduct.shop.name }) }}</span></div>
+          <RouterLink v-if="rawProduct?.shop" :to="{ name: 'shop-storefront', params: { slug: rawProduct.shop.slug } }" class="mt-3 flex items-center gap-2 text-sm text-primary hover:underline"><img v-if="rawProduct.shop.logo" :src="rawProduct.shop.logo" :alt="rawProduct.shop.name" class="h-7 w-7 rounded-lg border border-border-gray object-contain" /><span>{{ $t('marketplace.sold_by', { shop: rawProduct.shop.name }) }}</span></RouterLink>
 
           <div class="mt-2 text-xs text-gray-500 dark:text-muted dark:text-gray-500">{{ $t('product.sku') }}: {{ selectedVariant?.sku ?? product.sku }}</div>
 

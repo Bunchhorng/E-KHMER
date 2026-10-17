@@ -5,11 +5,15 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckoutRequest;
 use App\Http\Resources\OrderResource;
+use App\Models\CheckoutAttempt;
 use App\Models\Order;
+use App\Services\BakongService;
 use App\Services\CartService;
 use App\Services\CheckoutService;
 use App\Services\CouponService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class CheckoutController extends Controller
 {
@@ -29,6 +33,40 @@ class CheckoutController extends Controller
     }
 
     public function begin(CheckoutRequest $request)
+    {
+        $key = $request->header('Idempotency-Key');
+        if ($key === null) {
+            return $this->createOrder($request);
+        }
+        if (! preg_match('/^[A-Za-z0-9_-]{8,80}$/', $key)) {
+            throw ValidationException::withMessages(['idempotency' => 'Invalid checkout request identifier.']);
+        }
+        $owner = hash('sha256', $this->user($request) ? 'user:'.$this->user($request)->id : 'guest:'.$request->header('X-Session-Id'));
+        $payload = $request->validated();
+        ksort($payload);
+        $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+
+        return DB::transaction(function () use ($request, $key, $owner, $hash) {
+            $attempt = CheckoutAttempt::firstOrCreate(['owner_key' => $owner, 'request_key' => $key], ['payload_hash' => $hash]);
+            $attempt = CheckoutAttempt::whereKey($attempt->id)->lockForUpdate()->firstOrFail();
+            if (! hash_equals($attempt->payload_hash, $hash)) {
+                throw ValidationException::withMessages(['idempotency' => 'Checkout details changed. Start a new request.']);
+            }
+            if ($attempt->order_id) {
+                $order = $this->resolveOwnedOrder($request, Order::findOrFail($attempt->order_id)->order_number);
+
+                return (new OrderResource($order->load(['shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents'])))->response();
+            }
+            $response = $this->createOrder($request);
+            if ($response->getStatusCode() === 201) {
+                $attempt->update(['order_id' => Order::where('order_number', $response->getData()->data->order_number)->value('id')]);
+            }
+
+            return $response;
+        });
+    }
+
+    protected function createOrder(CheckoutRequest $request)
     {
         $user = $this->user($request);
         $sessionId = $request->header('X-Session-Id');
@@ -55,6 +93,7 @@ class CheckoutController extends Controller
             'session_id' => $user === null ? (string) $sessionId : null,
             'session_token' => $user === null ? 'guest_'.md5((string) $sessionId) : null,
             'shipping_method_id' => (int) $request->shipping_method_id,
+            'shipping_methods' => $request->input('shipping_methods'),
             'payment_method' => (string) $request->payment_method,
             'coupon_code' => $request->coupon_code,
             'coupon' => $coupon,
@@ -87,6 +126,24 @@ class CheckoutController extends Controller
         $order = $this->resolveOwnedOrder($request, $orderNumber);
 
         $this->checkout->release($order);
+
+        return new OrderResource($order->fresh(['items.shop', 'payment', 'shipments', 'trackingEvents', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents']));
+    }
+
+    public function bakongPayments(Request $request, string $orderNumber, BakongService $bakong)
+    {
+        return response()->json(['data' => $bakong->prepare($this->resolveOwnedOrder($request, $orderNumber))->map(fn ($p) => [
+            'id' => $p->id, 'shop_name' => $p->shop?->name, 'amount' => (float) $p->amount,
+            'currency' => $p->currency, 'status' => $p->status, 'qr_payload' => $p->qr_payload,
+            'expires_at' => $p->expires_at->toISOString(),
+        ])]);
+    }
+
+    public function verifyBakong(Request $request, string $orderNumber, BakongService $bakong)
+    {
+        $order = $this->resolveOwnedOrder($request, $orderNumber);
+        abort_unless($order->payment?->method === 'bakong', 422);
+        $bakong->verify($order, $this->checkout);
 
         return new OrderResource($order->fresh(['items.shop', 'payment', 'shipments', 'trackingEvents', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents']));
     }

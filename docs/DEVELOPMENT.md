@@ -4,6 +4,19 @@ This document covers the day-to-day Docker workflow, common commands, git conven
 
 ## 1. Golden Rule
 
+For the new seller, Bakong, returns and support flows, see [commerce completion](./COMMERCE-COMPLETION.md). Production setup is separate: [Oracle Cloud](./ORACLE-CLOUD.md).
+
+Desktop/mobile browser checks run entirely in Docker:
+
+```sh
+docker compose --profile test run --rm browser-tests
+docker compose exec app php artisan ops:health --require-heartbeats
+```
+
+The browser service shares the frontend network namespace and uses localhost, which permits camera testing without weakening production HTTPS requirements. CI uses fake camera input and mocked UI APIs. `docker compose up -d worker scheduler` starts queued notifications and scheduled payment/reservation maintenance; the worker uses the configured queue connection.
+
+Backend dependencies use a shared Docker `backend_vendor` volume for app/worker/scheduler, avoiding Windows bind-mount extraction/file-lock failures and slow dependency reads. Run `docker compose exec app composer install` after changing the lock file or recreating this volume. The host's ignored `backend/vendor` folder is not used by running PHP containers; source code and database/media persistence are unchanged.
+
 **Always run PHP, Composer, and npm commands inside the Docker containers** — never on the host machine (see `AGENTS.md`). Example:
 
 ```bash

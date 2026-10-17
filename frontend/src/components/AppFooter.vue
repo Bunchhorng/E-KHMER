@@ -1,34 +1,38 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { Facebook, Instagram, Send, Twitter, Youtube } from 'lucide-vue-next'
+import { Send } from 'lucide-vue-next'
+import apiClient from '@/api/client'
+import { extractErrorMessage } from '@/api/errors'
 
 const email = ref('')
 const subscribed = ref(false)
+const subscribing = ref(false)
+const subscriptionError = ref('')
+const consent = ref(false)
 
-const socials = [
-  { label: 'Facebook', href: '#', icon: Facebook },
-  { label: 'Instagram', href: '#', icon: Instagram },
-  { label: 'Twitter', href: '#', icon: Twitter },
-  { label: 'Youtube', href: '#', icon: Youtube }
-]
-
-const shopLinks: Array<{ labelKey: string; to?: string }> = [
+const shopLinks = [
   { labelKey: 'footer.new_arrivals', to: '/shop' },
   { labelKey: 'footer.best_sellers', to: '/shop' },
   { labelKey: 'footer.sale', to: '/shop' },
-  { labelKey: 'footer.help', to: undefined }
+  { labelKey: 'footer.help', to: '/support' },
+  { labelKey: 'storefront.title', to: '/shops' }
 ]
 
 const helpLinks = [
-  { labelKey: 'footer.about_us' },
-  { labelKey: 'footer.contact' },
-  { labelKey: 'footer.faq' },
-  { labelKey: 'footer.shipping_returns' },
-  { labelKey: 'footer.privacy_policy' }
+  { labelKey: 'footer.about_us', to: '/help/about' },
+  { labelKey: 'footer.contact', to: '/support' },
+  { labelKey: 'footer.faq', to: '/help/faq' },
+  { labelKey: 'footer.shipping_returns', to: '/help/shipping' },
+  { labelKey: 'footer.privacy_policy', to: '/help/privacy' },
+  { labelKey: 'footer.terms', to: '/help/terms' }
 ]
 
-function subscribe(): void {
-  if (email.value.includes('@')) subscribed.value = true
+async function subscribe(): Promise<void> {
+  if (subscribing.value || !consent.value) return
+  subscribing.value = true; subscribed.value = false; subscriptionError.value = ''
+  try { await apiClient.post('/newsletter', { email: email.value.trim(), consent: consent.value }); subscribed.value = true }
+  catch (cause) { subscriptionError.value = extractErrorMessage(cause, 'Could not save your subscription.') }
+  finally { subscribing.value = false }
 }
 </script>
 
@@ -43,29 +47,15 @@ function subscribe(): void {
           <p class="mt-4 max-w-xs text-sm text-gray-400 dark:text-muted">
             {{ $t('footer.tagline') }}
           </p>
-          <div class="mt-6 flex items-center gap-2">
-            <a
-              v-for="social in socials"
-              :key="social.label"
-              :href="social.href"
-              :aria-label="social.label"
-              class="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-gray-300 transition-colors hover:bg-primary hover:text-white dark:text-muted dark:hover:text-white"
-            >
-              <component :is="social.icon" :size="16" />
-            </a>
-          </div>
         </div>
 
         <div>
           <h3 class="text-sm font-semibold uppercase tracking-wide text-white dark:text-ink">{{ $t('footer.shop') }}</h3>
           <ul class="mt-4 space-y-2.5 text-sm">
             <li v-for="link in shopLinks" :key="link.labelKey">
-              <RouterLink v-if="link.to" :to="link.to" class="text-gray-400 transition-colors hover:text-white dark:text-muted dark:hover:text-ink">
+              <RouterLink :to="link.to" class="text-gray-400 transition-colors hover:text-white dark:text-muted dark:hover:text-ink">
                 {{ $t(link.labelKey) }}
               </RouterLink>
-              <a v-else href="#" class="text-gray-400 transition-colors hover:text-white dark:text-muted dark:hover:text-ink">
-                {{ $t(link.labelKey) }}
-              </a>
             </li>
           </ul>
         </div>
@@ -74,7 +64,7 @@ function subscribe(): void {
           <h3 class="text-sm font-semibold uppercase tracking-wide text-white dark:text-ink">{{ $t('footer.help') }}</h3>
           <ul class="mt-4 space-y-2.5 text-sm">
             <li v-for="link in helpLinks" :key="link.labelKey">
-              <a href="#" class="text-gray-400 transition-colors hover:text-white dark:text-muted dark:hover:text-ink">{{ $t(link.labelKey) }}</a>
+              <RouterLink :to="link.to" class="text-gray-400 transition-colors hover:text-white dark:text-muted dark:hover:text-ink">{{ $t(link.labelKey) }}</RouterLink>
             </li>
           </ul>
         </div>
@@ -88,14 +78,17 @@ function subscribe(): void {
             <input
               v-model="email"
               type="email"
+              required
               class="input !border-white/10 !bg-white/5 !text-white placeholder:!text-gray-500 dark:!text-ink dark:placeholder:!text-muted"
               :placeholder="$t('footer.email_placeholder')"
               :aria-label="$t('footer.email_placeholder')"
             />
-            <button type="submit" class="btn-primary shrink-0 !px-4" :aria-label="$t('footer.subscribe')">
+            <button type="submit" class="btn-primary shrink-0 !px-4" :disabled="subscribing || !consent" :aria-label="$t('footer.subscribe')">
               <Send :size="15" />
             </button>
           </form>
+          <label class="mt-3 flex items-start gap-2 text-xs text-gray-400"><input v-model="consent" type="checkbox" class="mt-0.5" />{{ $t('footer.newsletter_consent') }}</label>
+          <p v-if="subscriptionError" role="alert" class="mt-3 text-sm text-red-400">{{ subscriptionError }}</p>
           <p v-if="subscribed" class="mt-3 text-sm font-medium text-success">
             {{ $t('footer.newsletter_success') }}
           </p>
@@ -106,7 +99,7 @@ function subscribe(): void {
         <p class="text-xs text-gray-400 dark:text-muted">{{ $t('footer.copyright') }}</p>
         <div class="flex flex-wrap gap-2">
           <span
-            v-for="pay in ['VISA', 'Mastercard', 'PayPal', 'Apple Pay', 'AMEX']"
+            v-for="pay in ['Bakong / KHQR', 'Cash on Delivery']"
             :key="pay"
             class="rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-gray-300 dark:text-muted"
           >

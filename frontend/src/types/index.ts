@@ -72,6 +72,8 @@ export interface CartVariantSelection {
 }
 
 export interface CartItem {
+  shopId?: number | null
+  shopName?: string | null
   id: string
   productId: string
   slug: string
@@ -115,7 +117,7 @@ export interface ShippingMethod {
   price: number
 }
 
-export type PaymentMethod = 'cod' | 'card' | 'bank' | 'gateway'
+export type PaymentMethod = 'cod' | 'card' | 'bank' | 'gateway' | 'bakong'
 
 export interface OrderItem {
   id: string

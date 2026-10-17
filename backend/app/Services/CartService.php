@@ -13,9 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 class CartService
 {
-    public function __construct(private InventoryService $inventory)
-    {
-    }
+    public function __construct(private InventoryService $inventory) {}
 
     /**
      * Resolve (or create) the cart for a user or guest session.
@@ -39,7 +37,7 @@ class CartService
      */
     public function items(Cart $cart): Collection
     {
-        return $cart->items()->with(['variant.product.images'])->get();
+        return $cart->items()->with(['variant.product.images', 'variant.product.shop'])->get();
     }
 
     /**

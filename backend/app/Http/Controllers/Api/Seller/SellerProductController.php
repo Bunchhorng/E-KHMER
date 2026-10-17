@@ -22,6 +22,8 @@ class SellerProductController extends Controller
 
     public function store(SellerProductRequest $request, Shop $shop): mixed
     {
+        $this->applyStartingPrice($request);
+
         return $this->withUploadedImages($request, fn () => $this->products->store($request));
     }
 
@@ -32,11 +34,12 @@ class SellerProductController extends Controller
 
     public function update(SellerProductRequest $request, Shop $shop, Product $product): mixed
     {
+        $this->applyStartingPrice($request);
         // A simple seller product has one default variant. Keep its actual
         // selling price and visibility aligned with the owner's basic form.
         if (! $request->has('variants')) {
             $variants = $product->variants()->get();
-            $variant = $variants->count() === 1 && $variants->first()->is_default ? $variants->first() : null;
+            $variant = $variants->count() === 1 && ! $variants->first()->attributeValues()->exists() ? $variants->first() : null;
             if ($variant !== null) {
                 $data = $variant->only(['id', 'name', 'sku', 'price', 'compare_at_price', 'is_active']);
                 foreach (['price', 'compare_at_price', 'is_active'] as $key) {
@@ -77,6 +80,17 @@ class SellerProductController extends Controller
             }
 
             throw $exception;
+        }
+    }
+
+    private function applyStartingPrice(SellerProductRequest $request): void
+    {
+        if (! $request->has('variants')) {
+            return;
+        }
+        $variants = collect($request->input('variants'))->filter(fn ($variant) => ($variant['is_active'] ?? true) && isset($variant['price']));
+        if ($variants->isNotEmpty()) {
+            $request->merge(['price' => round((float) $variants->min('price'), 2)]);
         }
     }
 

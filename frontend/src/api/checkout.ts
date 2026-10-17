@@ -13,6 +13,7 @@ export interface CheckoutAddress {
 
 export interface CheckoutPayload {
   shipping_method_id: number
+  shipping_methods?: Record<string, number>
   payment_method: string
   coupon_code?: string
   email?: string
@@ -118,8 +119,8 @@ export interface ApiOrder {
 }
 
 export const checkoutApi = {
-  begin(payload: CheckoutPayload) {
-    return apiClient.post<{ data: ApiOrder; reservation_expires_at: string }>('/checkout', payload)
+  begin(payload: CheckoutPayload, idempotencyKey?: string) {
+    return apiClient.post<{ data: ApiOrder; reservation_expires_at: string }>('/checkout', payload, idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined)
   },
 
   confirm(orderNumber: string, transactionId?: string) {

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { ArrowUpRight, Boxes, ChevronDown, LayoutDashboard, LogOut, Menu, Plus, ShoppingBag, Store, Warehouse, X } from 'lucide-vue-next'
+import { ArrowUpRight, Boxes, ChevronDown, LayoutDashboard, LogOut, Menu, Plus, Settings, ShoppingBag, Store, Warehouse, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useSellerWorkspace } from '@/stores/sellerWorkspace'
 import { useAuthStore } from '@/stores/auth'
@@ -27,9 +27,12 @@ const nav = [
   { key: 'overview', name: 'seller-shop-dashboard', icon: LayoutDashboard },
   { key: 'products', name: 'seller-shop-products', icon: Boxes },
   { key: 'stock', name: 'seller-shop-inventory', icon: Warehouse },
-  { key: 'orders', name: 'seller-shop-orders', icon: ShoppingBag }
+  { key: 'orders', name: 'seller-shop-orders', icon: ShoppingBag },
+  { key: 'settings', name: 'seller-shop-settings', icon: Settings },
+  { key: 'returns', name: 'seller-shop-returns', icon: ShoppingBag },
+  { key: 'payments', name: 'seller-shop-payments', icon: ShoppingBag }
 ]
-const activeKey = computed(() => String(route.name).includes('product') ? 'products' : String(route.name).includes('inventory') ? 'stock' : String(route.name).includes('order') ? 'orders' : 'overview')
+const activeKey = computed(() => nav.find(item => item.key !== 'overview' && String(route.name).includes(item.key === 'stock' ? 'inventory' : item.key === 'products' ? 'product' : item.key === 'orders' ? 'order' : item.key))?.key ?? 'overview')
 const isApplication = computed(() => route.name === 'seller-application')
 
 async function load() {

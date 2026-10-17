@@ -8,18 +8,23 @@ use App\Models\Order;
 use App\Models\Setting;
 use App\Models\ShopOrder;
 use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
-class OrderStatusNotification extends Notification
+class OrderStatusNotification extends Notification implements ShouldQueue
 {
     use Queueable;
+
+    public int $tries = 3;
 
     public function __construct(
         public readonly Order $order,
         public readonly string $status,
         public readonly ?ShopOrder $shopOrder = null,
-    ) {}
+    ) {
+        $this->afterCommit();
+    }
 
     /**
      * @return array<int, string>
