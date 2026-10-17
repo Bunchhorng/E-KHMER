@@ -158,10 +158,103 @@ test('camera barcode scanning decodes real EAN-8 bars and saves only after revie
   await expect(page.getByRole('dialog')).toHaveCount(0)
   await expect(page.getByRole('status')).toContainText('Barcode scanned: 00001236')
   await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.stops)).toBe(1)
+  const workers = await page.evaluate(() => ({ started: (window as BarcodeCameraWindow).barcodeCamera.workerStarts, stopped: (window as BarcodeCameraWindow).barcodeCamera.workerStops }))
+  expect(workers).toEqual({ started: 1, stopped: 1 })
+  expect(await page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.workerResults)).toContain('00001236')
   expect(submitted).toBe('')
   await page.getByRole('button', { name: 'Save product', exact: true }).first().click()
   await expect(page).toHaveURL(/\/seller\/shops\/1\/products$/)
   expect(submitted).toContain('00001236')
+})
+
+for (const position of ['top', 'bottom', 'vertical'] as const) {
+  test(`camera barcode scanning reads real bars at the ${position} of the full frame`, async ({ page }) => {
+    await setup(page, true)
+    await installBarcodeCamera(page, 'barcode', { position })
+    await page.goto('/seller/shops/1/products/new')
+    await page.getByRole('button', { name: 'Scan barcode', exact: true }).click()
+    await expect(page.getByLabel('Product barcode', { exact: true })).toHaveValue('00001236', { timeout: 15000 })
+    await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.workerStops)).toBe(1)
+  })
+}
+
+test('camera barcode native fast path is single-flight and uses bounded frames', async ({ page }, testInfo) => {
+  await setup(page, true)
+  await installBarcodeCamera(page, 'blank', { native: 'success', highResolution: true })
+  await page.goto('/seller/shops/1/products/new')
+  await page.getByRole('button', { name: 'Scan barcode', exact: true }).click()
+  await expect(page.getByLabel('Product barcode', { exact: true })).toHaveValue('00001236', { timeout: 15000 })
+  const state = await page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera)
+  expect(state.nativeCalls).toBe(5)
+  expect(state.nativeMaxInFlight).toBe(1)
+  expect(state.workerStarts).toBe(0)
+  expect(state.nativeFormats).not.toContain('qr_code')
+  expect(Math.max(...state.nativeSizes[0]!)).toBeLessThanOrEqual(960)
+  expect(state.nativeSizes.every(size => Math.max(...size) <= 1280)).toBe(true)
+  await testInfo.attach('native-scan-cadence.json', { body: JSON.stringify({ intervalsMs: state.nativeTimes.slice(1).map((time, index) => time - state.nativeTimes[index]!), frameSizes: state.nativeSizes }), contentType: 'application/json' })
+})
+
+for (const native of ['reject', 'miss'] as const) {
+  test(`camera barcode scanning falls back to real worker decoding when native results ${native}`, async ({ page }) => {
+    await setup(page, true)
+    await installBarcodeCamera(page, 'barcode', { native })
+    await page.goto('/seller/shops/1/products/new')
+    await page.getByRole('button', { name: 'Scan barcode', exact: true }).click()
+    await expect(page.getByLabel('Product barcode', { exact: true })).toHaveValue('00001236', { timeout: 15000 })
+    const state = await page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera)
+    expect(state.nativeCalls).toBe(native === 'miss' ? 6 : 1)
+    expect(state.workerStarts).toBe(1)
+    expect(state.workerStops).toBe(1)
+  })
+}
+
+test('camera barcode scanning still works when workers are blocked', async ({ page }) => {
+  await setup(page, true)
+  await installBarcodeCamera(page, 'barcode', { workerBlocked: true })
+  await page.goto('/seller/shops/1/products/new')
+  await page.getByRole('button', { name: 'Scan barcode', exact: true }).click()
+  await expect(page.getByLabel('Product barcode', { exact: true })).toHaveValue('00001236', { timeout: 15000 })
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('camera barcode scanning ignores a native result delivered after cancel', async ({ page }) => {
+  await setup(page, true)
+  await installBarcodeCamera(page, 'blank', { native: 'pending' })
+  await page.goto('/seller/shops/1/products/new')
+  await page.getByRole('button', { name: 'Scan barcode', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.nativeCalls)).toBe(1)
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+  await page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.releaseNative?.())
+  await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.nativeInFlight)).toBe(0)
+  await expect(page.getByLabel('Product barcode', { exact: true })).toHaveValue('')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
+})
+
+test('camera barcode full-height guide and supported light controls work', async ({ page }, testInfo) => {
+  await setup(page, true)
+  await installBarcodeCamera(page, 'blank', { torch: true })
+  await page.goto('/seller/shops/1/products/new')
+  await page.getByRole('button', { name: 'Scan barcode', exact: true }).click()
+  await expect(page.getByRole('dialog').getByRole('status')).toContainText('Looking for a barcode')
+  const viewport = await page.getByTestId('barcode-viewport').boundingBox()
+  const guide = await page.getByTestId('barcode-guide').boundingBox()
+  expect(guide!.height / viewport!.height).toBeGreaterThan(0.85)
+  expect(guide!.width / viewport!.width).toBeGreaterThan(0.85)
+  await page.getByRole('button', { name: 'Turn light on', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Turn light off', exact: true })).toHaveAttribute('aria-pressed', 'true')
+  await page.screenshot({ path: testInfo.outputPath('full-frame-barcode-scanner.png') })
+  await page.getByRole('button', { name: 'Turn light off', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Turn light on', exact: true })).toHaveAttribute('aria-pressed', 'false')
+  const state = await page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera)
+  expect(state.constraints).toHaveLength(3)
+  expect(state.constraints.every(constraints => JSON.stringify(constraints.width) === JSON.stringify({ ideal: 1920 }) && JSON.stringify(constraints.frameRate) === JSON.stringify({ ideal: 30 }))).toBe(true)
+  expect(state.constraints.map(constraints => constraints.advanced)).toEqual([
+    [{ focusMode: 'continuous' }],
+    [{ focusMode: 'continuous' }, { torch: true }],
+    [{ focusMode: 'continuous' }, { torch: false }]
+  ])
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click()
+  await expect.poll(() => page.evaluate(() => (window as BarcodeCameraWindow).barcodeCamera.workerStops)).toBe(1)
 })
 
 test('camera barcode scanning fills only the selected variant', async ({ page }) => {

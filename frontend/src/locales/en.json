@@ -1,7 +1,11 @@
 {
   "barcode_scanner": {
     "scan": "Scan barcode",
-    "help": "Point the rear camera at the printed barcode. Hold steady with all bars in view and good lighting. The code fills in automatically; review it before saving.",
+    "help": "Use the whole camera frame. Keep all bars visible and hold steady; move closer for a small barcode. Check the detected code before saving.",
+    "live": "LIVE SCAN",
+    "torch_on": "Turn light on",
+    "torch_off": "Turn light off",
+    "torch_failed": "The camera light could not be changed. Improve the lighting or try again.",
     "scanning": "Looking for a barcode… Move a little closer or farther away if needed.",
     "privacy": "Scanning happens on your device. Camera images are not uploaded. You can cancel and type the barcode instead.",
     "success": "Barcode scanned: {barcode}. Review it, then save your product.",
