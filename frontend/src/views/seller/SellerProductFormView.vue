@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue'
 import { onBeforeRouteLeave, onBeforeRouteUpdate, RouterLink, useRoute, useRouter } from 'vue-router'
-import { ArrowLeft, Info, Save } from 'lucide-vue-next'
+import { ArrowLeft, Save } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { sellerApi } from '@/api/seller'
 import { categoriesApi, brandsApi, type ApiBrand, type ApiCategory } from '@/api'
@@ -27,6 +27,7 @@ const error = ref('')
 const fields = ref<Record<string, string>>({})
 const multiVariant = ref(false)
 const variants = ref<SellerVariant[]>([])
+const originalQuantities = ref<Record<number, number>>({})
 const categories = ref<ApiCategory[]>([])
 const brands = ref<ApiBrand[]>([])
 const photos = ref<ProductPhoto[]>([])
@@ -48,9 +49,10 @@ async function load() {
       const product = (await sellerApi.getProduct(shopId, productId)).data.data
       photos.value = [...product.gallery].sort((a, b) => Number(b.is_cover) - Number(a.is_cover) || a.sort_order - b.sort_order).map(image => ({ key: `saved-${image.id}`, url: image.image_path }))
       const simple = product.variants.length === 1 && !product.variants[0]?.attributes.length ? product.variants[0] : null
+      originalQuantities.value = Object.fromEntries(product.variants.map(variant => [variant.id, variant.quantity]))
       multiVariant.value = !simple
       variants.value = product.variants.map(variant => ({ key: `existing-${variant.id}`, id: variant.id, name: variant.name ?? '', sku: variant.sku ?? '', barcode: variant.barcode ?? '', cost_price: variant.cost_price ?? null, price: variant.price ?? product.price, compare_at_price: variant.compare_at_price, quantity: variant.quantity, reserved_quantity: variant.reserved_quantity, is_active: variant.is_active, image_id: variant.image_id, attributes: variant.attributes.map(attribute => ({ attribute: attribute.name, value: attribute.value })) }))
-      Object.assign(form, { name: product.name, sku: product.sku ?? '', barcode: simple?.barcode ?? product.barcode ?? '', cost_price: simple?.cost_price ?? product.cost_price ?? null, category_id: product.category?.id ?? 0, brand_id: product.brand?.id ?? 0, short_description: product.short_description ?? '', description: product.description ?? '', price: simple?.price ?? product.price, compare_at_price: simple ? simple.compare_at_price : product.compare_at_price, weight: product.weight, is_active: product.is_active })
+      Object.assign(form, { name: product.name, sku: product.sku ?? '', barcode: simple?.barcode ?? product.barcode ?? '', cost_price: simple?.cost_price ?? product.cost_price ?? null, category_id: product.category?.id ?? 0, brand_id: product.brand?.id ?? 0, short_description: product.short_description ?? '', description: product.description ?? '', price: simple?.price ?? product.price, compare_at_price: simple ? simple.compare_at_price : product.compare_at_price, weight: product.weight, initial_stock: simple?.quantity ?? 0, is_active: product.is_active })
     }
     baseline.value = snapshot()
     loaded.value = true
@@ -64,9 +66,14 @@ async function save() {
     const nullableNumber = (value: unknown) => value === '' || value == null ? null : Number(value)
     const payload: Record<string, unknown> = { ...form, name: form.name.trim(), sku: form.sku.trim() || null, barcode: form.barcode.trim() || null, cost_price: nullableNumber(form.cost_price), category_id: form.category_id || null, brand_id: form.brand_id || null, compare_at_price: nullableNumber(form.compare_at_price), weight: nullableNumber(form.weight) }
     if (isEdit) delete payload.initial_stock
+    const simpleVariant = variants.value[0]
+    if (isEdit && !multiVariant.value && simpleVariant?.id && Number(form.initial_stock) !== originalQuantities.value[simpleVariant.id]) {
+      payload.quantity = Number(form.initial_stock)
+    }
     if (multiVariant.value) {
       payload.variants = JSON.stringify(variants.value.map(variant => ({
-        ...(variant.id ? { id: variant.id } : { quantity: Number(variant.quantity) }),
+        ...(variant.id ? { id: variant.id } : {}),
+        ...(!variant.id || Number(variant.quantity) !== originalQuantities.value[variant.id] ? { quantity: Number(variant.quantity) } : {}),
         name: variant.name.trim() || null, sku: variant.sku.trim() || null,
         barcode: variant.barcode.trim() || null, cost_price: nullableNumber(variant.cost_price),
         price: Number(variant.price), compare_at_price: nullableNumber(variant.compare_at_price),
@@ -135,8 +142,8 @@ onMounted(() => void load())
         <label><span class="label">{{ t('seller.price') }} (USD) *</span><input v-model.number="form.price" required min="0" max="99999999.99" step="0.01" type="number" class="input w-full" :aria-invalid="!!fields.price" /><span v-if="fields.price" class="mt-1 block text-xs text-red-600">{{ fields.price }}</span></label>
         <label><span class="label">{{ t('seller.original_price') }} (USD)</span><input v-model.number="form.compare_at_price" min="0" max="99999999.99" step="0.01" type="number" class="input w-full" /><span class="mt-1.5 block text-xs leading-relaxed text-muted">{{ t('seller.original_help') }}</span></label>
         <label><span class="label">{{ t('seller.weight') }}</span><input v-model.number="form.weight" min="0" max="999999.99" step="0.01" type="number" class="input w-full" /></label>
-        <label v-if="!isEdit"><span class="label">{{ t('seller.initial_stock') }} *</span><input v-model.number="form.initial_stock" required min="0" max="1000000" step="1" type="number" class="input w-full" :aria-invalid="!!fields.initial_stock" /><span class="mt-1.5 block text-xs leading-relaxed" :class="fields.initial_stock ? 'text-red-600' : 'text-muted'">{{ fields.initial_stock || t('seller.stock_later') }}</span></label>
-      </div><div v-if="isEdit" class="mt-5 flex items-start gap-3 rounded-xl bg-canvas p-4"><Info :size="18" class="shrink-0 text-primary" /><div><p class="text-xs leading-relaxed text-muted">{{ t('seller.edit_stock_help') }}</p><RouterLink :to="{ name: 'seller-shop-inventory', params: { id: shopId }, query: { q: form.sku || form.name } }" class="mt-2 inline-block text-sm font-medium text-primary">{{ t('seller.update_stock') }} →</RouterLink></div></div></section>
+        <label v-if="!multiVariant"><span class="label">{{ t(isEdit ? 'seller.on_hand' : 'seller.initial_stock') }} *</span><input v-model.number="form.initial_stock" required :min="isEdit ? (variants[0]?.reserved_quantity ?? 0) : 0" max="1000000" step="1" type="number" class="input w-full" :disabled="saving" :aria-invalid="!!(fields.quantity || fields.initial_stock)" /><span v-if="fields.quantity || fields.initial_stock" role="alert" class="mt-1.5 block text-xs text-red-600">{{ fields.quantity || fields.initial_stock }}</span><span v-if="isEdit && variants[0]?.reserved_quantity" class="mt-1.5 block text-xs text-muted">{{ t('seller.reserved') }}: {{ variants[0]?.reserved_quantity }}</span></label>
+      </div></section>
     </div>
   </form>
 </template>

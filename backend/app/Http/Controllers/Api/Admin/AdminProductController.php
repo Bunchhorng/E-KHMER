@@ -650,7 +650,7 @@ class AdminProductController extends Controller
 
                 if (array_key_exists('quantity', $variantData)) {
                     $newQuantity = max((int) $variantData['quantity'], 0);
-                    $currentQuantity = (int) Inventory::where('product_variant_id', $variant->id)->value('quantity');
+                    $currentQuantity = (int) Inventory::where('product_variant_id', $variant->id)->lockForUpdate()->value('quantity');
 
                     if ($newQuantity !== $currentQuantity) {
                         $this->inventoryService->adjust($variant->id, $newQuantity, $userId);

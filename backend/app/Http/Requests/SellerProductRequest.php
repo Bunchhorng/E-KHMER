@@ -32,6 +32,7 @@ class SellerProductRequest extends AdminProductRequest
     public function rules(): array
     {
         return array_replace(parent::rules(), [
+            'quantity' => ['sometimes', 'required', 'integer', 'min:0', 'max:1000000'],
             'variants' => ['sometimes', 'array', 'min:1', 'max:200'],
             'variants.*.id' => ['nullable', 'integer', 'distinct', Rule::exists('product_variants', 'id')->where('product_id', $this->route('product')?->id ?? 0)->whereNull('deleted_at')],
             'variants.*.image_id' => ['nullable', 'integer', Rule::exists('product_images', 'id')->where('product_id', $this->route('product')?->id ?? 0)],

@@ -9,6 +9,7 @@ use App\Models\Product;
 use App\Models\Shop;
 use App\Services\MediaUploadService;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Throwable;
 
 class SellerProductController extends Controller
@@ -50,7 +51,12 @@ class SellerProductController extends Controller
                 if ($request->has('sku') && $request->input('sku') !== $product->sku) {
                     $data['sku'] = $request->input('sku');
                 }
+                if ($request->has('quantity')) {
+                    $data['quantity'] = $request->integer('quantity');
+                }
                 $request->merge(['variants' => [$data]]);
+            } elseif ($request->has('quantity')) {
+                throw ValidationException::withMessages(['quantity' => 'Set stock for each product option.']);
             }
         }
 

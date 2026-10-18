@@ -101,6 +101,73 @@ class SellerWorkspaceTest extends TestCase
         $this->assertEquals(20, $product->variants()->where('is_default', true)->first()->price);
     }
 
+    public function test_simple_product_stock_can_be_saved_with_details_and_checkout_holds_are_preserved(): void
+    {
+        $shop = Shop::factory()->create();
+        $owner = $this->owner($shop);
+        $product = Product::factory()->withVariant(20, 12)->create(['shop_id' => $shop->id]);
+        $variant = $product->variants()->sole();
+        $variant->inventory()->update(['reserved_quantity' => 3]);
+        $url = "/api/seller/shops/{$shop->id}/products/{$product->id}";
+
+        $this->actingAs($owner, 'sanctum')->post($url, [
+            '_method' => 'PUT', 'name' => 'Updated product', 'price' => '25', 'quantity' => '18',
+        ], ['Accept' => 'application/json'])->assertOk()
+            ->assertJsonPath('data.variants.0.quantity', 18)
+            ->assertJsonPath('data.variants.0.reserved_quantity', 3);
+        $this->assertDatabaseHas('inventories', ['product_variant_id' => $variant->id, 'quantity' => 18, 'reserved_quantity' => 3]);
+        $this->assertDatabaseHas('inventory_transactions', [
+            'inventory_id' => $variant->inventory->id, 'type' => 'adjust',
+            'quantity' => 6, 'created_by' => $owner->id,
+        ]);
+
+        $this->putJson($url, ['name' => 'Must roll back', 'price' => 99, 'quantity' => 2])
+            ->assertUnprocessable()->assertJsonValidationErrors('quantity');
+        $this->assertSame('Updated product', $product->fresh()->name);
+        $this->assertEquals(25, $variant->fresh()->price);
+        $this->assertEquals(18, $variant->inventory()->sole()->quantity);
+
+        $this->putJson($url, ['quantity' => 3])->assertOk()
+            ->assertJsonPath('data.variants.0.quantity', 3)
+            ->assertJsonPath('data.variants.0.reserved_quantity', 3);
+    }
+
+    public function test_edited_stock_requires_a_non_negative_whole_number_and_is_shop_scoped(): void
+    {
+        $shop = Shop::factory()->create();
+        $product = Product::factory()->withVariant(20, 12)->create(['shop_id' => $shop->id]);
+        $url = "/api/seller/shops/{$shop->id}/products/{$product->id}";
+        $this->actingAs($this->owner($shop), 'sanctum');
+        foreach ([-1, 1.5, 1000001, null] as $quantity) {
+            $this->putJson($url, ['quantity' => $quantity])->assertUnprocessable()->assertJsonValidationErrors('quantity');
+        }
+        $this->actingAs(User::factory()->create(), 'sanctum')->putJson($url, ['quantity' => 0])->assertForbidden();
+        $this->assertEquals(12, $product->variants()->sole()->inventory->quantity);
+    }
+
+    public function test_variant_stock_edits_are_atomic_when_an_option_has_checkout_holds(): void
+    {
+        $shop = Shop::factory()->create();
+        $this->actingAs($this->owner($shop), 'sanctum');
+        $url = "/api/seller/shops/{$shop->id}/products";
+        $id = $this->postJson($url, ['name' => 'Two options', 'variants' => [
+            ['name' => 'Blue', 'sku' => 'STOCK-BLUE', 'price' => 20, 'quantity' => 12],
+            ['name' => 'Red', 'sku' => 'STOCK-RED', 'price' => 25, 'quantity' => 8],
+        ]])->assertCreated()->json('data.id');
+        $product = Product::findOrFail($id);
+        $variants = $product->variants()->orderBy('id')->get();
+        $variants[1]->inventory()->update(['reserved_quantity' => 3]);
+        $rows = [['id' => $variants[0]->id, 'quantity' => 18], ['id' => $variants[1]->id, 'quantity' => 2]];
+        $this->putJson($url.'/'.$id, ['variants' => $rows])->assertUnprocessable();
+        $this->assertEquals(12, $variants[0]->inventory()->sole()->quantity);
+        $this->assertEquals(8, $variants[1]->inventory()->sole()->quantity);
+        $rows[1]['quantity'] = 4;
+        $this->putJson($url.'/'.$id, ['variants' => $rows])->assertOk();
+        $this->assertEquals(18, $variants[0]->inventory()->sole()->quantity);
+        $this->assertEquals(4, $variants[1]->inventory()->sole()->quantity);
+        $this->assertEquals(3, $variants[1]->inventory()->sole()->reserved_quantity);
+    }
+
     public function test_new_product_stock_requires_a_non_negative_whole_number(): void
     {
         $shop = Shop::factory()->create();

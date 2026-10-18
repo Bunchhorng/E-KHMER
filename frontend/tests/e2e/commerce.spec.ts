@@ -153,6 +153,68 @@ test('owners can reload and edit existing barcodes and purchase prices', async (
   expect(submitted).toContain('3.75')
 })
 
+test('owners can save stock directly on the product edit form', async ({ page }) => {
+  await setup(page, true)
+  let submitted = ''
+  await page.route('**/api/seller/shops/1/products/2', async route => {
+    if (route.request().method() === 'POST') submitted = route.request().postData() ?? ''
+    await route.fulfill({ json: { data: { ...product, sku: 'BLUE', gallery: [],
+      variants: [{ ...product.variants[0], is_default: true, is_active: true, quantity: 12, reserved_quantity: 3, image_id: null }] } } })
+  })
+  await page.goto('/seller/shops/1/products/2/edit')
+  const stock = page.getByRole('spinbutton', { name: /Total on hand/ })
+  await expect(stock).toHaveValue('12')
+  await expect(stock).toHaveAttribute('min', '3')
+  await expect(page.getByRole('link', { name: /Update stock/ })).toHaveCount(0)
+  await stock.fill('2')
+  await page.getByRole('button', { name: 'Save product', exact: true }).click()
+  expect(submitted).toBe('')
+  await stock.fill('18')
+  await page.getByRole('button', { name: 'Save product', exact: true }).click()
+  await expect(page).toHaveURL(/\/seller\/shops\/1\/products$/)
+  expect(submitted).toMatch(/name="quantity"\r?\n\r?\n18/)
+})
+
+test('saving product details leaves unchanged stock out of the request', async ({ page }) => {
+  await setup(page, true)
+  let submitted = ''
+  await page.route('**/api/seller/shops/1/products/2', async route => {
+    if (route.request().method() === 'POST') submitted = route.request().postData() ?? ''
+    await route.fulfill({ json: { data: { ...product, sku: 'BLUE', gallery: [],
+      variants: [{ ...product.variants[0], is_default: true, is_active: true, quantity: 12, reserved_quantity: 3, image_id: null }] } } })
+  })
+  await page.goto('/seller/shops/1/products/2/edit')
+  await page.getByLabel('Product name *').fill('Renamed shirt')
+  await page.getByRole('button', { name: 'Save product', exact: true }).click()
+  await expect(page).toHaveURL(/\/seller\/shops\/1\/products$/)
+  expect(submitted).toContain('Renamed shirt')
+  expect(submitted).not.toContain('name="quantity"')
+  expect(submitted).not.toContain('name="initial_stock"')
+})
+
+test('owners can edit stock for each existing product option', async ({ page }) => {
+  await setup(page, true)
+  let submitted = ''
+  await page.route('**/api/seller/shops/1/products/2', async route => {
+    if (route.request().method() === 'POST') submitted = route.request().postData() ?? ''
+    const variant = { ...product.variants[0], is_default: false, is_active: true, image_id: null, compare_at_price: null }
+    await route.fulfill({ json: { data: { ...product, sku: 'SHIRT', gallery: [], variants: [
+      { ...variant, quantity: 12, reserved_quantity: 3, attributes: [{ name: 'Color', value: 'Blue' }] },
+      { ...variant, id: 4, name: 'Red', sku: 'RED', quantity: 8, reserved_quantity: 0, attributes: [{ name: 'Color', value: 'Red' }] }
+    ] } } })
+  })
+  await page.goto('/seller/shops/1/products/2/edit')
+  const stock = page.getByRole('spinbutton', { name: /Total on hand/ })
+  await expect(stock).toHaveCount(2)
+  await expect(stock.nth(0)).toHaveValue('12')
+  await expect(stock.nth(1)).toHaveValue('8')
+  await stock.nth(0).fill('18')
+  await page.getByRole('button', { name: 'Save product', exact: true }).click()
+  await expect(page).toHaveURL(/\/seller\/shops\/1\/products$/)
+  expect(submitted).toContain('"id":3,"quantity":18')
+  expect(submitted).not.toContain('"quantity":8')
+})
+
 test('product variants have independent barcode and purchase price fields', async ({ page }) => {
   await setup(page, true)
   let submitted = ''
