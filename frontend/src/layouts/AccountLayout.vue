@@ -23,6 +23,7 @@ import { ref, computed, onMounted } from 'vue'
 import { accountApi } from '@/api'
 import type { Component } from 'vue'
 import eKhmerLogo from '@/assets/E-KHMER-LOGO.jpg'
+import ContentLayout from '@/layouts/ContentLayout.vue'
 
 interface NavItem {
   nameKey: string
@@ -106,7 +107,7 @@ async function signOut() {
 <template>
   <div class="flex min-h-screen flex-col bg-canvas lg:flex-row">
     <header class="sticky top-0 z-40 shrink-0 border-b border-border-gray bg-surface lg:hidden">
-      <div class="flex items-center justify-between px-4 py-3">
+      <ContentLayout class="flex items-center justify-between py-3">
         <button type="button" class="btn-icon" @click="mobileOpen = true">
           <Menu class="h-5 w-5" />
         </button>
@@ -118,7 +119,7 @@ async function signOut() {
             <ShoppingBag class="h-5 w-5" />
           </RouterLink>
         </div>
-      </div>
+      </ContentLayout>
     </header>
 
     <div v-if="mobileOpen" class="fixed inset-0 z-50 lg:hidden">
@@ -279,7 +280,7 @@ async function signOut() {
       </div>
     </aside>
 
-    <main class="flex-1 p-4 sm:p-6 lg:p-8">
+    <ContentLayout as="main" class="flex-1 py-4 sm:py-6 lg:py-8">
       <div class="mb-6 flex items-center justify-between gap-3">
         <h1 class="text-2xl font-bold text-ink">{{ route.meta.title ?? 'Dashboard' }}</h1>
         <div class="flex items-center gap-1">
@@ -309,6 +310,6 @@ async function signOut() {
         </button>
       </div>
       <router-view />
-    </main>
+    </ContentLayout>
   </div>
 </template>

@@ -27,5 +27,5 @@ const pages: Record<string, { title: string; sections: { title: string; text: st
 }
 const page = computed(() => pages[String(route.params.page)])
 </script>
-<template><main class="container-app max-w-3xl space-y-7 py-10"><template v-if="page"><h1 class="text-3xl font-bold">{{ page.title }}</h1><section v-for="section in page.sections" :key="section.title" class="card p-6"><h2 class="text-lg font-semibold">{{ section.title }}</h2><p class="mt-3 text-sm leading-relaxed text-muted">{{ section.text }}</p></section></template><h1 v-else class="text-2xl font-bold">Page not found</h1><div class="flex gap-4"><RouterLink to="/support" class="btn-primary">Contact support</RouterLink><RouterLink to="/shops" class="btn-secondary">Explore shops</RouterLink></div></main></template>
+<template><div class="space-y-7 py-10"><template v-if="page"><h1 class="text-3xl font-bold">{{ page.title }}</h1><section v-for="section in page.sections" :key="section.title" class="card p-6"><h2 class="text-lg font-semibold">{{ section.title }}</h2><p class="mt-3 text-sm leading-relaxed text-muted">{{ section.text }}</p></section></template><h1 v-else class="text-2xl font-bold">Page not found</h1><div class="flex gap-4"><RouterLink to="/support" class="btn-primary">Contact support</RouterLink><RouterLink to="/shops" class="btn-secondary">Explore shops</RouterLink></div></div></template>
 

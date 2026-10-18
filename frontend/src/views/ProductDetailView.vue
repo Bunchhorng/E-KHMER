@@ -408,7 +408,7 @@ const featureList = computed(() => {
 </script>
 
 <template>
-  <div class="container-app py-6">
+  <div class="py-6">
     <template v-if="loading">
       <div class="flex min-h-[400px] items-center justify-center">
         <Loader2 class="h-8 w-8 animate-spin text-primary" />

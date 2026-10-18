@@ -62,7 +62,7 @@ function closeEvidence() { if (evidence.value) URL.revokeObjectURL(evidence.valu
 onBeforeUnmount(closeEvidence)
 </script>
 <template>
-  <main class="mx-auto max-w-5xl space-y-6 p-4 sm:p-6">
+  <div class="space-y-6">
     <h1 class="text-2xl font-bold">{{ t('returns.title') }}</h1><p class="text-sm text-muted">{{ t('returns.help') }}</p>
     <p v-if="error" role="alert" class="card p-4 text-sm text-red-600">{{ error }}</p>
     <section v-if="!manage" class="card space-y-4 p-5">
@@ -90,6 +90,6 @@ onBeforeUnmount(closeEvidence)
       <form class="space-y-4" @submit.prevent="transition"><label class="block"><span class="label">{{ t('returns.action') }}</span><select v-model="action" class="select w-full"><template v-if="selected?.status === 'requested'"><option value="approved">{{ t('returns.approved') }}</option><option value="rejected">{{ t('returns.rejected') }}</option></template><option v-else :value="selected?.status === 'approved' ? 'received' : 'refunded'">{{ t('returns.' + action) }}</option></select></label><label class="block"><span class="label">{{ t('returns.note') }}</span><textarea v-model="note" class="textarea w-full" maxlength="2000" :required="action === 'rejected'"></textarea></label><label v-if="action === 'received'" class="flex items-center gap-2 text-sm"><input v-model="restock" type="checkbox" />{{ t('returns.restock') }}</label><label v-if="action === 'refunded'" class="block"><span class="label">{{ t('returns.reference') }}</span><input v-model="reference" class="input w-full" required maxlength="190" /><span class="mt-2 block text-xs text-muted">{{ t('returns.refund_help') }}</span></label><button class="btn-primary" :disabled="busy">{{ t('actions.save') }}</button></form>
     </BaseModal>
     <BaseModal :model-value="!!evidence" :title="t('returns.photos')" @update:model-value="!$event && closeEvidence()"><img :src="evidence" :alt="t('returns.photos')" class="max-h-[65vh] w-full object-contain" /></BaseModal>
-  </main>
+  </div>
 </template>
 

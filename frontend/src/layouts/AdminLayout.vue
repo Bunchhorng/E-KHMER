@@ -37,6 +37,7 @@ import { accountApi } from '@/api'
 import type { ApiNotification } from '@/api/account'
 import { formatDateTime } from '@/utils/format'
 import eKhmerLogo from '@/assets/E-KHMER-LOGO.jpg'
+import ContentLayout from '@/layouts/ContentLayout.vue'
 
 interface NavItem {
   labelKey: string
@@ -217,7 +218,8 @@ async function signOut() {
     </aside>
 
     <div class="flex min-w-0 flex-1 flex-col overflow-hidden">
-      <header class="flex h-16 shrink-0 items-center gap-3 border-b border-border-gray bg-surface px-4 sm:px-6">
+      <header class="shrink-0 border-b border-border-gray bg-surface">
+        <ContentLayout class="flex h-16 items-center gap-3">
         <button type="button" class="btn-icon" :title="$t('admin.nav.toggle_sidebar')" :aria-label="$t('admin.nav.toggle_sidebar')" aria-controls="admin-sidebar" :aria-expanded="isDesktop ? expanded : mobileSidebarOpen" @click="toggleSidebar">
           <Menu class="h-5 w-5" />
         </button>
@@ -293,10 +295,13 @@ async function signOut() {
           </template>
         </div>
         </div>
+        </ContentLayout>
       </header>
 
-      <main class="scrollbar-none min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
-        <router-view />
+      <main class="scrollbar-none min-w-0 flex-1 overflow-y-auto">
+        <ContentLayout class="py-4 sm:py-6 lg:py-8">
+          <router-view />
+        </ContentLayout>
       </main>
     </div>
   </div>

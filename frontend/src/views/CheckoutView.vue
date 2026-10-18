@@ -233,7 +233,7 @@ async function placeOrder() {
 </script>
 
 <template>
-  <div class="container-app py-8">
+  <div class="py-8">
     <div v-if="cartStore.isEmpty" class="mx-auto max-w-md">
       <EmptyState
         title="Your cart is empty"

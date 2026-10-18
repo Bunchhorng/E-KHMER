@@ -405,7 +405,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <form class="mx-auto max-w-[1400px] space-y-5 pb-16" @submit.prevent="save()">
+  <form class="space-y-5 pb-16" @submit.prevent="save()">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div>
         <div class="mb-1 text-xs text-gray-400 dark:text-gray-500"><RouterLink :to="{ name: 'admin-products' }" class="hover:text-primary">Products</RouterLink><span class="mx-2">›</span>{{ isEdit ? 'Edit Product' : 'Create Product' }}</div>

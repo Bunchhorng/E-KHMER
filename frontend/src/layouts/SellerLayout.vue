@@ -9,6 +9,7 @@ import { extractErrorMessage } from '@/api/errors'
 import AssetImage from '@/components/AssetImage.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import ContentLayout from '@/layouts/ContentLayout.vue'
 
 const workspace = useSellerWorkspace()
 // Clear previous workspace data before rendering, including after account changes.
@@ -106,15 +107,17 @@ async function signOut() { await auth.logout(); workspace.reset(); await router.
       <div class="flex items-center gap-3 border-t border-border-gray px-5 py-4"><RouterLink to="/account/profile" class="flex min-w-0 flex-1 items-center gap-3"><span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 font-semibold text-primary">{{ auth.user?.name.charAt(0) }}</span><span class="truncate text-sm font-medium">{{ auth.user?.name }}</span></RouterLink><button type="button" class="btn-icon" :title="t('seller.sign_out')" :aria-label="t('seller.sign_out')" @click="signOut"><LogOut :size="18" /></button></div>
     </aside>
     <div class="min-w-0 lg:pl-64" :inert="!isDesktop && mobileOpen">
-      <header class="sticky top-0 z-30 flex h-20 items-center justify-between gap-3 border-b border-border-gray bg-surface/95 px-4 backdrop-blur sm:px-8">
+      <header class="sticky top-0 z-30 border-b border-border-gray bg-surface/95 backdrop-blur">
+        <ContentLayout class="flex h-20 items-center justify-between gap-3">
         <div class="flex min-w-0 items-center gap-3"><button ref="menuButton" type="button" class="btn-icon lg:hidden" :aria-label="t('seller.menu')" aria-controls="seller-navigation" :aria-expanded="mobileOpen" @click="mobileOpen = true"><Menu :size="22" /></button><div class="min-w-0"><p class="text-xs text-muted">{{ t('seller.workspace') }}</p><p class="truncate text-sm font-semibold">{{ workspace.currentShop?.name ?? t('seller.manage_shop') }}</p></div></div>
         <div class="flex shrink-0 items-center gap-1"><LanguageSwitcher /><ThemeToggle /><RouterLink to="/shop" class="btn-secondary btn-sm ml-2 hidden sm:inline-flex">{{ t('seller.visit_store') }}<ArrowUpRight :size="16" /></RouterLink></div>
+        </ContentLayout>
       </header>
-      <main id="seller-content" class="mx-auto min-w-0 max-w-[1440px] p-4 sm:p-8 lg:p-9">
+      <ContentLayout as="main" id="seller-content" class="py-4 sm:py-6 lg:py-8">
         <div v-if="error" role="alert" class="card p-6"><p class="text-sm text-red-600 dark:text-red-400">{{ error }}</p><button class="btn-secondary mt-4" @click="load">{{ t('actions.retry') }}</button></div>
         <div v-else-if="workspace.loading" class="grid animate-pulse gap-4" aria-busy="true"><div class="h-16 rounded-xl bg-border-gray/40"></div><div class="h-64 rounded-xl bg-border-gray/40"></div><span class="sr-only">{{ t('common.loading') }}</span></div>
         <RouterView v-else v-slot="{ Component }"><component :is="Component" :key="String(route.name) + ':' + String(route.params.id ?? '') + ':' + String(route.params.productId ?? '') + ':' + String(route.params.orderId ?? '')" /></RouterView>
-      </main>
+      </ContentLayout>
     </div>
   </div>
 </template>

@@ -45,7 +45,7 @@ watch(() => route.params.orderNumber, load, { immediate: true })
 onBeforeUnmount(() => { generation++; window.clearInterval(clock) })
 </script>
 <template>
-  <main class="container-app max-w-4xl space-y-6 py-8">
+  <div class="space-y-6 py-8">
     <div><h1 class="text-2xl font-bold">{{ t('bakong.title') }}</h1><p class="mt-3 text-sm leading-relaxed text-muted">{{ t('bakong.help') }}</p><p class="mt-2 text-xs text-muted">{{ route.params.orderNumber }}</p></div>
     <p v-if="error" role="alert" class="card p-4 text-sm text-red-600">{{ error }}</p>
     <p v-if="expired" role="status" class="rounded-xl bg-amber-500/10 p-4 text-sm">{{ t('bakong.expired') }}</p>
@@ -59,6 +59,6 @@ onBeforeUnmount(() => { generation++; window.clearInterval(clock) })
       </section>
     </div>
     <div class="flex flex-wrap gap-3"><button class="btn-primary" :disabled="checking || loading" @click="verify">{{ t(checking ? 'bakong.checking' : 'bakong.verify') }}</button><RouterLink to="/account/orders" class="btn-secondary">{{ t('nav.my_orders') }}</RouterLink><RouterLink to="/support" class="btn-secondary">{{ t('bakong.contact') }}</RouterLink></div>
-  </main>
+  </div>
 </template>
 

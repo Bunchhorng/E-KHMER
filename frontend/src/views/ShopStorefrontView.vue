@@ -41,7 +41,7 @@ watch(() => route.fullPath, load, { immediate: true })
 onBeforeUnmount(() => request++)
 </script>
 <template>
-  <main class="container-app space-y-6 py-6">
+  <div class="space-y-6 py-6">
     <RouterLink to="/shops" class="text-sm text-primary">← {{ t('storefront.title') }}</RouterLink>
     <p v-if="error" role="alert" class="card p-5 text-red-600">{{ error }} <button class="ml-2 underline" @click="load">{{ t('actions.retry') }}</button></p>
     <div v-else-if="loading" class="card h-80 animate-pulse bg-border-gray/20" aria-busy="true"></div>
@@ -56,6 +56,6 @@ onBeforeUnmount(() => request++)
       <EmptyState v-else :title="t('shop.no_match_title')" :description="t('shop.no_match_description')" />
       <BasePagination :page="meta.current_page" :page-count="meta.last_page" :total-items="meta.total" :page-size="meta.per_page" @update:page="router.push({ query: { ...route.query, page: $event } })" />
     </template>
-  </main>
+  </div>
 </template>
 

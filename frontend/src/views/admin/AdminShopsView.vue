@@ -81,7 +81,7 @@ onMounted(() => { void Promise.all([load(), loadSummary()]) })
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1600px] space-y-4 sm:space-y-5">
+  <div class="space-y-4 sm:space-y-5">
     <section class="flex flex-wrap items-end justify-between gap-4"><div><h1 class="text-2xl font-bold tracking-tight text-ink sm:text-[27px]">Shops</h1><p class="mt-1 text-sm text-gray-500 dark:text-muted">Manage all shops in the marketplace. Approve, suspend or monitor shop activities.</p></div><RouterLink :to="{ name: 'admin-shop-create' }" class="btn-primary !px-4 !py-2"><Plus class="h-4 w-4" />Add New Shop</RouterLink></section>
 
     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5"><article v-for="card in cards" :key="card.label" class="card p-4"><div class="flex items-start gap-3"><div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" :class="card.tone"><component :is="card.icon" class="h-5 w-5" /></div><div><p class="text-xs font-medium text-gray-500 dark:text-muted">{{ card.label }}</p><p class="mt-1 text-xl font-bold text-ink">{{ formatCompactNumber(card.value) }}</p><p class="mt-1 text-[11px] text-gray-400 dark:text-gray-500">{{ card.note }}</p></div></div></article></section>

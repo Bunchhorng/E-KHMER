@@ -72,7 +72,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="mx-auto w-full max-w-xl">
+  <div>
     <div class="card space-y-6 p-6">
       <div>
         <h2 class="text-xl font-bold text-ink dark:text-ink">{{ $t('account.change_password') }}</h2>

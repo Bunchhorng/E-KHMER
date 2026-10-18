@@ -92,7 +92,7 @@ onMounted(load)
 onBeforeUnmount(() => { cleanPreview('logo'); cleanPreview('banner') })
 </script>
 <template>
-  <div class="mx-auto max-w-5xl space-y-6">
+  <div class="space-y-6">
     <SellerPageHeader :title="t('shop_settings.title')" :description="t('shop_settings.help')"><RouterLink :to="publicUrl" class="btn-secondary"><Store :size="17" />{{ t('shop_settings.view_shop') }}</RouterLink></SellerPageHeader>
     <p v-if="error" role="alert" class="rounded-xl bg-red-500/10 p-4 text-sm text-red-600">{{ error }} <button v-if="!loaded" class="underline" @click="load">{{ t('actions.retry') }}</button></p>
     <p v-if="success" role="status" class="rounded-xl bg-emerald-500/10 p-4 text-sm text-emerald-700 dark:text-emerald-400">{{ success }}</p>

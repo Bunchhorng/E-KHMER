@@ -85,7 +85,7 @@ async function confirmRejection() {
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1600px] space-y-5 sm:space-y-6" :aria-busy="loading">
+  <div class="space-y-5 sm:space-y-6" :aria-busy="loading">
     <header class="flex flex-wrap items-start justify-between gap-4">
       <div>
         <h1 class="text-2xl font-bold tracking-tight text-ink sm:text-3xl">{{ t('admin.dashboard.title') }}</h1>

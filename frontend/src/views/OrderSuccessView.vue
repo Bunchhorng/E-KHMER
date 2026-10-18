@@ -133,11 +133,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div v-if="loading" class="container-app mx-auto max-w-md py-16 text-center text-sm text-gray-500">
+  <div v-if="loading" class="py-16 text-center text-sm text-gray-500">
     Loading order details...
   </div>
 
-  <div v-else-if="order" class="container-app mx-auto max-w-2xl py-16 text-center">
+  <div v-else-if="order" class="py-16 text-center">
     <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
       <CheckCircle2 :size="40" />
     </div>
@@ -214,7 +214,7 @@ onMounted(async () => {
     <p v-if="receiptError" class="mt-3 text-xs font-medium text-red-600">{{ receiptError }}</p>
   </div>
 
-  <div v-else class="container-app mx-auto max-w-md py-16">
+  <div v-else class="py-16">
     <EmptyState
       :title="$t('order.not_found_title')"
       :description="$t('order.not_found_description')"

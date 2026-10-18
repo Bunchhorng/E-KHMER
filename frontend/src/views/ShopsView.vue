@@ -27,7 +27,7 @@ watch(() => route.fullPath, load, { immediate: true })
 onBeforeUnmount(() => request++)
 </script>
 <template>
-  <main class="container-app space-y-7 py-8">
+  <div class="space-y-7 py-8">
     <div><h1 class="text-3xl font-bold">{{ t('storefront.title') }}</h1><p class="mt-2 text-muted">{{ t('storefront.help') }}</p></div>
     <form class="flex max-w-lg gap-3" @submit.prevent="find"><input v-model="search" class="input min-w-0 flex-1" maxlength="100" :aria-label="t('storefront.search_shops')" :placeholder="t('storefront.search_shops')" /><button class="btn-primary"><Search :size="18" /><span class="sr-only">{{ t('actions.search') }}</span></button></form>
     <p v-if="error" role="alert" class="card p-5 text-red-600">{{ error }} <button class="ml-2 underline" @click="load">{{ t('actions.retry') }}</button></p>
@@ -40,6 +40,6 @@ onBeforeUnmount(() => request++)
       </RouterLink>
     </div>
     <BasePagination v-if="!error && !loading" :page="meta.current_page" :page-count="meta.last_page" :total-items="meta.total" :page-size="meta.per_page" @update:page="router.push({ query: { ...route.query, page: $event } })" />
-  </main>
+  </div>
 </template>
 

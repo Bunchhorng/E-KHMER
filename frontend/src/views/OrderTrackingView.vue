@@ -118,11 +118,11 @@ onMounted(loadTracking)
 </script>
 
 <template>
-  <div v-if="loading" class="container-app mx-auto max-w-md py-16 text-center text-sm text-gray-500">
+  <div v-if="loading" class="py-16 text-center text-sm text-gray-500">
     Loading order details...
   </div>
 
-  <div v-else-if="order" class="container-app mx-auto max-w-3xl py-10">
+  <div v-else-if="order" class="py-10">
     <div class="card p-6">
       <div class="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -239,7 +239,7 @@ onMounted(loadTracking)
     </div>
   </div>
 
-  <div v-else class="container-app mx-auto max-w-md py-16">
+  <div v-else class="py-16">
     <EmptyState
       :title="$t('order.not_found_title')"
       :description="$t('order.not_found_description')"

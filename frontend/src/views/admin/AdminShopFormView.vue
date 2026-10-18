@@ -54,7 +54,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1320px] space-y-4 sm:space-y-5">
+  <div class="space-y-4 sm:space-y-5">
     <section class="flex flex-wrap items-end justify-between gap-4"><div><div class="mb-1 text-xs text-gray-400 dark:text-gray-500"><RouterLink :to="{ name: 'admin-shops' }" class="hover:text-primary">Shops</RouterLink><span class="mx-2">›</span>{{ editing ? 'Update Shop' : 'Create Shop' }}</div><h1 class="text-2xl font-bold tracking-tight text-ink">{{ editing ? 'Update Shop' : 'Create Shop' }}</h1><p class="mt-1 text-sm text-gray-500 dark:text-muted">{{ editing ? 'Edit shop information and settings. Changes will be saved immediately.' : 'Add a new shop to the marketplace. Fill in the information below.' }}</p></div><RouterLink :to="{ name: 'admin-shops' }" class="btn-secondary !px-4 !py-2">Cancel</RouterLink></section>
 
     <div v-if="loading" class="card p-10 text-center text-sm text-gray-500 dark:text-muted">Loading shop information...</div>

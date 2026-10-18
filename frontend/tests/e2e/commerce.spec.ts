@@ -24,6 +24,44 @@ async function setup(page: Page, authenticated = false) {
     await route.fulfill({ json: data })
   })
 }
+for (const area of [
+  { name: 'store', paths: ['/shops', '/support', '/help/about', '/cart'] },
+  { name: 'seller', paths: ['/seller/shops/1/products', '/seller/shops/1/products/new', '/seller/shops/1/settings', '/seller/application'] },
+  { name: 'account', paths: ['/account/profile', '/account/password', '/account/returns', '/account/support'] },
+  { name: 'admin', paths: ['/admin/products', '/admin/products/new', '/admin/shops', '/admin/shops/new', '/admin/shop-owners/new'] }
+]) {
+  test(`${area.name} pages keep the same content width`, async ({ page }, testInfo) => {
+    await setup(page, area.name !== 'store')
+    if (area.name === 'admin') {
+      await page.route('**/api/auth/me', route => route.fulfill({ json: { data: { ...user, role: 'super_admin' } } }))
+    }
+    // Cover both capped desktop content and narrow mobile layouts.
+    if (testInfo.project.name === 'desktop') await page.setViewportSize({ width: 2240, height: 1000 })
+    let previous: { x: number; width: number } | undefined
+    for (const path of area.paths) {
+      await page.goto(path)
+      await expect(page).toHaveURL(new RegExp(`${path}$`))
+      const content = page.locator('main > .container-app > :first-child, main.container-app > :last-child').first()
+      await expect(content).toBeVisible()
+      if (area.name === 'seller') await expect(page.locator('#seller-content > .animate-pulse')).toHaveCount(0)
+      const bounds = await content.boundingBox()
+      expect(bounds, path).not.toBeNull()
+      if (previous) {
+        expect(Math.abs(bounds!.x - previous.x), `${path} left edge`).toBeLessThan(1)
+        expect(Math.abs(bounds!.width - previous.width), `${path} content width`).toBeLessThan(1)
+      }
+      previous = bounds!
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth), `${path} horizontal overflow`).toBeLessThanOrEqual(1)
+      if (area.name === 'store') {
+        const header = await page.locator('header .container-app').last().boundingBox()
+        const padding = await page.locator('header .container-app').last().evaluate(element => parseFloat(getComputedStyle(element).paddingLeft))
+        expect(Math.abs(bounds!.x - header!.x - padding), `${path} header alignment`).toBeLessThan(1)
+        expect(Math.abs(bounds!.width - header!.width + padding * 2), `${path} header width`).toBeLessThan(1)
+      }
+    }
+  })
+}
+
 test('customers can discover a shop and search its own catalog', async ({ page }) => {
   await setup(page); await page.goto('/shops')
   await page.getByRole('link', { name: /Test Shop/ }).click()

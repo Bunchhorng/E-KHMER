@@ -33,7 +33,7 @@ async function submit() {
 onMounted(load)
 </script>
 <template>
-  <div class="mx-auto max-w-4xl space-y-6">
+  <div class="space-y-6">
     <SellerPageHeader :title="t('seller.application_title')" :description="t('seller.application_help')"><button v-if="shop && !addingAnother" class="btn-secondary" @click="addingAnother = true; error = ''; fields = {}"><Plus :size="17" />{{ t('seller.add_shop') }}</button></SellerPageHeader>
     <ol class="grid gap-3 text-sm sm:grid-cols-3"><li v-for="(key, index) in ['application_step1', 'application_step2', 'application_step3']" :key="key" class="rounded-xl border px-4 py-3" :class="index === (shop && !addingAnother ? (shop.status === 'active' ? 2 : 1) : 0) ? 'border-primary/30 bg-primary/5 font-semibold text-primary' : 'border-border-gray text-muted'">{{ t('seller.' + key) }}</li></ol>
     <p v-if="error" role="alert" class="rounded-xl bg-red-500/10 p-4 text-sm text-red-600 dark:text-red-400">{{ error }} <button v-if="!loaded" class="ml-2 underline" @click="load">{{ t('actions.retry') }}</button></p>

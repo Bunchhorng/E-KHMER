@@ -318,7 +318,7 @@ function setPage(p: number) {
 </script>
 
 <template>
-  <div class="container-app py-6">
+  <div class="py-6">
     <nav class="text-xs text-gray-500 dark:text-muted dark:text-gray-500">
       <RouterLink to="/" class="hover:text-primary">{{ $t('nav.home') }}</RouterLink>
       <span class="mx-1">/</span>

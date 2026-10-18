@@ -30,7 +30,7 @@ function variantLine(item: CartItem): string {
 </script>
 
 <template>
-  <div class="container-app py-8">
+  <div class="py-8">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <h1 class="text-2xl font-bold text-ink dark:text-ink sm:text-3xl">Shopping Cart</h1>
       <RouterLink to="/shop" class="text-sm font-medium text-primary hover:text-primary-dark">

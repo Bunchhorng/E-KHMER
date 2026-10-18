@@ -167,7 +167,7 @@ onMounted(loadProducts)
 </script>
 
 <template>
-  <div class="mx-auto max-w-[1600px] space-y-4 sm:space-y-5">
+  <div class="space-y-4 sm:space-y-5">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div><h1 class="text-2xl font-bold tracking-tight text-ink sm:text-[27px]">{{ $t('admin.products.title') }}</h1><p class="mt-1 text-sm text-gray-500 dark:text-muted">Manage your products, add new items, and keep inventory up to date.</p></div>
       <div class="flex items-center gap-2">
