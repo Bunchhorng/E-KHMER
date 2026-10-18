@@ -12,8 +12,10 @@ class WishlistSeeder extends Seeder
 {
     public function run(): void
     {
-        $customer = User::where('email', 'customer@ekhmer.dev')->firstOrFail();
-        $wishlist = Wishlist::create(['user_id' => $customer->id]);
-        Product::limit(10)->get()->each(fn (Product $product) => WishlistItem::create(['wishlist_id' => $wishlist->id, 'product_id' => $product->id]));
+        $products = Product::orderBy('id')->get();
+        foreach (User::orderBy('id')->get() as $index => $customer) {
+            $wishlist = Wishlist::create(['user_id' => $customer->id]);
+            WishlistItem::create(['wishlist_id' => $wishlist->id, 'product_id' => $products[$index]->id]);
+        }
     }
 }

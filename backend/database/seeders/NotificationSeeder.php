@@ -20,13 +20,15 @@ class NotificationSeeder extends Seeder
         $notifications = [
             [$admin, 'shop.application', ['title' => 'New seller application', 'message' => 'New Market Seller is ready for review.'], null],
             [$admin, 'inventory.low_stock', ['title' => 'Low stock alert', 'message' => 'Several marketplace variants are at or below their threshold.'], null],
-            [$customer, 'order.shipped', ['title' => 'Order update', 'message' => 'Your order is on its way.', 'order_id' => $order?->id], now()->subDay()],
+            [$customer, 'order.delivered', ['title' => 'Order update', 'message' => 'Your order has been delivered.', 'order_id' => $order?->id], now()->subDay()],
         ];
-        foreach (range(4, 10) as $number) {
+        foreach (range(4, DatabaseSeeder::RECORD_COUNT) as $number) {
             $notifications[] = [$number % 2 === 0 ? $admin : $customer, 'system.demo', ['title' => 'Demo notification '.$number, 'message' => 'Sample marketplace notification '.$number.'.'], $number % 3 === 0 ? now()->subHours($number) : null];
         }
         foreach ($notifications as [$user, $type, $data, $readAt]) {
-            if ($user === null) continue;
+            if ($user === null) {
+                continue;
+            }
             DB::table('notifications')->insert([
                 'id' => (string) Str::uuid(),
                 'type' => $type,
@@ -34,7 +36,7 @@ class NotificationSeeder extends Seeder
                 'notifiable_id' => $user->id,
                 'data' => json_encode($data, JSON_THROW_ON_ERROR),
                 'read_at' => $readAt,
-                'created_at' => now(),
+                'created_at' => now()->subDays(2),
                 'updated_at' => now(),
             ]);
         }

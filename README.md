@@ -37,9 +37,20 @@ Seller workspace: **http://localhost:5174/seller**. Owners can open **Settings â
 | Role | Email | Password |
 | --- | --- | --- |
 | Admin | `admin@ekhmer.dev` | `password` |
-| Customer | `olivia.bennett@example.com` (or any seeded customer) | `password` |
+| Customer | `customer@ekhmer.dev` | `password` |
+| Seller | `seller@ekhmer.dev` | `password` |
 
-Seeder customers: `marcus.lee@example.com`, `priya.shah@example.com`, `jake.miller@example.com`, `elena.rodriguez@example.com`, `dan.okafor@example.com`.
+The seed dataset contains **20 records in each of the 37 business tables**, including users (one super admin and nineteen customers), shops, catalog, inventory, carts, wishlists, orders, payments, returns, reviews, support, subscriptions, and settings. Additional customers use `customer4@ekhmer.dev` through `customer20@ekhmer.dev`. Seller permissions come from shop membership.
+
+To replace local demo data after migrations are current:
+
+```sh
+docker compose exec app php artisan db:seed
+```
+
+This replaces existing business data and clears login tokens, password reset tokens, and database sessions. Cleanup and seeding run in one transaction with foreign keys enabled; IDs are not reset. Framework tables (migrations, cache, jobs, and authentication tables) do not receive fake records. Back up any data you need before running it.
+
+Exact counts use one image and variant per product, one item per cart/wishlist/order, and one shipment and tracking summary per order. All twenty orders belong to the demo customer and are delivered purchases of two units with one unit partially refunded, allowing twenty valid reviews and returns. Bakong records are historical fixtures with invalid demo accounts; seeding makes no gateway calls. Settings include the eleven application settings and nine `demo.*` dataset metadata records.
 
 ### Environment cheat-sheet (`backend/.env`)
 

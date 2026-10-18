@@ -423,7 +423,7 @@ class AuthTest extends TestCase
         $this->assertTrue(Hash::check('password', $admin->password));
 
         $customers = User::where('role', User::ROLE_CUSTOMER)->get();
-        $this->assertCount(2, $customers);
+        $this->assertCount(19, $customers);
         $customers->each(fn (User $customer) => $this->assertNotNull($customer->email_verified_at));
     }
 

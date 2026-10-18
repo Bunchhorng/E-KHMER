@@ -17,6 +17,11 @@ class ShopSeeder extends Seeder
             ['New Market Seller', 'NEWSELL', Shop::STATUS_PENDING, false], ['Paused Outlet', 'PAUSED', Shop::STATUS_SUSPENDED, false],
             ['Rejected Demo Store', 'REJECTED', Shop::STATUS_REJECTED, false], ['Seasonal Pop-up', 'POPUP', Shop::STATUS_PENDING, false],
         ];
+        foreach (range(11, DatabaseSeeder::RECORD_COUNT) as $number) {
+            $shops[] = ['Marketplace Store '.$number, 'STORE'.$number, Shop::STATUS_ACTIVE, false];
+        }
+
+        $admin = User::where('email', 'admin@ekhmer.dev')->firstOrFail();
         $seller = User::where('email', 'seller@ekhmer.dev')->firstOrFail();
         foreach ($shops as $index => [$name, $code, $status, $default]) {
             $shop = Shop::create([
@@ -27,7 +32,7 @@ class ShopSeeder extends Seeder
                 'address_line' => 'Preah Monivong Boulevard', 'mall' => 'E-KHMER Marketplace', 'city' => 'Phnom Penh',
                 'province' => 'Phnom Penh', 'postal_code' => '12000', 'country' => 'KH', 'commission_rate' => $default ? 0 : 10,
             ]);
-            if (!$default) $shop->users()->attach($seller->id, ['role_in_shop' => 'owner', 'status' => 'active']);
+            $shop->users()->attach($default ? $admin->id : $seller->id, ['role_in_shop' => 'owner', 'status' => 'active']);
         }
     }
 }

@@ -12,10 +12,10 @@ class CartSeeder extends Seeder
 {
     public function run(): void
     {
-        $variants = ProductVariant::limit(10)->get();
-        $customer = User::where('email', 'customer@ekhmer.dev')->firstOrFail();
-        $cart = Cart::create(['user_id' => $customer->id]);
-        foreach ($variants as $index => $variant) {
+        $variants = ProductVariant::orderBy('id')->get();
+        foreach (User::orderBy('id')->get() as $index => $customer) {
+            $variant = $variants[$index];
+            $cart = Cart::create(['user_id' => $customer->id]);
             CartItem::create(['cart_id' => $cart->id, 'product_variant_id' => $variant->id, 'quantity' => ($index % 2) + 1]);
         }
     }
