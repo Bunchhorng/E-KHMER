@@ -49,7 +49,7 @@ class DatabaseSeederTest extends TestCase
         $this->seed();
         $this->assertBusinessTableCounts();
 
-        $oldAdmin = User::where('email', 'admin@ekhmer.dev')->firstOrFail();
+        $oldAdmin = User::where('email', 'admin@ekhmer.com')->firstOrFail();
         $oldAdmin->createToken('old-demo-login');
         DB::table('password_reset_tokens')->insert([
             'email' => $oldAdmin->email, 'token' => 'old-reset-token', 'created_at' => now(),

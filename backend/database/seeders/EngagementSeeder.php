@@ -12,7 +12,7 @@ class EngagementSeeder extends Seeder
 {
     public function run(): void
     {
-        $admin = User::where('email', 'admin@ekhmer.dev')->firstOrFail();
+        $admin = User::where('email', 'admin@ekhmer.com')->firstOrFail();
 
         foreach (User::orderBy('id')->get() as $index => $user) {
             $user->update(['newsletter' => true]);

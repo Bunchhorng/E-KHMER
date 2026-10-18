@@ -11,7 +11,7 @@ class SettingSeeder extends Seeder
     {
         $settings = [
             'storeName' => 'E-KHMER',
-            'supportEmail' => 'support@ekhmer.dev',
+            'supportEmail' => 'support@ekhmer.com',
             'supportPhone' => '+855 12 555 000',
             'storeAddress' => 'Phnom Penh, Cambodia',
             'currency' => 'USD',

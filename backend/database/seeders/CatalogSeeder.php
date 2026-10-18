@@ -50,7 +50,7 @@ class CatalogSeeder extends Seeder
 
         $this->call(AttributeSeeder::class);
         $shops = Shop::active()->orderBy('id')->get();
-        $admin = User::where('email', 'admin@ekhmer.dev')->firstOrFail();
+        $admin = User::where('email', 'admin@ekhmer.com')->firstOrFail();
         $values = AttributeValue::with('attribute')->get()->keyBy('attribute.slug');
         $categoryIds = Category::pluck('id', 'name');
         $brandIds = Brand::pluck('id', 'name');

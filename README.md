@@ -36,11 +36,11 @@ Seller workspace: **http://localhost:5174/seller**. Owners can open **Settings �
 
 | Role | Email | Password |
 | --- | --- | --- |
-| Admin | `admin@ekhmer.dev` | `password` |
-| Customer | `customer@ekhmer.dev` | `password` |
-| Seller | `seller@ekhmer.dev` | `password` |
+| Admin | `admin@ekhmer.com` | `password` |
+| Customer | `customer@ekhmer.com` | `password` |
+| Seller | `seller@ekhmer.com` | `password` |
 
-The seed dataset contains **20 records in each of the 37 business tables**, including users (one super admin and nineteen customers), shops, catalog, inventory, carts, wishlists, orders, payments, returns, reviews, support, subscriptions, and settings. Additional customers use `customer4@ekhmer.dev` through `customer20@ekhmer.dev`. Seller permissions come from shop membership.
+The seed dataset contains **20 records in each of the 37 business tables**, including users (one super admin and nineteen customers), shops, catalog, inventory, carts, wishlists, orders, payments, returns, reviews, support, subscriptions, and settings. Additional customers use `customer4@ekhmer.com` through `customer20@ekhmer.com`. Seller permissions come from shop membership.
 
 To replace local demo data after migrations are current:
 
@@ -152,7 +152,7 @@ docker compose exec app php artisan storage:link
 
 ### A6. Verify
 
-- Frontend: http://localhost:5174 → login as `admin@ekhmer.dev` / `password`
+- Frontend: http://localhost:5174 → login as `admin@ekhmer.com` / `password`
 - API: http://localhost:8000/api (e.g. `GET /api/categories` returns JSON)
 - phpMyAdmin: http://localhost:8080 (user `ecommerce_user` / `ecommerce_password`, or `root` / `root_password`)
 

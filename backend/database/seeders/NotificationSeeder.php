@@ -14,7 +14,7 @@ class NotificationSeeder extends Seeder
     public function run(): void
     {
         $admin = User::whereIn('role', [User::ROLE_SUPER_ADMIN, User::ROLE_ADMIN])->first();
-        $customer = User::where('email', 'customer@ekhmer.dev')->first();
+        $customer = User::where('email', 'customer@ekhmer.com')->first();
         $order = Order::latest('id')->first();
 
         $notifications = [

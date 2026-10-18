@@ -23,8 +23,8 @@ class OrderSeeder extends Seeder
 {
     public function run(): void
     {
-        $customer = User::where('email', 'customer@ekhmer.dev')->firstOrFail();
-        $admin = User::where('email', 'admin@ekhmer.dev')->firstOrFail();
+        $customer = User::where('email', 'customer@ekhmer.com')->firstOrFail();
+        $admin = User::where('email', 'admin@ekhmer.com')->firstOrFail();
         $address = $customer->addresses()->where('is_default', true)->firstOrFail();
         $snapshot = $address->only([
             'full_name', 'phone', 'address_line1', 'address_line2',

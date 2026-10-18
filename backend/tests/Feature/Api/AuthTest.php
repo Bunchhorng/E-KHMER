@@ -432,7 +432,7 @@ class AuthTest extends TestCase
         $this->seed(UserSeeder::class);
 
         $login = $this->postJson('/api/auth/login', [
-            'email' => 'admin@ekhmer.dev',
+            'email' => 'admin@ekhmer.com',
             'password' => 'password',
         ])->assertOk()->assertJsonPath('data.user.role', User::ROLE_SUPER_ADMIN);
 

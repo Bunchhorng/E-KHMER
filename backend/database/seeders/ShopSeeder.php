@@ -21,14 +21,14 @@ class ShopSeeder extends Seeder
             $shops[] = ['Marketplace Store '.$number, 'STORE'.$number, Shop::STATUS_ACTIVE, false];
         }
 
-        $admin = User::where('email', 'admin@ekhmer.dev')->firstOrFail();
-        $seller = User::where('email', 'seller@ekhmer.dev')->firstOrFail();
+        $admin = User::where('email', 'admin@ekhmer.com')->firstOrFail();
+        $seller = User::where('email', 'seller@ekhmer.com')->firstOrFail();
         foreach ($shops as $index => [$name, $code, $status, $default]) {
             $shop = Shop::create([
                 'name' => $name, 'code' => $code, 'slug' => str($name)->slug(), 'status' => $status, 'is_default' => $default,
                 'rejection_reason' => $status === Shop::STATUS_REJECTED ? 'Business verification documents are incomplete.' : null,
                 'branch_type' => $default ? 'platform' : 'storefront', 'description' => 'Demo marketplace shop '.$code,
-                'email' => strtolower($code).'@ekhmer.dev', 'phone' => '+855 12 555 '.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
+                'email' => strtolower($code).'@ekhmer.com', 'phone' => '+855 12 555 '.str_pad((string) ($index + 1), 3, '0', STR_PAD_LEFT),
                 'address_line' => 'Preah Monivong Boulevard', 'mall' => 'E-KHMER Marketplace', 'city' => 'Phnom Penh',
                 'province' => 'Phnom Penh', 'postal_code' => '12000', 'country' => 'KH', 'commission_rate' => $default ? 0 : 10,
             ]);
