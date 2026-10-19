@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>E-KHMER — Market Gate branding concept</title>
+  <style>
+    :root { color-scheme: light; --ink: #0b1739; --blue: #2563eb; --gold: #f2b544; --muted: #64748b; --line: #e2e8f0; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f8fafc; color: var(--ink); font-family: Inter, system-ui, sans-serif; line-height: 1.6; }
+    a { color: #1e40af; text-underline-offset: 4px; }
+    a:focus-visible { outline: 3px solid var(--blue); outline-offset: 5px; }
+    header, main, footer { max-width: 1280px; margin: auto; padding: 40px; }
+    header { padding-top: 64px; padding-bottom: 48px; }
+    .eyebrow { margin: 0 0 14px; color: #475569; font-size: 12px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; }
+    h1 { margin: 0 0 16px; font-size: clamp(40px, 6vw, 76px); line-height: 1.08; letter-spacing: -.055em; }
+    h1 span { color: var(--blue); }
+    .intro { max-width: 700px; font-size: 20px; color: #475569; }
+    nav { display: flex; flex-wrap: wrap; gap: 12px 24px; margin-top: 28px; font-size: 14px; }
+    main { padding-top: 0; }
+    section { margin-bottom: 56px; scroll-margin-top: 24px; }
+    .section-heading { display: flex; align-items: baseline; gap: 14px; margin-bottom: 18px; }
+    .number { color: var(--blue); font-size: 13px; font-weight: 700; }
+    h2 { margin: 0; font-size: 26px; letter-spacing: -.035em; }
+    h3 { margin: 0 0 10px; font-size: 19px; }
+    p { margin: 12px 0; }
+    .panel { overflow: hidden; border: 1px solid var(--line); border-radius: 18px; background: white; }
+    figure { margin: 0; }
+    figure img { display: block; width: 100%; height: auto; }
+    .logo-stage { padding: clamp(28px, 7vw, 96px); min-height: 260px; display: grid; place-items: center; }
+    .logo-stage img { width: 100%; }
+    figcaption { padding: 18px 24px; border-top: 1px solid var(--line); color: #475569; font-size: 14px; }
+    .identity-grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 24px; align-items: start; }
+    .icon-stage { padding: 36px; background: #eef3ff; }
+    .icon-stage img { max-width: 320px; margin: auto; }
+    .splash-stage { padding: 24px; background: #eef2f7; }
+    .splash-stage img { width: min(100%, 280px); margin: auto; border: 1px solid var(--line); }
+    .note { padding: 24px; }
+    .note p { color: #475569; }
+    .swatches { display: grid; grid-template-columns: repeat(5, 1fr); gap: 14px; }
+    .swatch { padding: 12px; border: 1px solid var(--line); border-radius: 12px; background: white; }
+    .sample { height: 90px; border-radius: 7px; border: 1px solid rgba(11, 23, 57, .08); }
+    .swatch strong { display: block; margin-top: 12px; font-size: 14px; }
+    .swatch code { color: #475569; font-size: 12px; }
+    .principles { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+    .principles p { color: #475569; font-size: 15px; }
+    .mockup + .mockup { margin-top: 28px; }
+    .callout { border-left: 4px solid var(--gold); padding: 6px 0 6px 20px; color: #475569; }
+    footer { border-top: 1px solid var(--line); color: #475569; font-size: 14px; }
+    @media (max-width: 700px) {
+      header, main, footer { padding-left: 20px; padding-right: 20px; }
+      header { padding-top: 36px; }
+      .identity-grid, .principles { grid-template-columns: 1fr; }
+      .swatches { grid-template-columns: repeat(2, 1fr); }
+      .logo-stage { min-height: 180px; }
+    }
+    @media print { header, main, footer { padding: 20px; } section { break-inside: avoid; } nav { display: none; } }
+  </style>
+</head>
+<body>
+  <header>
+    <p class="eyebrow">E-KHMER / Visual identity concept / 01</p>
+    <h1>A marketplace.<br />An open <span>gateway.</span></h1>
+    <p class="intro">Market Gate connects a familiar shopping silhouette with Khmer architectural rhythm. A confident identity for local discovery and dependable commerce.</p>
+    <nav aria-label="Brand concept sections">
+      <a href="#identity">Logo</a><a href="#app">App experience</a><a href="#system">Design system</a><a href="#desktop">Desktop direction</a><a href="README.md">Team handoff guide</a>
+    </nav>
+  </header>
+  <main>
+    <section id="identity">
+      <div class="section-heading"><span class="number">01</span><h2>The identity</h2></div>
+      <figure class="panel">
+        <div class="logo-stage"><img src="logo-primary-concept.png" alt="E-KHMER horizontal logo: a blue and navy shopping bag with an open gold gateway beside a navy wordmark." /></div>
+        <figcaption>A recognizable bag. A stepped local silhouette. A warm, open gateway. Designed to evolve the existing blue-and-gold identity.</figcaption>
+      </figure>
+    </section>
+    <section id="app">
+      <div class="section-heading"><span class="number">02</span><h2>The app experience</h2></div>
+      <div class="identity-grid">
+        <div>
+          <figure class="panel">
+            <div class="icon-stage"><img src="app-icon-concept.png" alt="Square cobalt app icon with a white bag and gold gateway." /></div>
+            <figcaption>App icon / a compact expression of the same mark, with an edge-to-edge background and room for platform masks.</figcaption>
+          </figure>
+          <div class="note"><h3>One mark, a clear arrival.</h3><p>The icon identifies the app at a glance. The splash screen gives it a calm, spacious opening. Use real loading state and responsive layout when building it.</p></div>
+        </div>
+        <figure class="panel">
+          <div class="splash-stage"><img src="splash-screen-concept.png" alt="Portrait splash concept with a centered E-KHMER logo, marketplace subtitle, small progress indicator, and pale gateway motif." /></div>
+          <figcaption>Splash screen / pale canvas, centered identity, minimal motion. Localize supporting copy for Khmer and English.</figcaption>
+        </figure>
+      </div>
+    </section>
+    <section id="system">
+      <div class="section-heading"><span class="number">03</span><h2>The visual system</h2></div>
+      <div class="swatches">
+        <div class="swatch"><div class="sample" style="background:#2563eb"></div><strong>Brand blue</strong><code>#2563EB</code></div>
+        <div class="swatch"><div class="sample" style="background:#0b1739"></div><strong>Deep navy</strong><code>#0B1739</code></div>
+        <div class="swatch"><div class="sample" style="background:#f2b544"></div><strong>Market gold</strong><code>#F2B544</code></div>
+        <div class="swatch"><div class="sample" style="background:#f8fafc"></div><strong>Canvas</strong><code>#F8FAFC</code></div>
+        <div class="swatch"><div class="sample" style="background:#64748b"></div><strong>Muted text</strong><code>#64748B</code></div>
+      </div>
+      <div class="principles" style="margin-top:28px">
+        <div><h3>Type with room to breathe</h3><p>Inter for English. Kantumruy Pro for Khmer. Comfortable body sizes and extra line height preserve Khmer marks and readability.</p></div>
+        <div><h3>Consistent components</h3><p>12px card corners, fine borders, a 4px spacing base, and 44px interaction targets. Blue leads actions; gold supports the identity.</p></div>
+        <div><h3>Language with clear intent</h3><p>Show the destination flag: UK while reading Khmer, Cambodia while reading English. Keep a tooltip and accessible action name.</p></div>
+      </div>
+    </section>
+    <section id="desktop">
+      <div class="section-heading"><span class="number">04</span><h2>The desktop direction</h2></div>
+      <figure class="panel mockup">
+        <img src="desktop-storefront-concept.png" alt="Desktop E-KHMER storefront concept with wide search, category navigation, an editorial hero, and four product cards with aligned cart buttons." />
+        <figcaption>Customer storefront / search first, expressive photography, clear seller attribution, and product cards with aligned actions.</figcaption>
+      </figure>
+      <figure class="panel mockup">
+        <img src="desktop-admin-concept.png" alt="Desktop super-admin dashboard concept with role-based sidebar, platform metrics, attention queues, performance chart, and shop approval actions." />
+        <figcaption>Platform administration / calm navigation, useful totals, visible attention queues, and direct routes into existing workflows. All figures and dates are illustrative.</figcaption>
+      </figure>
+    </section>
+    <section>
+      <div class="section-heading"><span class="number">05</span><h2>Ready for team review</h2></div>
+      <p class="callout">This package defines the visual direction. The next production step is a clean vector identity, platform-specific icon exports, and a component rollout that preserves the current application behavior.</p>
+      <p><a href="README.md">Read the full design and implementation guide</a> · <a href="tokens.json">View design tokens</a> · <a href="PROMPTS.md">View generation prompts</a></p>
+    </section>
+  </main>
+  <footer>Prepared for E-KHMER. Five visual concepts generated with the built-in imagegen tool. Product photography, claims, and interface data in the mockups are illustrative.</footer>
+</body>
+</html>
