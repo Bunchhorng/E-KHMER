@@ -5,7 +5,6 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import {
   LayoutDashboard,
   Boxes,
-  PackagePlus,
   FolderTree,
   Tags,
   ShoppingCart,
@@ -16,9 +15,7 @@ import {
   FileBarChart,
   TicketPercent,
   Users,
-  UserRoundCog,
   MessageSquare,
-  Search,
   Bell,
   ChevronDown,
   Menu,
@@ -105,15 +102,13 @@ const navGroups: NavGroup[] = [
     items: [
       { labelKey: 'nav.dashboard', route: { name: 'admin-dashboard' }, icon: LayoutDashboard },
       { labelKey: 'admin.nav.shops', route: { name: 'admin-shops' }, icon: Store },
-      { labelKey: 'admin.nav.shop_owners', route: { name: 'admin-shop-owners' }, icon: Users },
-      { labelKey: 'admin.nav.shop_admins', route: { name: 'admin-shop-admins' }, icon: UserRoundCog }
+      { labelKey: 'admin.overview.shop_members', route: { name: 'admin-shop-members' }, icon: Users }
     ]
   },
   {
     titleKey: 'admin.nav.group_catalog',
     items: [
       { labelKey: 'admin.nav.products', route: { name: 'admin-products' }, icon: Boxes },
-      { labelKey: 'admin.nav.add_product', route: { name: 'admin-product-create' }, icon: PackagePlus },
       { labelKey: 'admin.nav.categories', route: { name: 'admin-categories' }, icon: FolderTree },
       { labelKey: 'admin.nav.brands', route: { name: 'admin-brands' }, icon: Tags }
     ]
@@ -152,7 +147,9 @@ const navGroups: NavGroup[] = [
 ]
 
 function isActive(item: NavItem): boolean {
-  return route.name === item.route.name
+  return item.route.name === 'admin-shop-members'
+    ? ['admin-shop-members', 'admin-shop-owners', 'admin-shop-admins', 'admin-shop-owner-create', 'admin-shop-owner-edit', 'admin-shop-admin-create', 'admin-shop-admin-edit'].includes(String(route.name))
+    : route.name === item.route.name
 }
 
 async function signOut() {
@@ -225,10 +222,6 @@ async function signOut() {
         </button>
         <div class="flex-1"></div>
 
-        <div class="relative hidden md:block">
-          <Search class="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
-          <input type="text" class="input h-9 w-64 pl-9" :placeholder="$t('admin.nav.search_placeholder')" />
-        </div>
 
         <div class="flex items-center gap-1">
           <LanguageSwitcher />
@@ -259,7 +252,7 @@ async function signOut() {
                 </div>
               </div>
               <RouterLink
-                to="/account/notifications"
+                to="/admin/notifications"
                 class="block border-t border-border-gray px-4 py-2.5 text-center text-sm font-medium text-primary transition-colors hover:bg-canvas"
                 @click="uiStore.adminNotificationsOpen = false"
               >

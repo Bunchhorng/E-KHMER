@@ -10,6 +10,7 @@ import type { AdminShipment } from '@/api/admin'
 const { t } = useI18n()
 
 const loading = ref(true)
+const correctionsEnabled = ref(false)
 const shipments = ref<AdminShipment[]>([])
 const totalCount = ref(0)
 const filter = ref('all')
@@ -47,7 +48,7 @@ const rows = computed<TableRow[]>(() =>
   }))
 )
 
-const rowActions = computed(() => [{ label: t('admin.shipments.row.edit'), value: 'edit' }])
+const rowActions = computed(() => correctionsEnabled.value ? [{ label: t('admin.shipments.row.edit'), value: 'edit' }] : [])
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -88,6 +89,7 @@ function onRowAction(payload: { action: string; row: TableRow }) {
 }
 
 async function saveShipment() {
+  if (!correctionsEnabled.value) return
   if (!editing.value) return
   saving.value = true
   try {
@@ -112,6 +114,8 @@ onMounted(() => loadShipments())
 
 <template>
   <div class="space-y-6">
+    <section class="card space-y-3 border-primary/20 p-4"><p class="text-sm text-muted">{{ t('admin.overview.seller_operations') }}</p><label class="flex items-center gap-2 text-sm font-medium"><input v-model="correctionsEnabled" type="checkbox" class="accent-primary" />{{ t('admin.overview.enable_corrections') }}</label></section>
+
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-3">
         <h1 class="text-2xl font-bold text-ink">{{ $t('admin.shipments.title') }}</h1>
@@ -143,7 +147,7 @@ onMounted(() => loadShipments())
       @row-action="onRowAction"
     />
 
-    <div v-if="editing" class="card p-5">
+    <div v-if="correctionsEnabled && editing" class="card p-5">
       <div class="mb-4 flex items-center justify-between">
         <h2 class="flex items-center gap-2 text-base font-semibold text-ink">
           <Truck class="h-5 w-5 text-primary" />

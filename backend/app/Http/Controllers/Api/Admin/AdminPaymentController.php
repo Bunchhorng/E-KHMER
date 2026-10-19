@@ -5,15 +5,17 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
 use App\Models\Payment;
+use App\Services\DashboardService;
 use Illuminate\Http\Request;
 
 class AdminPaymentController extends Controller
 {
     public function __construct() {}
 
-    public function index(Request $request)
+    public function index(Request $request, DashboardService $dashboard)
     {
-        $query = Payment::with(['order.user'])->orderByDesc('created_at');
+        $query = ($request->boolean('attention') ? $dashboard->paymentExceptionsQuery() : Payment::query())
+            ->with(['order.user'])->orderByDesc('created_at');
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);

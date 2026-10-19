@@ -3,8 +3,12 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Order;
+use App\Models\OrderReturn;
 use App\Models\Payment;
 use App\Models\Product;
+use App\Models\Review;
+use App\Models\Setting;
+use App\Models\SupportRequest;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -14,6 +18,72 @@ use Tests\TestCase;
 class AdminDashboardTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_attention_queues_include_old_unresolved_work_and_exclude_resolved_or_deleted_orders(): void
+    {
+        $this->travelTo(Carbon::parse('2026-10-20 12:00:00'));
+        $customer = User::factory()->create();
+        $product = Product::factory()->withVariant()->create();
+        $partial = $this->sale($product, $customer, '2026-09-01', 60, Order::STATUS_PENDING, 'partial');
+        $refund = $this->sale($product, $customer, '2026-09-01', 40, Order::STATUS_CANCELLED, 'refund_pending');
+        $paid = $this->sale($product, $customer, '2026-09-01', 25, Order::STATUS_DELIVERED, Order::PAYMENT_PAID);
+        $failed = Order::factory()->create(['placed_at' => '2026-09-01']);
+        $deleted = Order::factory()->create(['payment_status' => 'partial']);
+        foreach ([[$partial, 'pending'], [$refund, 'refund_pending'], [$paid, 'completed'], [$failed, 'failed'], [$deleted, 'failed']] as [$order, $status]) {
+            Payment::create(['order_id' => $order->id, 'method' => 'bakong', 'status' => $status, 'amount' => $order->total, 'provider_data' => ['private' => 'do-not-expose']]);
+        }
+        $deleted->delete();
+        $pending = Review::create(['user_id' => $customer->id, 'product_id' => $product->id, 'order_id' => $paid->id, 'rating' => 4, 'title' => 'Awaiting moderation', 'status' => 'pending', 'created_at' => '2026-09-01']);
+        Review::create(['user_id' => $failed->user_id, 'product_id' => $product->id, 'order_id' => $failed->id, 'rating' => 5, 'status' => 'approved']);
+        OrderReturn::create(['order_id' => $paid->id, 'order_item_id' => $paid->items()->firstOrFail()->id, 'user_id' => $customer->id, 'quantity' => 1, 'reason' => 'Return example', 'refund_amount' => 10, 'status' => 'requested']);
+        SupportRequest::create(['email' => 'help@example.test', 'subject' => 'Open request', 'message' => 'Please help.', 'status' => 'open']);
+        SupportRequest::create(['email' => 'answered@example.test', 'subject' => 'Resolved request', 'message' => 'Already answered.', 'status' => 'answered']);
+
+        $response = $this->actingAs(User::factory()->admin()->create(), 'sanctum')
+            ->getJson('/api/admin/dashboard/overview?range=today');
+        $response->assertOk()->assertJsonPath('data.period.revenue', 0)
+            ->assertJsonPath('data.attention.pending_reviews', 1)
+            ->assertJsonPath('data.attention.payment_exceptions', 3)
+            ->assertJsonPath('data.attention.open_returns', 1)
+            ->assertJsonPath('data.attention.open_support', 1)
+            ->assertJsonCount(1, 'data.pending_reviews')
+            ->assertJsonPath('data.pending_reviews.0.id', $pending->id)
+            ->assertJsonCount(3, 'data.payment_exceptions')
+            ->assertJsonMissingPath('data.payment_exceptions.0.provider_data');
+        $this->assertEqualsCanonicalizing(['partial', 'refund_pending', 'failed'], array_column($response->json('data.payment_exceptions'), 'status'));
+
+        $this->getJson('/api/admin/payments?attention=1')->assertOk()->assertJsonPath('meta.total', 3)
+            ->assertJsonMissingPath('data.0.provider_data');
+        $this->getJson('/api/admin/payments')->assertOk()->assertJsonPath('meta.total', 5);
+    }
+
+    public function test_settings_expose_actual_checkout_currency_and_reject_unsupported_currency_updates(): void
+    {
+        Setting::set('currency', 'EUR');
+        $this->actingAs(User::factory()->admin()->create(), 'sanctum')
+            ->getJson('/api/admin/settings')->assertOk()->assertJsonPath('data.currency', 'USD');
+        foreach (['EUR', 'KHR'] as $currency) {
+            $this->putJson('/api/admin/settings', ['currency' => $currency])->assertUnprocessable()->assertJsonValidationErrors('currency');
+        }
+        $this->putJson('/api/admin/settings', ['currency' => 'USD'])->assertOk()->assertJsonPath('data.currency', 'USD');
+    }
+
+    public function test_merchandising_report_includes_only_paid_sales_for_its_dates(): void
+    {
+        $product = Product::factory()->withVariant()->create();
+        $customer = User::factory()->create();
+        $this->sale($product, $customer, '2026-10-01', 50, Order::STATUS_DELIVERED, Order::PAYMENT_PAID);
+        $this->sale($product, $customer, '2026-10-02', 75, Order::STATUS_PENDING, Order::PAYMENT_UNPAID);
+        $this->sale($product, $customer, '2026-09-01', 100, Order::STATUS_DELIVERED, Order::PAYMENT_PAID);
+        $this->actingAs(User::factory()->admin()->create(), 'sanctum')
+            ->getJson('/api/admin/reports/summary?from=2026-10-01&to=2026-10-02')->assertOk()
+            ->assertJsonPath('data.top_selling_products.0.revenue', 50)
+            ->assertJsonPath('data.sales_by_category.0.revenue', 50);
+        $this->getJson('/api/admin/reports/summary?to=2026-10-02')->assertOk()
+            ->assertJsonPath('data.top_selling_products.0.revenue', 150);
+        $this->getJson('/api/admin/reports/summary?from=invalid')->assertUnprocessable()->assertJsonValidationErrors('from');
+        $this->getJson('/api/admin/reports/summary?from=2026-10-02&to=2026-10-01')->assertUnprocessable()->assertJsonValidationErrors('to');
+    }
 
     public function test_revenue_and_product_sales_only_include_paid_live_orders_in_the_selected_period(): void
     {

@@ -7,9 +7,11 @@ use App\Models\Category;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderReturn;
 use App\Models\Payment;
 use App\Models\Product;
 use App\Models\Review;
+use App\Models\SupportRequest;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
@@ -25,6 +27,55 @@ class DashboardService
      * @var Collection<string,int>|null
      */
     protected ?Collection $orderCountsByStatus = null;
+
+    /** Live work queues intentionally remain independent of the sales date range. */
+    public function attentionSummary(): array
+    {
+        return [
+            'pending_reviews' => Review::where('status', Review::STATUS_PENDING)->count(),
+            'payment_exceptions' => $this->paymentExceptionsQuery()->count(),
+            'open_returns' => OrderReturn::whereHas('order')->whereIn('status', ['requested', 'approved', 'received'])->count(),
+            'open_support' => SupportRequest::where('status', 'open')->count(),
+        ];
+    }
+
+    public function paymentExceptionsQuery(): Builder
+    {
+        return Payment::query()->whereHas('order')->where(function (Builder $query) {
+            $query->whereIn('status', ['failed', 'refund_pending'])
+                ->orWhereHas('order', fn (Builder $order) => $order->whereIn('payment_status', ['partial', 'refund_pending']));
+        });
+    }
+
+    public function paymentExceptions(int $limit = 5): array
+    {
+        return $this->paymentExceptionsQuery()->with('order')->latest('updated_at')->limit($limit)->get()
+            ->map(fn (Payment $payment) => [
+                'id' => $payment->id,
+                'order_id' => $payment->order_id,
+                'order_number' => $payment->order->order_number,
+                'currency' => $payment->order->currency,
+                'method' => $payment->method,
+                'status' => in_array($payment->status, ['failed', 'refund_pending'], true) ? $payment->status : $payment->order->payment_status,
+                'amount' => (float) $payment->amount,
+                'updated_at' => $payment->updated_at?->toISOString(),
+            ])->all();
+    }
+
+    public function pendingReviews(int $limit = 5): array
+    {
+        return Review::where('status', Review::STATUS_PENDING)->with(['user', 'product'])->oldest()->limit($limit)->get()
+            ->map(fn (Review $review) => [
+                'id' => $review->id,
+                'rating' => (float) $review->rating,
+                'title' => $review->title,
+                'body' => $review->body,
+                'status' => $review->status,
+                'user_name' => $review->user?->name,
+                'product_name' => $review->product?->name,
+                'created_at' => $review->created_at?->toISOString(),
+            ])->all();
+    }
 
     public function metrics(): array
     {

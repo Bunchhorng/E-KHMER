@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { Image, Link, MapPin, Save, Settings2, Store, Upload, UserRound } from 'lucide-vue-next'
 import { adminApi, type AdminShop } from '@/api/admin'
 import { extractErrorMessage } from '@/api/errors'
 import { mediaApi } from '@/api/uploads'
 
+const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const id = computed(() => Number(route.params.id))
@@ -62,7 +64,7 @@ onMounted(load)
       <section class="grid gap-4 lg:grid-cols-2">
         <article class="card p-4 sm:p-5"><div class="mb-4 flex items-start gap-3"><div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><Store class="h-4 w-4" /></div><div><h2 class="text-sm font-semibold text-ink">Shop Information</h2><p class="text-xs text-gray-500 dark:text-muted">Basic information about the shop.</p></div></div><div class="space-y-3"><label class="block"><span class="label">Shop Name <span class="text-red-500">*</span></span><input v-model="form.name" class="input" placeholder="Enter shop name" required /></label><label class="block"><span class="label">Shop Slug</span><input v-model="form.slug" class="input" placeholder="e.g. tech-store-cambodia" /><span class="mt-1 block text-[11px] text-gray-400">URL-friendly version of the shop name.</span></label><label class="block"><span class="label">Shop Code</span><input v-model="form.code" class="input" placeholder="Generated if empty" /></label><label class="block"><span class="label">Description</span><textarea v-model="form.description" class="textarea min-h-28" maxlength="2000" placeholder="Describe the shop..." /><span class="mt-1 block text-right text-[11px] text-gray-400">{{ form.description?.length ?? 0 }}/2000</span></label></div></article>
 
-        <article class="card p-4 sm:p-5"><div class="mb-4 flex items-start gap-3"><div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><UserRound class="h-4 w-4" /></div><div><h2 class="text-sm font-semibold text-ink">Contact Information</h2><p class="text-xs text-gray-500 dark:text-muted">Contact details used for shop management.</p></div></div><div class="space-y-3"><label class="block"><span class="label">Email</span><input v-model="form.email" class="input" type="email" placeholder="owner@example.com" /></label><label class="block"><span class="label">Phone</span><input v-model="form.phone" class="input" placeholder="+855 10 000 000" /></label><label class="block"><span class="label">Branch Type</span><input v-model="form.branch_type" class="input" placeholder="Online, flagship, outlet..." /></label><label class="block"><span class="label">Commission Rate (%)</span><input v-model.number="form.commission_rate" class="input" type="number" min="0" max="100" step="0.01" /></label></div></article>
+        <article class="card p-4 sm:p-5"><div class="mb-4 flex items-start gap-3"><div class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/10 text-primary"><UserRound class="h-4 w-4" /></div><div><h2 class="text-sm font-semibold text-ink">Contact Information</h2><p class="text-xs text-gray-500 dark:text-muted">Contact details used for shop management.</p></div></div><div class="space-y-3"><label class="block"><span class="label">Email</span><input v-model="form.email" class="input" type="email" placeholder="owner@example.com" /></label><label class="block"><span class="label">Phone</span><input v-model="form.phone" class="input" placeholder="+855 10 000 000" /></label><label class="block"><span class="label">Branch Type</span><input v-model="form.branch_type" class="input" placeholder="Online, flagship, outlet..." /></label><label class="block"><span class="label">{{ t('admin.overview.commission_metadata') }}</span><input v-model.number="form.commission_rate" class="input" type="number" min="0" max="100" step="0.01" /><span class="mt-1 block text-xs text-muted">{{ t('admin.overview.commission_help') }}</span></label></div></article>
       </section>
 
       <section class="grid gap-4 lg:grid-cols-2">

@@ -16,6 +16,7 @@ class PaymentResource extends JsonResource
             'customer_name' => $this->order?->user?->name ?? $this->order?->customer_name,
             'method' => $this->method,
             'status' => $this->status,
+            'order_payment_status' => $this->order?->payment_status,
             'amount' => (float) $this->amount,
             'transaction_id' => $this->transaction_id,
             'paid_at' => $this->paid_at?->toISOString(),

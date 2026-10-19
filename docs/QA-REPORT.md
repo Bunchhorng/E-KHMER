@@ -1,5 +1,16 @@
 # QA Report — E-KHMER E-Commerce System
 
+## Super-admin oversight update — 2026-10-20
+
+Verified the working changes based on `22aee07`: the overview now prioritizes live pending reviews, payment exceptions, returns/support counts and shop approvals. Detailed merchandising analytics moved to Reports; duplicate navigation and the inactive search were removed. Shop membership uses one navigation entry with role filters. Stock/shipment/shipping screens require deliberate opt-in to existing admin correction controls. Settings and API validation now match USD checkout; commission is labeled as reference metadata.
+
+- Full Laravel suite: **388 tests / 2,652 assertions passed** (106.66 seconds). New regressions cover unresolved work outside the sales range, partial/refund/failed payment filtering, private payload exclusion, unsupported currency rejection and paid report analytics/date validation.
+- Frontend TypeScript check and production build: **passed**. The changed PHP files passed Pint after import ordering was fixed.
+- **All 14 new desktop/mobile admin checks passed**, including Khmer, role navigation, exception filtering, stock corrections and report relocation. The wider 86-check Chromium run recorded **85 passes and one camera-test timeout during a Vite reload**. That exact desktop camera case then passed separately against unchanged source (**1/1**, 3.1 seconds). This was not a clean single-run 86/86 result.
+- Desktop and Pixel 7 previews were visually reviewed. UI APIs/media remain mocked; no new real-bank, cloud or physical-device acceptance is implied. No dependency or schema changes were required.
+
+## Previous project review — 2026-10-19
+
 - **Reviewed:** 2026-10-19 (Asia/Bangkok).
 - **Source baseline:** `f950a779c0517472ac62321beda890db0639dfc5` — seller stock editing, committed 2026-10-18.
 - **Scope:** Current source, existing regression coverage, Docker verification and outstanding findings. This replaces the mixed September audit and October addenda previously in this file.
@@ -81,7 +92,7 @@ Original IDs are retained for traceability. **Addressed** means the relevant cha
 | MED-06: null variant price mismatch | **Addressed:** cart resources fall back to product price; `CartTest`. |
 | MED-07: stale review aggregate | **Partial:** published edits return to moderation and recalculate; rejection still does not. |
 | MED-08: low-stock alert not rearmed on release | **Open:** `InventoryService::release()` omits `checkLowStock()`. |
-| MED-09: invalid report dates | **Open:** report controller parses unvalidated dates. |
+| MED-09: invalid report dates | **Partial (2026-10-20):** summary dates are validated; CSV/PDF export paths still need equivalent validation. |
 | MED-10, SEC-03: no authentication throttles | **Addressed:** login/register/reset/verification throttles in `routes/api.php`; `AuthTest`. |
 | MED-11: coupon usage-limit race | **Hardened:** usage creation locks/revalidates the coupon inside checkout's transaction. MySQL contention tests remain pending. |
 | MED-12: COD cannot be reconciled as paid | **Open:** confirmation leaves COD unpaid; reviewed fulfillment paths do not record cash capture. |
@@ -110,7 +121,7 @@ These are source-review findings, not new live reproductions. This update change
 | --- | --- | --- |
 | Medium | MED-07: rejecting a published review leaves stale ratings | [ReviewService::reject()](../backend/app/Services/ReviewService.php) changes status without recalculating. Recalculate and cover approved → rejected. |
 | Medium | MED-08: released reservations do not rearm alerts | [InventoryService::release()](../backend/app/Services/InventoryService.php) does not re-evaluate the marker. Cover low → replenished → low. |
-| Medium | MED-09: invalid report dates can throw | [AdminReportController](../backend/app/Http/Controllers/Api/Admin/AdminReportController.php) directly calls `Carbon::parse()`. Validate format/order/span; return 422 on invalid input. |
+| Medium | MED-09: invalid export dates can throw | [AdminReportController](../backend/app/Http/Controllers/Api/Admin/AdminReportController.php) now validates summary dates. Extend format/order/span validation to CSV/PDF export paths, which still call `Carbon::parse()` directly. |
 | Medium | MED-12: COD collection reconciliation missing | [CheckoutService](../backend/app/Services/CheckoutService.php) leaves COD unpaid. Define an authorized, audited cash-collection action before relying on COD payment/revenue reports. |
 | Medium | MED-13 / SEC-07: reservation exhaustion | [Checkout routes](../backend/routes/api.php) lack creation throttling; pending-order quotas were not found. Add limits while preserving retry-safe checkout. |
 | Low | LOW-06: low/out overlap | [AdminInventoryController](../backend/app/Http/Controllers/Api/Admin/AdminInventoryController.php) includes out-of-stock rows in low. Decide filter semantics and align labels/query. |

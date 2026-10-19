@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { X, CreditCard } from 'lucide-vue-next'
 import AdminDataTable from '@/components/admin/AdminDataTable.vue'
@@ -9,6 +10,14 @@ import type { AdminPayment } from '@/api/admin'
 import { formatDate, formatPrice } from '@/utils/format'
 
 const { t } = useI18n()
+const route = useRoute(); const router = useRouter()
+const attentionOnly = computed(() => route.query.attention === '1')
+function toggleAttention() { void router.replace({ query: { ...route.query, attention: attentionOnly.value ? undefined : '1' } }) }
+function paymentStatus(payment: AdminPayment): string {
+  if (['failed', 'refund_pending'].includes(payment.status)) return payment.status
+  const orderStatus = payment.order_payment_status
+  return orderStatus && ['partial', 'refund_pending'].includes(orderStatus) ? orderStatus : payment.status
+}
 
 const loading = ref(true)
 const payments = ref<AdminPayment[]>([])
@@ -17,7 +26,7 @@ const filter = ref('all')
 const detail = ref<AdminPayment | null>(null)
 const detailLoading = ref(false)
 
-const statusFilters = ['all', 'pending', 'completed', 'failed', 'refunded']
+const statusFilters = ['all', 'pending', 'completed', 'failed', 'partial', 'refund_pending', 'refunded']
 
 const columns = computed<TableColumn[]>(() => [
   { key: 'order_number', label: t('admin.payments.order'), sortable: true },
@@ -35,7 +44,7 @@ const rows = computed<TableRow[]>(() =>
     order_number: p.order_number ?? '—',
     customer: p.customer_name ?? '—',
     method: p.method ?? '—',
-    status: capitalize(p.status),
+    status: capitalize(paymentStatus(p)),
     amount: p.amount,
     paid_at: p.paid_at ?? p.created_at
   }))
@@ -43,7 +52,7 @@ const rows = computed<TableRow[]>(() =>
 
 const filteredPayments = computed(() => {
   if (filter.value === 'all') return payments.value
-  return payments.value.filter((p) => p.status === filter.value)
+  return payments.value.filter((p) => paymentStatus(p) === filter.value)
 })
 
 const rowActions = computed(() => [{ label: t('admin.payments.row.details'), value: 'view' }])
@@ -65,7 +74,7 @@ function showToast(msg: string) {
 async function loadPayments() {
   loading.value = true
   try {
-    const { data: resp } = await adminApi.listPayments()
+    const { data: resp } = await adminApi.listPayments({ attention: attentionOnly.value || undefined })
     payments.value = resp.data
     totalCount.value = resp.meta.total
   } catch {
@@ -88,7 +97,7 @@ async function onRowAction(payload: { action: string; row: TableRow }) {
   }
 }
 
-onMounted(() => loadPayments())
+watch(attentionOnly, () => { filter.value = 'all'; void loadPayments() }, { immediate: true })
 </script>
 
 <template>
@@ -100,6 +109,7 @@ onMounted(() => loadPayments())
       </div>
     </div>
 
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" :checked="attentionOnly" @change="toggleAttention" />{{ t('admin.overview.attention_only') }}</label>
     <div class="flex flex-wrap items-center gap-2">
       <button
         v-for="status in statusFilters"
@@ -154,7 +164,7 @@ onMounted(() => loadPayments())
         </div>
         <div class="detail-item">
           <span class="detail-label">{{ $t('admin.payments.status') }}</span>
-          <span class="detail-value">{{ capitalize(detail.status) }}</span>
+          <span class="detail-value">{{ capitalize(paymentStatus(detail)) }}</span>
         </div>
         <div class="detail-item">
           <span class="detail-label">{{ $t('admin.payments.amount') }}</span>

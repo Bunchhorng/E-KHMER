@@ -2,6 +2,14 @@
 
 This document describes the Vue 3 + TypeScript frontend: its structure, routing, state management, API layer, and screens.
 
+## Super-admin overview update — 2026-10-20
+
+The overview prioritizes pending shop approvals, payment exceptions, review moderation, open returns and unanswered support. These are live queues across all dates; the date selector applies to sales analytics. The paid-order KPI describes marketplace transaction value, not platform fee income. Ordinary recent-customer/payment feeds, the detailed stock list and duplicate sales-period strip have been removed from this overview. Category sales and top products are available in Reports.
+
+The sidebar uses one **Shop members** entry with owner/manager filters at `/admin/shop-members`; existing role-specific URLs and edit/create flows remain supported. The inactive header search and duplicate Add Product shortcut are removed. The notification dropdown opens the admin notification page.
+
+Inventory, shipment and shipping-method screens open in oversight mode. Enabling **admin corrections** exposes existing mutation controls; server-side super-admin authorization remains required, and stock writes retain the actor-linked inventory ledger. Routine shop operations remain available in seller screens. Settings exposes USD only, matching checkout, and commission is explicitly labeled as reference metadata rather than an automatically collected fee.
+
 ## 1. Tech Stack
 
 - **Vue 3** — Composition API with `<script setup>`

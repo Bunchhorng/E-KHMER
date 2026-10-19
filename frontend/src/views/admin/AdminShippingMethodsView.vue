@@ -9,6 +9,7 @@ import { formatPrice } from '@/utils/format'
 const { t } = useI18n()
 
 const loading = ref(true)
+const correctionsEnabled = ref(false)
 const methods = ref<AdminShippingMethod[]>([])
 
 async function loadMethods() {
@@ -24,6 +25,7 @@ async function loadMethods() {
 }
 
 async function toggleEnabled(m: AdminShippingMethod) {
+  if (!correctionsEnabled.value) return
   const newState = !m.is_active
   try {
     await adminApi.updateShippingMethod(m.id, { is_active: newState })
@@ -48,12 +50,14 @@ onMounted(loadMethods)
 
 <template>
   <div class="space-y-6">
+    <section class="card space-y-3 border-primary/20 p-4"><p class="text-sm text-muted">{{ t('admin.overview.seller_operations') }}</p><label class="flex items-center gap-2 text-sm font-medium"><input v-model="correctionsEnabled" type="checkbox" class="accent-primary" />{{ t('admin.overview.enable_corrections') }}</label></section>
+
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-3">
         <h1 class="text-2xl font-bold text-ink">{{ $t('admin.shipping.title') }}</h1>
         <span class="chip">{{ $t('admin.shipping.total_count', { count: methods.length }) }}</span>
       </div>
-      <router-link :to="{ name: 'admin-shipping-create' }" class="btn-primary btn-sm w-fit">
+      <router-link v-if="correctionsEnabled" :to="{ name: 'admin-shipping-create' }" class="btn-primary btn-sm w-fit">
         <Plus class="h-4 w-4" />
         {{ $t('admin.shipping.add_method') }}
       </router-link>
@@ -72,6 +76,7 @@ onMounted(loadMethods)
           <button
             type="button"
             role="switch"
+            :disabled="!correctionsEnabled"
             :aria-checked="m.is_active"
             :aria-label="$t('admin.shipping.toggle_aria_label')"
             class="relative h-6 w-11 shrink-0 rounded-full transition-colors"
@@ -104,6 +109,7 @@ onMounted(loadMethods)
             {{ m.is_active ? $t('admin.shipping.enabled') : $t('admin.shipping.disabled') }}
           </span>
           <router-link
+            v-if="correctionsEnabled"
             class="btn-secondary btn-sm"
             :to="{ name: 'admin-shipping-edit', params: { id: m.id } }"
           >

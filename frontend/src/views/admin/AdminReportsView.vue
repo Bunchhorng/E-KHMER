@@ -3,6 +3,8 @@ import { computed, onMounted, ref } from 'vue'
 import { FileText, FileSpreadsheet, RefreshCw, DollarSign, ShoppingCart, Users, Package, TrendingUp, XCircle, AlertTriangle, Landmark } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/api/admin'
+import type { AdminDashboard } from '@/api/admin'
+import SalesCategoryChart from '@/components/admin/charts/SalesCategoryChart.vue'
 import { downloadResponse } from '@/utils/download'
 import { formatCompactNumber, formatPrice } from '@/utils/format'
 
@@ -23,7 +25,12 @@ const summary = ref<{
   avg_order_value: number
   payment_methods: { method: string; count: number; amount: number }[]
   low_stock_count: number
+  sales_by_category: AdminDashboard['sales_by_category']
+  top_selling_products: AdminDashboard['top_selling_products']
 } | null>(null)
+
+const categorySales = computed(() => (summary.value?.sales_by_category ?? [])
+  .filter(item => item.revenue > 0).map(item => ({ category: item.name, sales: item.revenue })))
 
 const statusOptions = [
   { value: 'all', labelKey: 'admin.reports.all_statuses' },
@@ -62,6 +69,7 @@ function showToast(msg: string) {
 
 async function loadSummary() {
   loadingSummary.value = true
+  summary.value = null
   try {
     const { data: resp } = await adminApi.getReportsSummary({
       from: from.value || undefined,
@@ -240,6 +248,14 @@ onMounted(() => loadSummary())
         </li>
       </ul>
     </div>
+
+    <section v-if="summary && !loadingSummary" class="space-y-4">
+      <div><h2 class="text-lg font-semibold text-ink">{{ t('admin.overview.sales_analysis') }}</h2><p class="mt-1 text-xs text-muted">{{ t('admin.overview.sales_analysis_description') }}</p></div>
+      <div class="grid gap-5 xl:grid-cols-2">
+        <div class="card p-5"><h3 class="mb-4 text-sm font-semibold">{{ t('admin.chart.sales_by_category') }}</h3><SalesCategoryChart v-if="categorySales.length" :data="categorySales" /><p v-else class="py-10 text-center text-sm text-muted">{{ t('admin.dashboard.no_sales') }}</p></div>
+        <div class="card p-5"><h3 class="mb-4 text-sm font-semibold">{{ t('admin.dashboard.top_selling') }}</h3><div v-if="summary.top_selling_products?.length" class="divide-y divide-border-gray"><div v-for="product in summary.top_selling_products" :key="product.product_id" class="flex items-center justify-between gap-3 py-4"><div class="min-w-0"><p class="truncate text-sm font-semibold">{{ product.product_name }}</p><p class="mt-1 text-xs text-muted">{{ t('admin.dashboard.sold_count', { count: product.total_qty }) }}</p></div><span class="shrink-0 text-sm font-semibold">{{ formatPrice(product.revenue) }}</span></div></div><p v-else class="py-10 text-center text-sm text-muted">{{ t('admin.dashboard.no_sales') }}</p></div>
+      </div>
+    </section>
 
     <transition name="fade">
       <div v-if="toast" class="fixed bottom-6 right-6 card px-5 py-3 text-sm shadow-popover">

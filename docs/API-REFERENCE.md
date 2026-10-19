@@ -1,5 +1,15 @@
 # API Reference (Live)
 
+## Super-admin oversight additions — 2026-10-20
+
+- `GET /api/admin/dashboard/overview` now includes `attention` counts (`pending_reviews`, `payment_exceptions`, `open_returns`, `open_support`), a bounded `pending_reviews` moderation list and bounded `payment_exceptions`. These queues intentionally ignore the sales date range. Existing analytics fields remain available for compatibility.
+- Exceptions include failed/refund-pending payments and orders with partial/refund-pending payment status. Deleted parent orders are excluded. Exception amounts represent the full payment total, not the remaining amount to pay/refund; private provider payloads are excluded.
+- `GET /api/admin/payments?attention=1` filters to the same exception definition. Payment resources include `order_payment_status` alongside the payment-record status.
+- `GET /api/admin/reports/summary` additionally returns `sales_by_category` and `top_selling_products` for paid live orders in the optional report date range. Summary dates validate as `Y-m-d`; reversed ranges are rejected with 422.
+- `GET /api/admin/settings` exposes the effective checkout currency, USD. `PUT /api/admin/settings` accepts only USD for `currency`; unsupported choices return 422. This does not implement currency conversion or alter historic order currencies.
+
+All these endpoints remain behind existing super-admin authentication/authorization. No schema migration is required.
+
 This reference was generated from the **live Laravel backend** running inside Docker. It documents every route, its request payload, validation rules, and the exact JSON response shape produced by the API Resources.
 
 - **Base URL:** `http://localhost:8000/api`

@@ -43,7 +43,7 @@ class SettingsController extends Controller
             'supportEmail' => ['sometimes', 'email', 'max:190'],
             'supportPhone' => ['sometimes', 'string', 'max:30'],
             'storeAddress' => ['sometimes', 'string', 'max:500'],
-            'currency' => ['sometimes', 'string', 'max:5', Rule::in(['USD', 'EUR', 'KHR'])],
+            'currency' => ['sometimes', 'string', Rule::in(['USD'])],
             'locale' => ['sometimes', 'string', 'max:5', Rule::in(['en', 'km'])],
             'timezone' => ['sometimes', 'string', 'max:60', 'timezone'],
             'lowStockThreshold' => ['sometimes', 'integer', 'min:0', 'max:999'],
@@ -98,6 +98,10 @@ class SettingsController extends Controller
 
     protected function response(array $settings)
     {
+        // Checkout currently prices and records every order in USD. A legacy
+        // display preference must not advertise unsupported checkout currencies.
+        $settings['currency'] = 'USD';
+
         return response()->json(['data' => $settings]);
     }
 }

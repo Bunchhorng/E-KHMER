@@ -36,6 +36,7 @@ const ledgerTotal = ref(0)
 const ledgerPage = ref(1)
 const ledgerPageCount = ref(1)
 const ledgerType = ref('all')
+const correctionsEnabled = ref(false)
 const adjustmentQuantity = ref<number | null>(null)
 const adjusting = ref(false)
 
@@ -141,7 +142,7 @@ function selectItem(item: AdminInventoryItem) {
 
 async function adjustStock() {
   const item = selectedItem.value
-  if (!item || adjusting.value || adjustmentQuantity.value === null || !Number.isInteger(adjustmentQuantity.value)) return
+  if (!correctionsEnabled.value || !item || adjusting.value || adjustmentQuantity.value === null || !Number.isInteger(adjustmentQuantity.value)) return
 
   if (adjustmentQuantity.value < item.reserved_quantity) {
     showToast(`Quantity cannot be lower than the ${item.reserved_quantity} units currently reserved.`)
@@ -181,6 +182,8 @@ onMounted(() => loadInventory({ q: search.value.trim() || undefined, stock_statu
 
 <template>
   <div class="space-y-6">
+    <section class="card space-y-3 border-primary/20 p-4"><p class="text-sm text-muted">{{ t('admin.overview.seller_operations') }}</p><label class="flex items-center gap-2 text-sm font-medium"><input v-model="correctionsEnabled" type="checkbox" class="accent-primary" />{{ t('admin.overview.enable_corrections') }}</label><p v-if="correctionsEnabled" class="text-xs text-muted">{{ t('admin.overview.corrections_help') }}</p></section>
+
     <div class="flex items-center gap-3">
       <h1 class="text-2xl font-bold text-ink">{{ $t('admin.inventory.title') }}</h1>
       <span class="chip">{{ $t('admin.inventory.total_count', { count: totalCount }) }}</span>
@@ -270,8 +273,8 @@ onMounted(() => loadInventory({ q: search.value.trim() || undefined, stock_statu
         </div>
         <div v-if="selectedItem" class="flex flex-wrap items-center gap-2">
           <label class="sr-only" for="inventory-quantity">New on-hand quantity</label>
-          <input id="inventory-quantity" v-model.number="adjustmentQuantity" type="number" min="0" step="1" class="input h-10 w-36" aria-label="New on-hand quantity" />
-          <button type="button" class="btn-primary btn-sm" :disabled="adjusting" @click="adjustStock">
+          <input v-if="correctionsEnabled" id="inventory-quantity" v-model.number="adjustmentQuantity" type="number" min="0" step="1" class="input h-10 w-36" aria-label="New on-hand quantity" />
+          <button v-if="correctionsEnabled" type="button" class="btn-primary btn-sm" :disabled="adjusting" @click="adjustStock">
             {{ adjusting ? 'Adjusting…' : 'Adjust stock' }}
           </button>
           <select v-model="ledgerType" class="select h-10 w-44" @change="onLedgerTypeChange">

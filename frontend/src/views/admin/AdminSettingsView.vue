@@ -140,11 +140,10 @@ async function resetSettings() {
           <div class="grid gap-4 sm:grid-cols-2">
             <div>
               <label class="label" for="currency">{{ $t('admin.settings.currency') }}</label>
-              <select id="currency" v-model="form.currency" class="input">
+              <select id="currency" v-model="form.currency" class="input" disabled aria-describedby="currency-help">
                 <option value="USD">USD — US Dollar</option>
-                <option value="EUR">EUR — Euro</option>
-                <option value="KHR">KHR — Cambodian Riel</option>
               </select>
+              <p id="currency-help" class="mt-1 text-xs text-muted">{{ t('admin.overview.usd_only') }}</p>
             </div>
             <div>
               <label class="label" for="locale">{{ $t('admin.settings.locale') }}</label>

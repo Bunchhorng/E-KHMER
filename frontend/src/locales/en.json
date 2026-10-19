@@ -566,7 +566,11 @@
     "approved": "Approved",
     "rejected": "Rejected",
     "expired": "Expired",
-    "draft": "Draft"
+    "draft": "Draft",
+    "partial": "Partially paid",
+    "refund_pending": "Refund pending",
+    "refund_required": "Refund required",
+    "partially_refunded": "Partially refunded"
   },
   "auth": {
     "welcome_back": "Welcome back",
@@ -732,7 +736,7 @@
     "nav": {
       "group_overview": "Overview",
       "group_catalog": "Catalog",
-      "group_fulfillment": "Fulfillment",
+      "group_fulfillment": "Platform oversight",
       "group_marketing": "Marketing",
       "group_community": "Community",
       "group_system": "System",
@@ -851,7 +855,7 @@
       "orders_by_status": "Orders by Status",
       "payments_by_status": "Payments by Status",
       "sales_by_category": "Sales by Category",
-      "revenue": "Revenue",
+      "revenue": "Marketplace paid order value",
       "orders": "Orders",
       "orders_over_time": "Orders Over Time"
     },
@@ -891,7 +895,9 @@
         "pending": "Pending",
         "completed": "Completed",
         "failed": "Failed",
-        "refunded": "Refunded"
+        "refunded": "Refunded",
+        "partial": "Partially paid",
+        "refund_pending": "Refund pending"
       },
       "search_placeholder": "Search payments…",
       "toast": {
@@ -1035,7 +1041,7 @@
       "order_status": "Order status",
       "exports": "Export Reports",
       "payment_methods": "Payment Method Breakdown",
-      "revenue": "Revenue",
+      "revenue": "Marketplace paid order value",
       "items_revenue": "Items Revenue",
       "refunded": "Refunded",
       "orders_count": "Orders",
@@ -1409,6 +1415,37 @@
       "all_types": "All types",
       "toast_load_error": "Failed to load inventory.",
       "toast_ledger_error": "Failed to load the transaction ledger."
+    },
+    "overview": {
+      "description": "Approve shops, resolve exceptions and oversee marketplace activity.",
+      "paid_order_value": "Marketplace paid order value",
+      "lifetime_paid_value": "All-time paid order value",
+      "paid_value_trend": "Marketplace paid order value trend",
+      "needs_attention": "Needs attention",
+      "live_queues": "Live unresolved work across all dates. Sales filters do not hide outstanding items.",
+      "payment_exceptions": "Payment exceptions",
+      "payment_exceptions_description": "Failed payments, partially paid orders and refunds awaiting resolution. Amounts show the order payment total.",
+      "pending_reviews": "Reviews awaiting moderation",
+      "open_returns": "Open returns",
+      "open_support": "Open support requests",
+      "no_payment_exceptions": "No payment exceptions need attention.",
+      "no_pending_reviews": "No reviews are awaiting moderation.",
+      "moderate_review": "Review in moderation queue",
+      "shop_members": "Shop members",
+      "role": "Role",
+      "owner": "Owner",
+      "manager": "Manager",
+      "usd_only": "Checkout currently supports USD. Other currencies are unavailable.",
+      "commission_metadata": "Reference commission rate (%)",
+      "commission_help": "Accounting reference only. Direct Bakong payments do not deduct or collect this fee.",
+      "seller_operations": "Sellers manage routine stock and delivery changes. Use these controls for platform defaults, investigations or corrections.",
+      "enable_corrections": "Enable admin corrections",
+      "corrections_help": "Stock adjustments are recorded with your account in the inventory ledger.",
+      "sales_analysis": "Merchandising analysis",
+      "sales_analysis_description": "Paid product sales for the report dates; order-status selection applies to exports.",
+      "attention_only": "Needs attention only",
+      "all_payments": "Show all payments",
+      "member": "Member"
     }
   },
   "account": {

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Services\DashboardService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -30,8 +31,12 @@ class AdminReportController extends Controller
         return $query;
     }
 
-    public function summary(Request $request)
+    public function summary(Request $request, DashboardService $dashboard)
     {
+        $request->validate([
+            'from' => ['nullable', 'date_format:Y-m-d'],
+            'to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('from') ? ['after_or_equal:from'] : [])],
+        ]);
         $from = $request->filled('from') ? Carbon::parse($request->from)->startOfDay() : null;
         $to = $request->filled('to') ? Carbon::parse($request->to)->endOfDay() : null;
 
@@ -86,6 +91,8 @@ class AdminReportController extends Controller
                 'avg_order_value' => $ordersCount > 0 ? round($revenue / $ordersCount, 2) : 0,
                 'payment_methods' => $paymentMethods,
                 'low_stock_count' => (int) $lowStockCount,
+                'sales_by_category' => $dashboard->salesByCategory($from, $to),
+                'top_selling_products' => $dashboard->topSellingProducts(5, $from, $to),
             ],
         ];
     }

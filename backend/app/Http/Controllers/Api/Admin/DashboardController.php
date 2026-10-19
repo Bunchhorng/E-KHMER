@@ -18,6 +18,9 @@ class DashboardController extends Controller
 
         return new AdminDashboardResource([
             'range' => $request->query('range', '30'),
+            'attention' => $this->dashboard->attentionSummary(),
+            'pending_reviews' => $this->dashboard->pendingReviews(),
+            'payment_exceptions' => $this->dashboard->paymentExceptions(),
             'period' => $this->dashboard->periodSummary($from, $to),
             'metrics' => $this->dashboard->metrics(),
             'revenue_trend' => $this->dashboard->revenueTrend($from, $to),

@@ -88,6 +88,7 @@ const router = createRouter({
         { path: 'returns', name: 'admin-returns', component: () => import('@/views/ReturnsView.vue'), props: { manage: true }, meta: { title: 'Return requests' } },
         { path: 'support', name: 'admin-support', component: () => import('@/views/SupportInboxView.vue'), props: { admin: true }, meta: { title: 'Support requests' } },
         { path: 'shops', name: 'admin-shops', component: () => import('@/views/admin/AdminShopsView.vue'), meta: { title: 'Marketplace Shops' } },
+        { path: 'shop-members', name: 'admin-shop-members', component: () => import('@/views/admin/AdminShopMembersView.vue'), meta: { title: 'Shop Members' } },
         { path: 'shop-owners', name: 'admin-shop-owners', component: () => import('@/views/admin/AdminShopMembersView.vue'), props: { role: 'owner' }, meta: { title: 'Shop Owners' } },
         { path: 'shop-owners/new', name: 'admin-shop-owner-create', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: { role: 'owner' }, meta: { title: 'Create Shop Owner' } },
         { path: 'shop-owners/:id/edit', name: 'admin-shop-owner-edit', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: (route) => ({ role: 'owner', memberId: Number(route.params.id) }), meta: { title: 'Edit Shop Owner' } },

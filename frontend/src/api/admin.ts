@@ -3,6 +3,9 @@ import type { ApiOrder, ApiShopOrder, ShopOrderTransitionPayload, ShopShipmentPa
 import type { CatalogProduct, PaginatedResponse } from './catalog'
 
 export interface AdminDashboard {
+  attention: { pending_reviews: number; payment_exceptions: number; open_returns: number; open_support: number }
+  pending_reviews: AdminDashboard['recent_reviews']
+  payment_exceptions: { id: number; order_id: number; order_number: string; currency: string; method: string; status: string; amount: number; updated_at: string | null }[]
   range?: string
   period: {
     from: string
@@ -268,6 +271,7 @@ export interface AdminShopMember {
 }
 
 export interface AdminPayment {
+  order_payment_status?: string | null
   id: number
   order_id: number
   order_number: string | null
@@ -371,6 +375,8 @@ export const adminApi = {
         avg_order_value: number
         payment_methods: { method: string; count: number; amount: number }[]
         low_stock_count: number
+        sales_by_category: AdminDashboard['sales_by_category']
+        top_selling_products: AdminDashboard['top_selling_products']
       }
     }>('/admin/reports/summary', { params })
   },
@@ -563,7 +569,7 @@ export const adminApi = {
     return apiClient.post<{ data: AdminInventoryItem }>(`/admin/inventory/${inventoryId}/adjust`, { quantity })
   },
 
-  listPayments(params: { status?: string; method?: string; q?: string; page?: number } = {}) {
+  listPayments(params: { status?: string; method?: string; q?: string; page?: number; attention?: boolean } = {}) {
     return apiClient.get<PaginatedResponse<AdminPayment>>('/admin/payments', { params })
   },
 
