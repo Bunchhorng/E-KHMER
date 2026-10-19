@@ -11,6 +11,7 @@ const { t } = useI18n()
 const loading = ref(true)
 const correctionsEnabled = ref(false)
 const methods = ref<AdminShippingMethod[]>([])
+const updatingIds = ref(new Set<number>())
 
 async function loadMethods() {
   loading.value = true
@@ -25,13 +26,21 @@ async function loadMethods() {
 }
 
 async function toggleEnabled(m: AdminShippingMethod) {
-  if (!correctionsEnabled.value) return
+  if (updatingIds.value.has(m.id)) return
   const newState = !m.is_active
+  updatingIds.value.add(m.id)
   try {
-    await adminApi.updateShippingMethod(m.id, { is_active: newState })
-    m.is_active = newState
+    const { data } = await adminApi.updateShippingMethod(m.id, {
+      name: m.name,
+      code: m.code,
+      price: m.price,
+      is_active: newState
+    })
+    Object.assign(m, data.data)
   } catch {
     showToast(t('admin.shipping.toast_update_error'))
+  } finally {
+    updatingIds.value.delete(m.id)
   }
 }
 
@@ -50,7 +59,7 @@ onMounted(loadMethods)
 
 <template>
   <div class="space-y-6">
-    <section class="card space-y-3 border-primary/20 p-4"><p class="text-sm text-muted">{{ t('admin.overview.seller_operations') }}</p><label class="flex items-center gap-2 text-sm font-medium"><input v-model="correctionsEnabled" type="checkbox" class="accent-primary" />{{ t('admin.overview.enable_corrections') }}</label></section>
+    <section class="card space-y-3 border-primary/20 p-4"><p class="text-sm text-muted">{{ t('admin.shipping.activation_help') }}</p><label class="flex items-center gap-2 text-sm font-medium"><input v-model="correctionsEnabled" type="checkbox" class="accent-primary" />{{ t('admin.overview.enable_corrections') }}</label></section>
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-3">
@@ -76,10 +85,11 @@ onMounted(loadMethods)
           <button
             type="button"
             role="switch"
-            :disabled="!correctionsEnabled"
+            :disabled="updatingIds.has(m.id)"
+            :aria-busy="updatingIds.has(m.id)"
             :aria-checked="m.is_active"
-            :aria-label="$t('admin.shipping.toggle_aria_label')"
-            class="relative h-6 w-11 shrink-0 rounded-full transition-colors"
+            :aria-label="`${$t('admin.shipping.toggle_aria_label')}: ${m.name}`"
+            class="relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:cursor-wait disabled:opacity-60"
             :class="m.is_active ? 'bg-success' : 'bg-gray-200 dark:bg-surface-hover'"
             @click="toggleEnabled(m)"
           >

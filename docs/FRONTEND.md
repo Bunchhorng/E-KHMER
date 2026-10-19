@@ -8,7 +8,7 @@ The overview prioritizes pending shop approvals, payment exceptions, review mode
 
 The sidebar uses one **Shop members** entry with owner/manager filters at `/admin/shop-members`; existing role-specific URLs and edit/create flows remain supported. The inactive header search and duplicate Add Product shortcut are removed. The notification dropdown opens the admin notification page.
 
-Inventory, shipment and shipping-method screens open in oversight mode. Enabling **admin corrections** exposes existing mutation controls; server-side super-admin authorization remains required, and stock writes retain the actor-linked inventory ledger. Routine shop operations remain available in seller screens. Settings exposes USD only, matching checkout, and commission is explicitly labeled as reference metadata rather than an automatically collected fee.
+Inventory and shipment screens open in oversight mode. Enabling **admin corrections** exposes their mutation controls and shipping-method creation and editing. Shipping-method switches can be used directly to enable or disable a method; they save immediately and are disabled while saving. Server-side super-admin authorization remains required, and stock writes retain the actor-linked inventory ledger. Routine shop operations remain available in seller screens. Settings exposes USD only, matching checkout, and commission is explicitly labeled as reference metadata rather than an automatically collected fee.
 
 ## 1. Tech Stack
 

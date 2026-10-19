@@ -116,6 +116,61 @@ test('stock corrections require deliberate opt-in and keep the reservation-aware
   await expect(page.getByText('Stock adjusted and recorded in the inventory ledger.')).toBeVisible()
 })
 
+test('shipping switches save both states across reloads without enabling corrections', async ({ page }) => {
+  await setup(page)
+  const method = { id: 1, name: 'Standard delivery', code: 'STANDARD', description: 'Tracked delivery', price: 3, estimated_days_min: 2, estimated_days_max: 4, is_active: true }
+  const updates: Record<string, unknown>[] = []
+  let releaseSave: () => void = () => {}
+  const pendingSave = new Promise<void>(resolve => { releaseSave = resolve })
+  await page.route('**/api/admin/shipping-methods', route => route.fulfill({ json: { data: [method] } }))
+  await page.route('**/api/admin/shipping-methods/1', async route => {
+    const payload = route.request().postDataJSON()
+    updates.push(payload)
+    if (updates.length === 1) await pendingSave
+    method.is_active = payload.is_active
+    await route.fulfill({ json: { data: method } })
+  })
+  await page.goto('/admin/shipping')
+  const toggle = page.getByRole('switch', { name: 'Toggle method: Standard delivery', exact: true })
+  await expect(page.getByLabel('Enable admin corrections', { exact: true })).not.toBeChecked()
+  await expect(toggle).toBeChecked()
+  await expect(toggle).toBeEnabled()
+  await toggle.click()
+  await expect(toggle).toBeDisabled()
+  releaseSave()
+  await expect(toggle).not.toBeChecked()
+  await expect(toggle).toBeEnabled()
+  expect(updates[0]).toEqual({ name: method.name, code: method.code, price: method.price, is_active: false })
+  await page.reload()
+  await expect(toggle).not.toBeChecked()
+  await toggle.click()
+  await expect(toggle).toBeChecked()
+  await page.reload()
+  await expect(toggle).toBeChecked()
+  expect(updates.map(update => update.is_active)).toEqual([false, true])
+})
+
+test('shipping switches keep their saved state after an error and allow retry', async ({ page }) => {
+  await setup(page)
+  const method = { id: 1, name: 'Standard delivery', code: 'STANDARD', description: null, price: 3, estimated_days_min: 2, estimated_days_max: 4, is_active: true }
+  let attempts = 0
+  await page.route('**/api/admin/shipping-methods', route => route.fulfill({ json: { data: [method] } }))
+  await page.route('**/api/admin/shipping-methods/1', async route => {
+    if (++attempts === 1) return route.fulfill({ status: 422, json: { message: 'Unable to update this method.' } })
+    method.is_active = route.request().postDataJSON().is_active
+    await route.fulfill({ json: { data: method } })
+  })
+  await page.goto('/admin/shipping')
+  const toggle = page.getByRole('switch', { name: 'Toggle method: Standard delivery', exact: true })
+  await toggle.click()
+  await expect(page.getByText('Could not save the shipping method.', { exact: true })).toBeVisible()
+  await expect(toggle).toBeChecked()
+  await expect(toggle).toBeEnabled()
+  await toggle.click()
+  await expect(toggle).not.toBeChecked()
+  await expect(toggle).toBeEnabled()
+})
+
 test('Khmer overview translates the attention queues and new navigation', async ({ page }, testInfo) => {
   await setup(page, 'km')
   await page.goto('/admin/dashboard')

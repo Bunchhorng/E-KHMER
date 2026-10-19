@@ -1358,6 +1358,7 @@
       "title": "Shipping Methods",
       "total_count": "{count} methods",
       "toggle_aria_label": "Toggle method",
+      "activation_help": "Use each switch to turn a delivery method on or off. Enable admin corrections to add methods or edit their details.",
       "add_method": "Add Method",
       "edit_method": "Edit Method",
       "name_label": "Name",
