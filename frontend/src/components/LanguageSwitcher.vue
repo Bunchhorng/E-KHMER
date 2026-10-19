@@ -1,14 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Languages } from 'lucide-vue-next'
 import { useLocaleStore } from '@/stores/locale'
+import khmerFlag from '@/assets/flags/km.svg'
+import englishFlag from '@/assets/flags/gb.svg'
 
 const localeStore = useLocaleStore()
-withDefaults(defineProps<{ compact?: boolean }>(), { compact: false })
 
-const currentLabel = computed(() => (localeStore.currentLocale === 'km' ? 'ភាសាខ្មែរ' : 'English'))
-
-const toggleText = computed(() => (localeStore.currentLocale === 'km' ? 'ភាសាខ្មែរ / English' : 'English / ភាសាខ្មែរ'))
+const targetFlag = computed(() => (localeStore.currentLocale === 'km' ? englishFlag : khmerFlag))
+const toggleText = computed(() => (localeStore.currentLocale === 'km'
+  ? 'ភាសាខ្មែរ — ប្ដូរទៅ English'
+  : 'English — switch to ភាសាខ្មែរ'))
 
 function toggle() {
   localeStore.toggle()
@@ -18,12 +19,11 @@ function toggle() {
 <template>
   <button
     type="button"
-    :aria-label="`Switch language, current: ${localeStore.currentLocale}`"
+    :aria-label="toggleText"
     :title="toggleText"
-    class="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-ink dark:text-muted dark:hover:bg-surface-hover dark:hover:text-ink"
+    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:hover:bg-surface-hover dark:focus-visible:ring-offset-surface"
     @click="toggle"
   >
-    <Languages :size="16" />
-    <span class="leading-tight" :class="{ 'hidden sm:inline': compact }">{{ currentLabel }}</span>
+    <img :src="targetFlag" alt="" aria-hidden="true" class="h-5 w-8 rounded-sm object-cover shadow-sm" width="32" height="20" />
   </button>
 </template>

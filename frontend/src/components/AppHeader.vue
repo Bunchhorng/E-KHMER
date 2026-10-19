@@ -128,7 +128,7 @@ async function signOut(): Promise<void> {
         </form>
 
         <div class="ml-auto flex items-center gap-1">
-          <LanguageSwitcher compact />
+          <LanguageSwitcher />
           <ThemeToggle />
 
           <RouterLink
