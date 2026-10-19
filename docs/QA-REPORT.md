@@ -152,3 +152,4 @@ These results were recorded in the previous report and refer to earlier code/env
 | 2026-10-17 full-frame scanner | 32 focused development checks; 58 production-build checks plus two torch-constraint checks; frontend build. Physical devices not certified. |
 
 The [CI workflow](../.github/workflows/ci.yml) defines backend tests, frontend build, production dependency audits and desktop/mobile browser tests. This report does not assert a remote CI run succeeded.
+
