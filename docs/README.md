@@ -4,6 +4,7 @@ This folder contains the maintained documentation for the E-KHMER e-commerce sys
 
 | Document | Purpose |
 | --- | --- |
+| [Team handover (Word)](./E-KHMER-Team-Handover.docx) / [Markdown source](./TEAM-HANDOVER.md) | Complete implementation walkthrough, team onboarding, workflows, operating guidance and remaining work. Regenerate with `python docs/tools/build_team_handover.py` from the repository root. |
 | [Architecture](./ARCHITECTURE.md) | Application design, data relationships, and business rules. |
 | [API reference](./API-REFERENCE.md) | Current REST endpoints, validation, and response contracts. |
 | [Frontend guide](./FRONTEND.md) | Vue application structure, routes, stores, and API integration. |

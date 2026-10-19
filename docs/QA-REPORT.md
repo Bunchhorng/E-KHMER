@@ -1,355 +1,143 @@
 # QA Report — E-KHMER E-Commerce System
 
-## Full-frame scanner optimization verification — 2026-10-17
+- **Reviewed:** 2026-10-19 (Asia/Bangkok).
+- **Source baseline:** `f950a779c0517472ac62321beda890db0639dfc5` — seller stock editing, committed 2026-10-18.
+- **Scope:** Current source, existing regression coverage, Docker verification and outstanding findings. This replaces the mixed September audit and October addenda previously in this file.
+- **Evidence:** Fresh results, source-review conclusions and earlier reported results are distinguished below. Source inspection alone does not imply a live reproduction.
 
-The optimized frontend passed the TypeScript/production build, **32 focused desktop/mobile development checks**, and the complete **58 desktop/mobile Chromium checks against the production build**. A further two production checks confirmed that light toggling preserves autofocus, resolution and frame rate without contradictory torch constraints. Actual barcode pixels are decoded in the compiled worker, including labels near the top/bottom of the visible frame and vertical labels; worker responses and termination are asserted. Native positive/error/miss/late-result paths are mocked, as are camera capabilities. Worker-blocked compatibility fallback also decodes real pixels. The larger full-height corner guide was visually checked on desktop and Pixel 7, with automated coverage requiring it to span more than 85% of preview width/height. No backend or dependency changes were needed.
+## 1. Current project
 
-The loop now targets 80 ms between attempts (up to 12.5 attempts/second rather than a fixed 180 ms wait after each decode), uses bounded/reused canvas buffers, native detection where supported and a dedicated ZXing worker otherwise. Thorough full-height/rotation searches run periodically rather than on every frame. This is an implementation target, not a physical-device speed benchmark. Real phone cameras, native detector throughput, Safari and hardware focus/torch behavior still require device acceptance testing; local camera frames are never uploaded.
-
-## Camera barcode scanning verification — 2026-10-17
-
-The frontend-only camera extension passed the full **40 desktop/mobile Chromium checks**, the Vue TypeScript/production build and a production npm audit (**0 vulnerabilities**). New checks decode real EAN-8 bar pixels (`00001236`) from a simulated camera MediaStream with the actual ZXing reader, verify selected-variant isolation and explicit-save behavior, and cover permission denial/retry, missing cameras, insecure contexts, cancel-before-permission and component teardown. The scanner dialog was visually inspected at desktop and Pixel 7 sizes. Camera frames remain local; English/Khmer prompts, HTTPS guidance and manual/USB/Bluetooth fallback are present. ZXing dependencies are lazy-loaded and pinned to Node-22-compatible releases. Physical phone cameras, Safari and dedicated scanner hardware still need acceptance testing; Chromium mobile emulation is not device certification. No backend changes or migration were needed for this camera-only extension; the backend results below belong to the preceding barcode/pricing verification.
-
-## Barcode and purchase pricing verification — 2026-10-17
-
-The barcode/pricing extension passed **380 backend tests / 1,911 assertions**, **26 desktop/mobile browser checks**, and the Vue TypeScript/production build. The nullable variant barcode/cost columns and shop-scoped barcode indexes were migrated locally. Coverage includes preserved leading zeros, independent variant values, partial edits, optional-field clearing, shop-scoped product/stock search, private purchase costs, scanner Enter handling and existing-record editing. Scheduler tests now freeze their clock so reservation assertions do not depend on wall-clock jumps. USB/Bluetooth scanner support is keyboard-input based. Camera decoding was added and verified separately above; no physical-scanner hardware certification is implied.
-
-## Commerce implementation verification — 2026-10-17
-
-The older audit below is retained as historical evidence, not the current release status.
-
-- Final full Laravel suite: **373 tests / 1,837 assertions passed** after security updates. The focused new-feature regression also passed **28 tests / 221 assertions** before the dependency upgrade.
-- Desktop + Pixel 7 Chromium: **20 checks passed**, covering shop discovery/search, settings/Bakong recipient save, product options, photo upload/cover/removal, camera capture, support persistence, per-seller payment progress, refund-ledger proof submission, scoped delivery, expired-checkout retries and customer/admin routing. UI APIs are mocked; financial and authorization behavior is tested separately on Laravel.
-- Vue TypeScript check and production build passed. The final multi-stage production image built successfully, including PHP dependencies without development packages; Nginx configuration validation passed.
-- Compatible security updates applied: Laravel **13.37.0**, CommonMark **2.10.3**, Symfony HttpFoundation **7.4.21**, and Laravel Prompts **0.3.26**. The final backend production dependency audit returned no advisories. The npm production dependency audit also reported no vulnerabilities; seven npm development-only findings remain pending a tested Tailwind major upgrade. CI now checks both production dependency audits.
-- All four new migrations applied locally. Production Compose configuration validated. Worker/scheduler/database/cache heartbeat check passed after moving app/worker/scheduler dependencies to a shared Docker vendor volume and restarting the services. The host's ignored vendor directory is not used at runtime.
-- Database/media backup archive integrity passed and the SQL dump restored to a separate disposable MySQL server: **53 migration records, 14 orders, 13 products**. The live database was not overwritten. Off-server replication and full disaster-recovery acceptance remain operator launch tasks.
-- Real Bakong transfers, SMTP delivery and remote OCI/DNS/TLS activation have **not** been performed; no live-payment or remote deployment success is implied. Production currency remains USD.
-
-See [commerce completion](./COMMERCE-COMPLETION.md) and [Oracle deployment](./ORACLE-CLOUD.md) for operating rules and remaining activation requirements.
-
-- **Date:** 2026-09-24
-- **Environment:** Docker Compose (`app`, `scheduler`, `nginx`, `mysql`, `redis`, `phpmyadmin`, `frontend`)
-- **Backend:** Laravel 13 (PHP 8.3, Sanctum)
-- **Frontend:** Vue 3 + TypeScript + Vite 8 + Tailwind CSS
-- **Method:** Docker + backend automated suite (105 tests) + live API test-runner probes + full source review of controllers/services/requests/resources/migrations/models + frontend production build.
-
----
-
-## A. QA SUMMARY
-
-| Area | Status |
+| Area | Current implementation |
 | --- | --- |
-| Docker & environment | PASS (frontend container was stopped; restarted OK) |
-| Backend automated tests | PASS — 105 passed / 419 assertions, 0 failures |
-| Frontend build | PASS — `vue-tsc -b && vite build` clean |
-| Auth (register/login/verify/reset) | PASS (except broken seeded admin hash, see SEC-02) |
-| Authorization (401/403, admin RBAC) | PASS — customer token correctly blocked from `/admin` (403) |
-| Public catalog, brands, categories, facets, shipping | PASS |
-| Cart / totals / stock capping | PASS (two minor edge bugs, see MED-06, LOW-06) |
-| Wishlist / addresses / reviews / notifications | PASS |
-| Checkout begin/confirm/cancel + reservation lock | PASS flow mechanics; **state-correctness bugs found** (B-CRIT-01, HIGH-02, MED-01) |
-| Admin dashboard / inventory / reports (CSV/PDF) | PASS (+ 2 hard-crash bugs: HIGH-04, MED-09) |
-| Security posture | Multiple findings — see Section F (incl. payment-gateway gap, rate limiting, debug leakage) |
-| Performance / N+1 | No critical N+1 found; eager-loading is consistent. Unbounded pagination vector found (MED-05) |
-| Concurrency | Row-locks used for inventory, but not for `orders` state — race found (MED-11) |
+| Backend | Laravel **13.37.0** in `composer.lock`, PHP **8.3.33** in the checked container, Eloquent, API Resources and Sanctum bearer tokens with configurable expiry. JWT refresh/access rotation is not implemented. |
+| Frontend | Vue 3, TypeScript, Vite **8.2.2**, Pinia, Vue Router, Axios, Tailwind CSS **3.4.19**, English/Khmer and theme switching. Axios reads `VITE_API_URL`, defaulting to same-origin `/api`. Bootstrap is not installed. |
+| Customer | Account/auth, addresses, catalog/filtering, public shops, cart, multi-shop checkout, orders/tracking/receipts, wishlist, verified reviews, returns and support. |
+| Admin and seller | Super-admin administration plus shop owner/manager access through membership; products/options/photos, inventory ledger, fulfillment, shop settings/delivery, payment/refund records, support and reports. |
+| Payments | Direct-to-seller Bakong/KHQR, server-side verification, separate shop allocations and USD checkout. Legacy demo online methods self-confirm only in sandbox. COD confirmation leaves payment unpaid. |
+| Infrastructure | MySQL 8, Redis, Nginx, app, worker, scheduler, frontend and phpMyAdmin in development Compose; optional browser-test and backup/restore profiles. Production Compose supplies HTTPS hosting and operational configuration. |
 
-**Overall: the system is in good functional shape and feature-complete for a demo/SDK, but is NOT production-safe yet.** The automated suite is green, yet live testing exposed real money/stock consistency defects (cancelled orders leak inventory + corrupt payment state, coupon usage is never reclaimed) and several security gaps.
+Local frontend: `http://localhost:5174`; API: `http://localhost:8000/api`. Browser containers use port `5173` inside the frontend network namespace.
 
----
+Related documentation: [commerce operating guide](./COMMERCE-COMPLETION.md), [API reference](./API-REFERENCE.md), [development guide](./DEVELOPMENT.md), [Oracle deployment](./ORACLE-CLOUD.md).
 
-## B. CRITICAL BUGS
+## 2. Current verification
 
-### B-CRIT-01 — Cancel of a PAID order corrupts payment state, loses stock, and writes no refund
-- Severity: **CRITICAL** — Priority: P1
-- Module: Orders / Payments / Inventory
-- File: `backend/app/Services/OrderService.php:161-188`
-- Root cause: `cancelOwn()` permits cancellation from `confirmed`/`processing` but only releases stock for `pending`. It forcibly sets `payment_status = unpaid` while the `payments` row stays `completed` and writes no refund `PaymentTransaction`.
-- Steps to reproduce (verified live, order `SV-2026-000065`): customer adds variant → `POST /checkout` → `POST /checkout/{order}/confirm` (paid, stock deducted) → `POST /orders/{order}/cancel`.
-- Expected: refund recorded, inventory restored, payment consistent.
-- Actual: `orders.payment_status=unpaid`, `payments.status=completed`, inventory `quantity` permanently reduced, `sold_count` still +2, no refund transaction.
-- Recommended fix: `cancelOwn()` should (a) only allow cancel before payment, or (b) for paid orders invoke a refund path (`payment_status=refunded`, `payments.status=refunded`, refund `payment_transaction`) **and** restore quantity in `inventories` (`quantity += qty`) for all cancelled orders that were deducted.
+All PHP, Composer, npm and browser commands run inside the supplied Docker containers.
 
----
-
-## C. HIGH PRIORITY BUGS
-
-### HIGH-01 — Admin order transition to `cancelled` leaks inventory reservations permanently
-- Severity: **HIGH** — Priority: P1
-- Module: Orders / Inventory
-- File: `backend/app/Services/OrderService.php:54-63` (`pending → cancelled` allowed), `68-121` (`transition()` performs no inventory handling)
-- Root cause: `transition()` cancels a pending order but never calls `InventoryService::releaseMany()` (unlike `CheckoutService::release()` and `cancelOwn()`'s pending branch).
-- Steps to reproduce (verified live, order id 32 / `SV-2026-000280`): customer begins checkout so `inventories.reserved_quantity=2` → admin `PUT /admin/orders/32/transition {"status":"cancelled"}`.
-- Expected: `reserved_quantity` returns to 0.
-- Actual: order shows `cancelled`, `reserved_quantity` **stays 2** — stock lost with no recovery.
-- Recommended fix: in `transition()`, when `$to === cancelled` and prior status is `pending`, call `releaseMany()` on order items.
-
-### HIGH-02 — Payment confirm is fully client-trusted (no gateway verification) — goods can be marked PAID without payment
-- Severity: **HIGH** — Priority: P1 (blocking for production)
-- Module: Checkout / Payments
-- File: `backend/app/Services/CheckoutService.php:155-208`; route `routes/api.php` checkout group has no auth (by design for guests)
-- Root cause: `confirm()` accepts any client-supplied `transaction_id` (or fabricates `PAY-...`) and unconditionally flips `payment=completed`, `order.payment_status=paid`, deducting stock. No gateway call, signature check, or amount verification. Totals ARE computed server-side (good), but payment legitimacy is not verified.
-- Steps to reproduce: register customer → add to cart → `POST /checkout` → `POST /checkout/{order}/confirm` with any string → order becomes "paid".
-- Expected: payment confirmation only after a real gateway success/authorization.
-- Actual: an unauthenticated caller can obtain paid orders and deducted stock for free.
-- Recommended fix: integrate a gateway (webhook + signed callbacks); treat the current behavior as an explicit "sandbox/payment-mocked" mode gated by config, never enabled in production. At minimum, add a server-side secret token/signature for the confirm call and mock-mode flag.
-
-### HIGH-03 — Seeded admin account has plaintext password → login endpoint throws 500 + stack trace
-- Severity: **HIGH** — Priority: P1 (env hygiene)
-- Module: Auth / Data
-- File: live DB row (`users.id=1`, `email=admin@shopverse.dev`, `password='admin12345'` plaintext); `AuthController::login` → `Auth::guard('web')->validate()` (line 73) → `BcryptHasher` throws `RuntimeException`.
-- Root cause: database contains a pre-cast plaintext hash from an earlier seed/migration. Any login attempt returns HTTP 500 (not 401) with full exception trace (see SEC-01).
-- Steps to reproduce: `POST /auth/login {"email":"admin@shopverse.dev","password":"admin12345"}`.
-- Expected: 401 Invalid credentials (or successful login after re-hashing).
-- Actual: HTTP 500 `"This password does not use the Bcrypt algorithm."` + stack trace.
-- Recommended fix: re-hash account 1 (`UPDATE users SET password = <bcrypt> WHERE id=1`) or re-run `UserSeeder`; add a graceful handler in `AuthController::login` for non-bcrypt hashes (return 401) instead of letting the exception propagate.
-
-### HIGH-04 — Admin product create: negative variant quantity → unhandled 500 with raw SQL leak; negative variant prices accepted
-- Severity: **HIGH** — Priority: P1
-- Module: Catalog (admin) / Inventory
-- File: `backend/app/Http/Requests/AdminProductRequest.php:37-40` (no `min:0` on `variants.*.price`, `variants.*.compare_at_price`, `variants.*.quantity`); `backend/app/Http/Controllers/Api/Admin/AdminProductController.php:164` (`createVariants()` doesn't clamp quantity)
-- Root cause: `quantity` is `unsignedInteger` (migration `..._create_inventories_table.php:17`); a negative value triggers MySQL out-of-range. No `min:0` validation rule.
-- Steps to reproduce (verified live): `POST /admin/products` with `variants: [{quantity:-5, price:10}]` → 500 `SQLSTATE[22003] ... Out of range value for column 'quantity'` including the full SQL and DB host in the response.
-- Expected: 422 validation error.
-- Actual: HTTP 500 crash + SQL/db info disclosure.
-- Recommended fix: add `min:0` (or `integer|min:0`) to `variants.*.price`, `variants.*.compare_at_price`, `variants.*.quantity`; clamp in `createVariants()`.
-
-### HIGH-05 — Coupon usage is never reclaimed on cancelled/abandoned/expired orders
-- Severity: **HIGH** — Priority: P1
-- Module: Coupons / Orders
-- File: `backend/app/Services/CouponService.php:74-84`; `backend/app/Services/CheckoutService.php:144-146` (usage applied at `begin()`, fired even if order abandoned); cancellation/expiry paths (`CheckoutService.php:213-233, 240-256`; `OrderService::cancelOwn`) never decrement.
-- Root cause: coupon usage is reserved at order *creation*, not at payment success.
-- Steps to reproduce (verified live): use `WELCOME10` (used_count 3823) → begin checkout → cancel order → `used_count` still 3824, `coupon_usages` row still present.
-- Expected: unused coupon restored.
-- Actual: abandoned checkouts permanently burn coupon capacity; customers denied valid discounts. Guests (user_id null) also bypass `per_user_limit` in `CouponService.php:48-55`.
-- Recommended fix: move usage recording to `confirm()` and add rollback on cancel/expiry (delete `coupon_usages` row + decrement `used_count`, atomically).
-
----
-
-## D. MEDIUM PRIORITY BUGS
-
-### MED-01 — Guest cart is never cleared after successful confirm
-- File: `backend/app/Services/CheckoutService.php:200-204` (clear is inside `if ($order->user_id !== null)`)
-- Verified live: guest order `SV-2026-000057` confirmed but `GET /cart` still returns the purchased item.
-- Fix: also clear the guest cart by `session_id` at confirm (resolve from `Payment.provider_data.session_id`).
-
-### MED-02 — `OrderService::transition` / `confirm` / cron `release` do not row-lock `orders` — confirm-vs-expiry race can both write
-- File: `CheckoutService.php:157, 240-256`; `OrderService.php:70`; inventory rows ARE locked with `lockForUpdate` but `orders` are not.
-- Risk: a 15-min expiry cron `release()` racing `confirm()` can leave a cancelled order whose stock was already deducted, or refunded/deducted twice.
-- Fix: `lockForUpdate()` the `orders` row inside the `DB::transaction` in `confirm()`, `release()`, `transition()`, `cancelOwn()`.
-
-### MED-03 — Duplicate product slug on create → unhandled 500 (unique constraint)
-- File: `backend/app/Http/Controllers/Api/Admin/AdminProductController.php:75`; slug auto-generated in `AdminProductRequest::prepareForValidation()` (`:49-56`).
-- Fix: catch `UniqueConstraintViolationException`, or pre-check + append suffix, or validate `unique:products,slug`.
-
-### MED-04 — Soft-deleted products remain purchasable and visible in wishlist
-- File: `backend/app/Services/CartService.php:50` (checks only variant `is_active`); `backend/app/Http/Controllers/Api/WishlistController.php:19` (`is_active` stays true after soft delete). `Product` & `ProductVariant` use `SoftDeletes`.
-- Fix: also filter `whereHas('product', fn($q) => $q->withoutGlobalScopes()->whereNull('deleted_at'))`, or hard-delete variants/inventory on product delete; skip soft-deleted products in wishlist.
-
-### MED-05 — Unbounded pagination/limits: memory/CPU DoS on public endpoints
-- File: `backend/app/Services/CatalogService.php:98` (`perPage` no cap); `backend/app/Http/Controllers/Api/CatalogController.php:50` (`featured limit` no cap).
-- Fix: `perPage = min((int)($filters['perPage'] ?? 12), 100)` and cap `limit`.
-
-### MED-06 — Cart line totals show $0 for null-priced variants while order charges product price (UI/API mismatch)
-- File: `backend/app/Http/Resources/CartResource.php:17-21` vs `CartService::totals()` / `CheckoutService.php:113` (fallback to product price).
-- Fix: make `CartResource` fall back to `variant.product.price` like the services.
-
-### MED-07 — Approved-then-edited or rejected reviews leave stale product `rating_avg`/`rating_count`
-- File: `backend/app/Services/ReviewService.php:96-102` (`reject()` never recalculates), `54-67` (`update()` edits rating without recalculation).
-- Fix: recalc on reject and on update of an approved review; optionally revert status to pending on edit.
-
-### MED-08 — Low-stock alerts don't re-arm when stock is restored via `release()`
-- File: `backend/app/Services/InventoryService.php:84-102` (`release()` skips `checkLowStock()`).
-- Fix: call `checkLowStock()` in `release()` too.
-
-### MED-09 — Report export crashes on invalid `from`/`to` dates (500)
-- File: `backend/app/Http/Controllers/Api/Admin/AdminReportController.php:19-25`.
-- Fix: validate/parse defensively and return 422.
-
-### MED-10 — No rate limiting on authentication endpoints (brute-force / reset spam)
-- File: `routes/api.php` — no `throttle` middleware anywhere.
-- Fix: apply `throttle::5,1` (or similar) on `auth/login`, `auth/register`, `auth/forgot-password`, `auth/reset-password`, and `checkout` routes.
-
-### MED-11 — Coupon usage-limit check is non-atomic (read-then-increment race)
-- File: `backend/app/Services/CouponService.php:36-39` + `76`.
-- Fix: `lockForUpdate()` the coupon row (or atomic guard) before `used_count >= usage_limit` check.
-
-### MED-12 — COD orders can never be reconciled to `paid`; COD revenue never reaches dashboard/reports
-- File: `CheckoutService.php:173-190` (COD leaves payment pending); `backend/app/Http/Controllers/Api/Admin/AdminOrderController.php` (transition never touches payment); `DashboardService.php:15` (counts only `payment_status=paid`).
-- Fix: add an admin "record cash receipt / mark paid" action; include `payment_method=cod` delivered orders in revenue.
-
-### MED-13 — Unbounded pending orders per user can reserve all stock (denial-of-purchase)
-- File: `backend/app/Http/Controllers/Api/CheckoutController.php:32-73` — repeated `begin()` re-reserves the same cart.
-- Fix: cap open pending orders per user/session (e.g., release the previous pending order for the same cart on new begin) + throttle.
-
----
-
-## E. LOW PRIORITY BUGS
-
-### LOW-01 — Order-list resource uses a nonexistent aggregate attribute
-- `backend/app/Http/Resources/OrderListResource.php:14` — `order_items_count` vs the real `items_count` from `withCount('items')`. Latent (masked by eager-load). Fix: use `items_count`.
-
-### LOW-02 — `role` is mass-assignable on `User`
-- `backend/app/Models/User.php:14`. Not exploited today (all controllers whitelist), but a `$request->all()` refactor would become privilege escalation. Fix: guard `role` from fillable (set explicitly only in admin flows).
-
-### LOW-03 — `CartService::update()` can persist a zero-quantity cart item
-- `backend/app/Services/CartService.php:98-99` — when `available() === 0`, `min($quantity, 0)` writes `quantity = 0`. Fix: delete the item (or throw) instead.
-
-### LOW-04 — Category parent can be self-referential / cyclic
-- `backend/app/Http/Requests/AdminCategoryRequest.php:18` + `AdminCategoryController` update — no guard `parent_id !== id` or descendant check. Fix: validate against self/descendants.
-
-### LOW-05 — Percentage coupons accept `value > 100`; duplicate codes allowed
-- `backend/app/Http/Requests/AdminCouponRequest.php:20`. A 200% coupon silently means free. Fix: `value` max 100 when `type=percentage`; enforce unique code (upper-case).
-
-### LOW-06 — Inventory stock labels overlap (`low` includes `out`)
-- `backend/app/Http/Controllers/Api/Admin/AdminInventoryController.php:30-32`. Zero-stock appears in both buckets. Fix: `low = available > 0 && available <= threshold`.
-
-### LOW-07 — Order-number generator can collide under concurrency → 500
-- `backend/app/Services/OrderNumberGenerator.php:14-19`; `CheckoutService.php:258-269` third attempt skips uniqueness check. Fix: retry loop with exception catch on unique violation.
-
-### LOW-08 — Missing indexes on hot columns
-- `orders.payment_status` (used by `DashboardService`), `addresses.user_id`. Add indexes.
-
-### LOW-09 — `DashboardController::overview` accepts unbounded/negative `days`
-- `backend/app/Http/Controllers/Api/Admin/DashboardController.php:17`. Fix: clamp `1..365`.
-
-### LOW-10 — `tests/Unit` suite referenced by `phpunit.xml` but directory is empty
-- Backend QA: no unit tests exist. Add unit coverage or remove the suite reference.
-
-### LOW-11 — Docs drift: FRONTEND/docs declare Bootstrap 5, project uses Tailwind CSS
-- `frontend/package.json` (no bootstrap), `frontend/src/style.css` (`@tailwind`). Update `AGENTS.md`, `docs/FRONTEND.md`, `docs/ARCHITECTURE.md`.
-
-### LOW-12 — `frontend/.env` is absent; proxy target set via docker env
-- Functional (dev), but `npm run build --mode production` would target `/api` (relative) instead of the configured URL. Consider adding `.env` guidance or using `VITE_API_URL` in CI.
-
----
-
-## F. SECURITY FINDINGS
-
-### SEC-01 — Debug stack traces + SQL leak in API responses (**HIGH**) — verified live
-- `backend/.env`: `APP_DEBUG=true`. Error responses include `exception`, `file` (`/var/www/...`), full `trace`, and — for DB errors — the raw SQL and DB host. Verified twice live (login RuntimeException, negative-qty insert).
-- Fix: disable `APP_DEBUG` in all non-local environments; the API error handler should always return generic JSON (`message` only) in production.
-
-### SEC-02 — Plaintext admin password in database (**HIGH**) — verified live
-- `users.id=1` stores `admin12345` in plaintext (also triggers the 500 above). Re-hash and add a seeder assertion (`Hash::needsRehash` guard).
-
-### SEC-03 — No rate limiting / no brute-force protection (**MEDIUM**)
-- `POST /auth/login`, `/auth/register`, `/auth/forgot-password` are fully open. See MED-10.
-
-### SEC-04 — Payment confirmation trusted without gateway (**HIGH** for production) — see HIGH-02.
-
-### SEC-05 — CORS `Access-Control-Allow-Origin: *` on an authenticated API (**MEDIUM**)
-- No `config/cors.php`; Laravel default `*` applies (`HandleCors`). Works because dev uses same-origin proxy + bearer tokens, but restrict origins in production.
-
-### SEC-06 — Guest cart / guest order gate is a client-controlled `X-Session-Id` (md5) (**LOW/MEDIUM**)
-- `CartController` binds carts to a client-supplied header; `CheckoutController::resolveOwnedOrder` uses `md5(session_id)` stored in `Payment.provider_data`. If a session id leaks, other clients can read/modify. Standard guest-cart trade-off; consider signed/random opaque tokens with expiry.
-
-### SEC-07 — No CSRF concern for API (Sanctum) but no throttling on checkout reservations (**LOW**)
-
-### Not found (good):
-- No SQL injection — all `whereRaw` uses are **bound parameters** (mask applied to the value, never interpolated into SQL). Verified.
-- No XSS surface introduced by backend (frontend uses framework escaping).
-- No IDOR found in customer scoping (`OrderService::findByNumber`, `AddressController`, `ReviewService::update`, wishlist all scope to the user).
-- No secrets committed; `.env` files ignored (`backend/.gitignore`).
-- Uploads (MediaUploadService) restrict contexts, random filenames, no path traversal.
-- No client-supplied order totals/payment amounts (all recomputed server-side).
-- No passwords/tokens/`provider_data` serialized by Resources.
-
----
-
-## G. PERFORMANCE FINDINGS
-
-- **N+1:** none found in main flows (`catalog`, `cart`, `orders`, `wishlist`, admin lists all eager-load correctly).
-- **Unbounded pagination** on `/catalog/products` (`perPage`) and `/catalog/featured` (`limit`) — public DoS vector (MED-05).
-- **Missing indexes:** `orders.payment_status`, `addresses.user_id` (LOW-08).
-- **Dashboard `days` unbounded** (LOW-09).
-- No Redis caching of catalog/facets (not a defect, but notable for scale).
-- Automated suite runtime ~135s; DB queries outside SQLite are untested at scale (no load test run — 100/1k/10k product tests were not executed because that would mutate the demo DB; recommend a staging dataset).
-
----
-
-## H. TESTS PASSED
-
-1. `docker compose config` — valid.
-2. Containers start; services reachable (API 200, frontend 200, phpMyAdmin, redis PONG, mysql query OK).
-3. **Laravel suite: 105 passed / 419 assertions** (Auth, Catalog, Cart, Checkout, Coupon, Review, Notification, Admin, AdminInventory, AdminMedia, AccountAndSettings, Console/Schedule).
-4. Frontend **production build** (`vue-tsc -b && vite build`) — clean, 0 errors.
-5. Live API spot-checks: public catalog/facets/detail/categories/brands/shipping-methods, register/login/401/403, cart add, checkout begin/confirm, notifications, admin dashboard, review verified-purchase logic (via tests), i18n key parity, `Orders` customer scoping.
-
-## I. TESTS FAILED
-
-- None in the automated suite.
-- (Live behavioral reproductions above are not "failed tests" — they document confirmed defects.)
-
-## J. RECOMMENDED FIX ORDER
-
-1. **CRITICAL-01 / HIGH-05** — Cancellation/refund correctness + coupon usage reclaim (state-machine + inventory + payment consistency).
-2. **HIGH-02** — Harden/flag the payment confirm (gateway or explicit mock-only mode).
-3. **HIGH-03 / SEC-01 / SEC-02** — Fix seeded hash, disable debug, ensure generic production error responses.
-4. **HIGH-04** — Validate/clamp variant price & quantity.
-5. **HIGH-01** — Release reservations on admin cancel.
-6. **MED-01…MED-13** (security/consistency first: MED-10 rate limiting, MED-11 atomic coupon, MED-02 row locks, MED-04 soft-delete purchase).
-7. Code-quality lows (LOW-01…LOW-12).
-
-## K. FILES THAT NEED CHANGES
-
-Backend (business logic):
-- `backend/app/Services/OrderService.php` — refund/restock on cancel; release reservations on admin cancel; row-lock orders.
-- `backend/app/Services/CheckoutService.php` — guest cart clear; coupon usage at confirm + rollback; row-lock orders; mock-payment gating.
-- `backend/app/Services/CouponService.php` — atomic usage-limit check; rollback helper.
-- `backend/app/Services/InventoryService.php` — `checkLowStock()` on release; clamp adjust below reserved.
-- `backend/app/Services/ReviewService.php` — recalc on reject/update.
-- `backend/app/Http/Requests/AdminProductRequest.php` — `min:0` on variant price/compare/quantity; unique slug handling in `AdminProductController.php`.
-- `backend/app/Http/Controllers/Api/Admin/AdminReportController.php` — date validation.
-- `backend/app/Http/Controllers/Api/Admin/AdminInventoryController.php` — low/out bucket logic.
-- `backend/app/Http/Controllers/Api/Admin/DashboardController.php` — clamp `days`.
-- `backend/app/Http/Controllers/Api/CatalogController.php` + `CatalogService.php` — cap limits.
-- `backend/app/Http/Resources/CartResource.php` + `OrderListResource.php` — price fallback / aggregate field.
-- `backend/bootstrap/app.php` or `routes/api.php` — throttle middleware.
-- `backend/.env` — `APP_DEBUG=false` (non-local).
-- Migrations — indexes (`orders.payment_status`, `addresses.user_id`); optionally `coupon_usages` cleanup behavior.
-- Data fix — re-hash `users.id=1` password.
-
-Frontend:
-- No functional frontend bugs found in build; docs update only (`docs/FRONTEND.md`, `AGENTS.md`) for Bootstrap→Tailwind.
-
-## L. FINAL QA CHECKLIST
-
-- [x] Docker compose valid, containers healthy (frontend needed restart)
-- [x] Laravel tests green (105/105)
-- [x] Frontend type-checks and builds
-- [x] Auth flow + RBAC verified (401/403 correct)
-- [x] Verified-purchase review rule enforced (tests)
-- [x] Inventory reservation/deduct/release mechanics work (negative case: admin-cancel leak)
-- [x] Order lifecycle state machine enforced server-side (tests + live)
-- [x] Coupon engine validates expiry/limit/min-order (usage-reclaim defect found)
-- [x] Customer data isolation (orders/addresses/reviews) — no IDOR found
-- [x] Security: no SQLi / no secrets committed / uploads safe / no mass-assignment exploit
-- [x] Security gaps documented: debug leakage, rate limiting, CORS `*`, mock payment
-- [ ] Load/performance test at 1k/10k products — NOT RUN (requires staging DB)
-- [ ] Browser-level (Playwright) UI/console sweep — NOT RUN (no browser automation in env)
-
----
-
-**Notable environment hygiene items:**
-1. `ecommerce_frontend` container was `Exited` — always `docker compose up -d` after boot or use `restart: unless-stopped` on the frontend service too.
-2. Rebuild trusted credentials: re-seed admin with a bcrypt hash (`UserSeeder` now does, but the live DB row predates the `hashed` cast).
-
-## M. FIX STATUS (branch `fix/qa-hotfixes`, 2026-09-24)
-
-The CRITICAL + HIGH findings were fixed in this branch. 10 regression tests were added in `backend/tests/Feature/Api/QaHotfixTest.php`; the full suite is green (**115 passed / 478 assertions**).
-
-| Finding | Status | Fix |
+| Check | Result on 2026-10-19 | Scope and limits |
 | --- | --- | --- |
-| B-CRIT-01 (cancel paid order: no refund/restock, corrupted payment state) | **FIXED** | `OrderService::cancelOwn()` now calls `revertFulfilment()` (restocks deducted qty, reverts sold_count), `markPaymentRefunded()` (refund tx + `payment_status=refunded`) and `coupon->releaseUsage()`. Removed the corrupting `payment_status = unpaid` write. |
-| HIGH-01 (admin transition → cancelled leaks reservations) | **FIXED** | `OrderService::transition()` now reverts fulfilment on every `cancelled`/`refunded` transition — releases reservations for pending, restocks for confirmed+, marks payment refunded when money was taken. |
-| HIGH-02 (client-trusted mock payment) | **FIXED (gated)** | New `config/ecommerce.php` `payment_mode` (`PAYMENT_MODE`, sandbox default; safe-by-default `production` on prod). `CheckoutService::confirm()` rejects online-payment confirm with 422 whenever mode ≠ sandbox; gate is checked **before** any stock deduction. |
-| HIGH-03 / SEC-02 (plaintext admin hash → 500 login) | **FIXED** | `AuthController::login()` now catches non-bcrypt-hash errors and returns 401 (invalid credentials). Live DB re-hashed: `admin@shopverse.dev` / `password` (restored to the value documented by the original seeder, commit `c2ebbf4`). |
-| HIGH-04 (negative variant qty/price → 500 + SQL leak) | **FIXED** | `AdminProductRequest` adds `min:0` to `variants.*.price`, `variants.*.compare_at_price`, `variants.*.quantity` (422 instead of 500); `AdminProductController::createVariants()` clamps defensively. |
-| HIGH-05 (coupon usage never reclaimed) | **FIXED** | New `CouponService::releaseUsage()` (row-locked decrement + usage-row delete). Called on customer cancel, admin cancel/refund, and reservation expiry (`CheckoutService::release()` / `expireStaleReservations()`). |
-| SEC-01 (debug stack/SQL leaked in API responses) | **FIXED (production guard)** | `bootstrap/app.php` adds a production-only exception renderer masking details for API/JSON requests; dev behavior unchanged. Also document `APP_DEBUG=false` for production. |
-| Concurrency hardening (affects B-CRIT-01 safety) | **ADDED** | `lockForUpdate()` on the `orders` row in `transition()`, `cancelOwn()`, `confirm()`, `release()` to remove confirm-vs-release races. |
+| `docker compose config --quiet` | **PASS** | Development Compose configuration validation. |
+| `docker compose exec -T app php artisan test --compact` | **PASS — 385 tests / 2,615 assertions (388.36 seconds)** | In-memory SQLite, array cache/mail and synchronous queues. Does not certify concurrent MySQL requests or external services. |
+| `docker compose exec -T frontend npm run build` | **PASS** | Vue TypeScript check and Vite production build completed. A plugin timing warning did not fail the build. |
+| `docker compose --profile test run --rm --no-deps browser-tests` | **PASS — 72 checks (5.4 minutes)** | Desktop and Pixel 7 Chromium against the Vite development server. APIs and camera/native detector capabilities are mocked; ZXing worker/fallback tests decode real barcode pixels. |
+| `docker compose exec -T app composer audit --no-dev` | **PASS — no advisories** | Production dependencies at review time. |
+| `docker compose exec -T frontend npm audit --omit=dev --package-lock-only` | **PASS — 0 vulnerabilities** | Locked production dependencies at review time. |
+| `docker compose exec -T frontend npm audit --package-lock-only --json` | **OPEN — 7 findings: 5 high, 2 moderate** | Development dependency paths through Tailwind tooling; full audit exits 1. |
+| Full stack / live MySQL API checks | **BLOCKED in this session** | Startup failed because host port **3307** was already allocated. App/frontend started separately; API/MySQL/scheduler/worker/phpMyAdmin readiness was not verified. |
+| Production image, Nginx, backup/restore and heartbeats | **NOT RERUN** | Earlier evidence is recorded separately below. |
 
-**Live verification performed:** `admin@shopverse.dev` login → HTTP 200 (token, role admin); admin product create with `quantity:-5` → HTTP 422 clean message (was 500 + SQL).
+**Assessment:** Functionality and regression coverage have expanded substantially since September. Production acceptance remains pending the open defects and external-service/device checks below. Automated checks do not establish live-payment or deployment readiness.
 
-Remaining MEDIUM/LOW findings from Sections D/E/F are deferred (not part of this fix scope).
+## 3. Recent changes covered
+
+### Seller stock editing — 2026-10-18
+
+The product form now supports total on-hand stock for simple products and individual existing options. It submits only changed stock values, so unrelated edits preserve current inventory. The backend uses `InventoryService::adjust()`, records an actor/shop ledger entry and rejects stock below checkout reservations. Regression cases cover negative/fractional values, shop isolation and atomic rollback when an option cannot be adjusted.
+
+Evidence: [SellerProductController](../backend/app/Http/Controllers/Api/Seller/SellerProductController.php), [InventoryService](../backend/app/Services/InventoryService.php), [SellerWorkspaceTest](../backend/tests/Feature/Api/SellerWorkspaceTest.php), [browser suite](../frontend/tests/e2e/commerce.spec.ts).
+
+The operating guide's older statement that existing stock cannot be changed through product edits is stale: those edits now use the inventory adjustment service and ledger.
+
+### Demo data and layouts — 2026-10-18
+
+The seeder replaces **37 business tables with 20 related records each**, clears old login/reset/session records and rolls back cleanup if seeding fails. Demo accounts now use `admin@ekhmer.com`, `customer@ekhmer.com` and `seller@ekhmer.com`, with documented demo password `password`. Passwords use the model's hashed cast; seller permissions come from membership.
+
+[DatabaseSeederTest](../backend/tests/Feature/DatabaseSeederTest.php) covers counts, repeat seeding, rollback, relationships, eligible reviews and partial refunds in the isolated test database. This review did not reseed development MySQL; fixture counts are not live database counts.
+
+The browser suite checks shared content width and horizontal overflow across store, account, seller and admin pages at desktop/mobile sizes.
+
+### Barcode, pricing and camera — 2026-10-17
+
+Barcodes preserve leading zeros; purchase costs are private and barcode search is shop-scoped. Entry supports typing, keyboard-wedge USB/Bluetooth devices and local camera decoding, without automatic product save.
+
+Camera scanning uses native detection when available, a ZXing worker otherwise and a compatibility fallback if workers are blocked. It searches the full visible frame, periodically tries thorough/rotated decoding and targets an 80 ms attempt interval. That target is not a physical-device benchmark. Coverage includes real EAN-8 pixels, upper/lower-frame and vertical labels, selected-option isolation, permissions/retry/errors, late results, teardown and torch constraints. Physical hardware acceptance remains open.
+
+## 4. September findings: current disposition
+
+Original IDs are retained for traceability. **Addressed** means the relevant change exists in current source, with regression coverage where noted; it does not certify all production paths. Old live order IDs, credentials and line references no longer describe current source/data.
+
+| Original finding | Current disposition |
+| --- | --- |
+| B-CRIT-01, HIGH-01: cancellation corrupts payment/stock or leaks reservations | **Addressed:** order locks, fulfillment reversal, stock restoration/release and coupon release in `OrderService`; `QaHotfixTest`. Bakong cancellations become refund pending/required until a verified refund, not an assumed bank reversal. |
+| HIGH-02, SEC-04: client-trusted online payment | **Addressed in code:** production blocks legacy self-confirmation; Bakong verifies amount/currency/recipient and unique transaction identity server-side. `BakongPaymentTest`, `SellerCompletionTest`, `QaHotfixTest`. Real transfers remain an acceptance gate. |
+| HIGH-03, SEC-02: seeded plaintext password / login crash | **Addressed in source:** hashed cast, current `.com` demo accounts and graceful legacy invalid-hash handling. `QaHotfixTest`, `DatabaseSeederTest`. Invalid legacy credentials return **422**, not the old report's claimed 401. External database rows were not inspected. |
+| HIGH-04: negative variant quantity/price | **Addressed:** non-negative bounded validation and defensive stock handling; `QaHotfixTest`, `SellerWorkspaceTest`. |
+| HIGH-05: coupon capacity never reclaimed | **Addressed:** release on cancellation/refund/expiry; `QaHotfixTest`. Usage is still reserved at checkout creation, not moved to payment. Guest per-user identification remains limited. |
+| MED-01: guest cart not cleared | **Addressed:** confirmation clears the exact cart ID stored privately with payment; `CheckoutTest`. |
+| MED-02: order state races | **Hardened:** confirmation/release/transitions lock orders; inventory is locked too. SQLite tests do not prove concurrent MySQL behavior. |
+| MED-03: duplicate product slug crashes | **Addressed for ordinary duplicates:** create/update use `uniqueSlug()`. Concurrent insert conflicts still need acceptance testing. |
+| MED-04: deleted/unpublished products remain purchasable/visible | **Addressed:** active product/shop checks in cart/checkout/wishlist; `CatalogTest`, `CartTest`, `WishlistTest`. |
+| MED-05: unbounded catalog pagination | **Addressed:** request/service caps; featured limit capped at 24; `CatalogTest`. |
+| MED-06: null variant price mismatch | **Addressed:** cart resources fall back to product price; `CartTest`. |
+| MED-07: stale review aggregate | **Partial:** published edits return to moderation and recalculate; rejection still does not. |
+| MED-08: low-stock alert not rearmed on release | **Open:** `InventoryService::release()` omits `checkLowStock()`. |
+| MED-09: invalid report dates | **Open:** report controller parses unvalidated dates. |
+| MED-10, SEC-03: no authentication throttles | **Addressed:** login/register/reset/verification throttles in `routes/api.php`; `AuthTest`. |
+| MED-11: coupon usage-limit race | **Hardened:** usage creation locks/revalidates the coupon inside checkout's transaction. MySQL contention tests remain pending. |
+| MED-12: COD cannot be reconciled as paid | **Open:** confirmation leaves COD unpaid; reviewed fulfillment paths do not record cash capture. |
+| MED-13, SEC-07: reservation abuse | **Open:** no explicit checkout-creation route throttle or pending-order quota. Idempotency handles retries, not distinct reservation attempts. |
+| LOW-01: order-list aggregate fallback | **Latent:** resource still uses `order_items_count` when items are absent; current customer lists load items and calculate correctly. |
+| LOW-02: mass-assignable role | **Addressed:** role/verification fields excluded from `User::$fillable`. |
+| LOW-03: zero-quantity cart rows | **Addressed:** non-positive updates remove the item; unavailable quantities return validation errors. |
+| LOW-04: category cycles | **Addressed:** self/descendant parenting validation; `CategoryTest`. |
+| LOW-05: coupon value/duplicate code | **Partial:** percentage capped at 100. The database has a unique code constraint, but request-level uniqueness validation is absent; verify duplicate submissions return 422 rather than a database exception. |
+| LOW-06: low/out stock filters overlap | **Open:** low-stock query includes zero availability. |
+| LOW-07: order-number collisions | **Open:** final candidate is unchecked; no insert-conflict retry found. |
+| LOW-08: missing indexes | **Review pending:** no explicit `orders.payment_status` index found. `addresses.user_id` has a constrained foreign key; inspect MySQL's backing index before claiming it is missing. |
+| LOW-09: unbounded dashboard days | **Superseded:** enumerated ranges and custom-span validation in `AdminDashboardRequest`; `AdminDashboardTest`. |
+| LOW-10: empty unit suite | **Obsolete:** `tests/Unit/ReceiptBrandingServiceTest.php` exists. |
+| LOW-11: Bootstrap documentation drift | **Partial:** frontend docs/package use Tailwind; root agent guidelines still prescribe Bootstrap. |
+| LOW-12: absent frontend environment file | **Clarified:** same-origin `/api` is intentional; `VITE_API_URL` is supported. An absent `.env` alone is not a build defect. |
+| SEC-01: production debug leakage | **Guard implemented:** unexpected production JSON errors hide details; production Compose sets `APP_DEBUG=false`. Deployment verification remains required. |
+| SEC-05: CORS | **Deployment review pending:** no project `config/cors.php`; inspect effective allowed origins for separate-origin deployments. No live headers were checked here. |
+| SEC-06: guest identifiers | **Residual risk:** browser-supplied guest session ID acts as a bearer secret. Server-issued/signed credentials and expiry remain hardening options. |
+
+## 5. Open defects and next actions
+
+These are source-review findings, not new live reproductions. This update changes documentation only.
+
+| Priority | Finding | Evidence / action |
+| --- | --- | --- |
+| Medium | MED-07: rejecting a published review leaves stale ratings | [ReviewService::reject()](../backend/app/Services/ReviewService.php) changes status without recalculating. Recalculate and cover approved → rejected. |
+| Medium | MED-08: released reservations do not rearm alerts | [InventoryService::release()](../backend/app/Services/InventoryService.php) does not re-evaluate the marker. Cover low → replenished → low. |
+| Medium | MED-09: invalid report dates can throw | [AdminReportController](../backend/app/Http/Controllers/Api/Admin/AdminReportController.php) directly calls `Carbon::parse()`. Validate format/order/span; return 422 on invalid input. |
+| Medium | MED-12: COD collection reconciliation missing | [CheckoutService](../backend/app/Services/CheckoutService.php) leaves COD unpaid. Define an authorized, audited cash-collection action before relying on COD payment/revenue reports. |
+| Medium | MED-13 / SEC-07: reservation exhaustion | [Checkout routes](../backend/routes/api.php) lack creation throttling; pending-order quotas were not found. Add limits while preserving retry-safe checkout. |
+| Low | LOW-06: low/out overlap | [AdminInventoryController](../backend/app/Http/Controllers/Api/Admin/AdminInventoryController.php) includes out-of-stock rows in low. Decide filter semantics and align labels/query. |
+| Low | LOW-07: order-number conflict handling | [CheckoutService](../backend/app/Services/CheckoutService.php) returns an unchecked final candidate. Add bounded insert-conflict retry and forced-collision coverage. |
+| Follow-up | LOW-01/05/08, SEC-05/06 and documentation | Verify resource fallback, duplicate coupons, effective MySQL indexes/CORS, guest credential policy and remaining stack guidance. |
+| Dependency maintenance | Seven development audit findings | Affected packages: `braces`, `chokidar`, `fast-glob`, `micromatch`, `postcss-nested`, `postcss-selector-parser`, `tailwindcss`. Plan compatible fixes or a tested Tailwind major migration. Production dependency audits are clean. |
+
+## 6. Acceptance still required
+
+- Restore full local/staging MySQL connectivity, check/apply migrations and verify API, queue, scheduler, cache and reservation expiry together. This review did not migrate or reseed development data.
+- Exercise real Bakong transfers, multi-shop/partial/late payments, cancellations and refunds. Bank tests mock responses. The app verifies externally initiated refunds; it does not send money.
+- Verify SMTP delivery/domain, OCI/DNS/TLS, secrets, off-server backups, restore procedures and alerts. No remote deployment or disaster-recovery acceptance was performed here.
+- Run concurrent MySQL checkout/stock/coupon tests and load tests against an isolated staging dataset. No 1k/10k-product or production-throughput certification is claimed.
+- Test physical phone cameras, Safari/iOS, focus/torch and USB/Bluetooth scanners. Pixel 7 Chromium emulation is not device certification; confirm camera frames stay local.
+- Complete accessibility, Khmer copy/translation and business approval of shipping, tax, return, privacy and retention rules. This was not a full manual UX audit.
+
+## 7. Historical evidence — not current rerun results
+
+These results were recorded in the previous report and refer to earlier code/environment states.
+
+| Date / scope | Previously recorded result |
+| --- | --- |
+| 2026-09-24 initial audit | 105 backend tests / 419 assertions; frontend build and live API probes. Original findings above originated here. |
+| 2026-09-24 critical/high hotfixes | 115 backend tests / 478 assertions; cancellation/refund, sandbox gating, validation, credential and production error guards. |
+| 2026-10-17 commerce | 373 backend tests / 1,837 assertions; 20 desktop/mobile checks; production image/Nginx, heartbeats, production audits and isolated backup/restore checks. Restore snapshot: 53 migration records, 14 orders, 13 products — historical counts only. |
+| 2026-10-17 barcode/pricing | 380 backend tests / 1,911 assertions; 26 desktop/mobile checks; frontend type check/build. |
+| 2026-10-17 camera | 40 desktop/mobile Chromium checks; frontend build; clean production npm audit. |
+| 2026-10-17 full-frame scanner | 32 focused development checks; 58 production-build checks plus two torch-constraint checks; frontend build. Physical devices not certified. |
+
+The [CI workflow](../.github/workflows/ci.yml) defines backend tests, frontend build, production dependency audits and desktop/mobile browser tests. This report does not assert a remote CI run succeeded.
