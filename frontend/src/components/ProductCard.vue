@@ -47,8 +47,8 @@ function handleWishlistToggle(): void {
 </script>
 
 <template>
-  <div class="card feature-glow group flex flex-col overflow-hidden transition-shadow duration-300 hover:shadow-lg dark:bg-surface">
-    <div class="relative aspect-square overflow-hidden bg-canvas dark:bg-surface-hover/50">
+  <div class="card feature-glow group flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-lg dark:bg-surface">
+    <div class="relative aspect-square shrink-0 overflow-hidden bg-canvas dark:bg-surface-hover/50">
       <RouterLink :to="`/product/${props.product.slug}`" class="block h-full w-full">
         <img
           v-if="coverImage"
@@ -106,16 +106,17 @@ function handleWishlistToggle(): void {
           :title="color"
         ></li>
       </ul>
-      <button
-        v-if="showActions"
-        type="button"
-        class="btn-primary btn-sm mt-3 w-full dark:bg-blue-500 dark:hover:bg-blue-600"
-        :disabled="!props.product.isInStock"
-        @click="handleAddToCart"
-      >
-        <ShoppingCart :size="15" />
-        {{ props.product.isInStock ? $t('actions.add_to_cart') : $t('product.out_of_stock') }}
-      </button>
+      <div v-if="showActions" class="mt-auto pt-3">
+        <button
+          type="button"
+          class="btn-primary btn-sm w-full dark:bg-blue-500 dark:hover:bg-blue-600"
+          :disabled="!props.product.isInStock"
+          @click="handleAddToCart"
+        >
+          <ShoppingCart :size="15" />
+          {{ props.product.isInStock ? $t('actions.add_to_cart') : $t('product.out_of_stock') }}
+        </button>
+      </div>
     </div>
   </div>
 </template>
