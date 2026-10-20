@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ImagePlus, Save, UploadCloud, X } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -27,6 +27,32 @@ const errors = reactive<Record<string, string>>({})
 
 const logoFile = ref<File | null>(null)
 const logoInput = ref<HTMLInputElement | null>(null)
+const logoLink = ref('')
+const logoPreviewFailed = ref(false)
+let logoObjectUrl: string | null = null
+
+function releaseLogoObjectUrl() {
+  if (logoObjectUrl) URL.revokeObjectURL(logoObjectUrl)
+  logoObjectUrl = null
+}
+
+function isValidLogoLink(value: string): boolean {
+  try {
+    return ['http:', 'https:'].includes(new URL(value).protocol)
+  } catch {
+    return false
+  }
+}
+
+function onLogoLinkChanged() {
+  releaseLogoObjectUrl()
+  logoFile.value = null
+  if (logoInput.value) logoInput.value.value = ''
+  const url = logoLink.value.trim()
+  errors.logo = url && !isValidLogoLink(url) ? t('admin.brands.logo_url_invalid') : ''
+  form.logoUrl = url && !errors.logo ? url : null
+  logoPreviewFailed.value = false
+}
 
 function slugify(value: string): string {
   return value
@@ -46,12 +72,21 @@ function onLogoPicked(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file || !file.type.startsWith('image/')) return
+  releaseLogoObjectUrl()
+  logoLink.value = ''
+  errors.logo = ''
+  logoPreviewFailed.value = false
   logoFile.value = file
-  form.logoUrl = URL.createObjectURL(file)
+  logoObjectUrl = URL.createObjectURL(file)
+  form.logoUrl = logoObjectUrl
 }
 
 function removeLogoPreview() {
+  releaseLogoObjectUrl()
   logoFile.value = null
+  logoLink.value = ''
+  errors.logo = ''
+  logoPreviewFailed.value = false
   form.logoUrl = null
   if (logoInput.value) logoInput.value.value = ''
 }
@@ -82,6 +117,7 @@ onMounted(async () => {
       form.website = brand.description ?? ''
       form.status = brand.is_active ? 'Active' : 'Draft'
       form.logoUrl = brand.logo
+      logoLink.value = brand.logo && isValidLogoLink(brand.logo) ? brand.logo : ''
     }
   } catch {
     if (isEdit.value) {
@@ -91,14 +127,22 @@ onMounted(async () => {
   }
 })
 
+onUnmounted(() => {
+  releaseLogoObjectUrl()
+  if (toastTimer) clearTimeout(toastTimer)
+})
+
 function validate(): boolean {
   errors.name = form.name.trim() ? '' : t('admin.brands.toast_enter_name')
+  errors.logo = logoLink.value.trim() && !isValidLogoLink(logoLink.value.trim())
+    ? t('admin.brands.logo_url_invalid')
+    : ''
   return Object.values(errors).every((v) => v === '')
 }
 
 async function save() {
   if (!validate()) {
-    showToast(t('admin.brands.toast_enter_name'))
+    showToast(errors.name || errors.logo || '')
     return
   }
 
@@ -111,6 +155,7 @@ async function save() {
     description: form.website.trim() || null,
     is_active: form.status === 'Active'
   }
+  if (!logoFile.value) payload.logo = form.logoUrl
 
   try {
     saving.value = true
@@ -197,7 +242,7 @@ async function save() {
 
       <div class="mt-5 flex flex-col items-start gap-4 sm:flex-row sm:items-center">
         <div class="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-full bg-canvas">
-          <img v-if="form.logoUrl" :src="form.logoUrl" alt="Logo" class="h-full w-full object-cover" />
+          <img v-if="form.logoUrl && !logoPreviewFailed" :src="form.logoUrl" alt="Logo" class="h-full w-full object-cover" @error="logoPreviewFailed = true" />
           <UploadCloud v-else class="h-8 w-8 text-gray-300" />
         </div>
         <div class="flex flex-wrap items-center gap-2">
@@ -211,6 +256,23 @@ async function save() {
           </button>
         </div>
         <input ref="logoInput" type="file" accept="image/*" class="hidden" @change="onLogoPicked" />
+      </div>
+      <div class="mt-4 max-w-xl">
+        <label class="label" for="brand-logo-url">{{ $t('admin.brands.logo_url_label') }}</label>
+        <input
+          id="brand-logo-url"
+          v-model="logoLink"
+          type="url"
+          class="input"
+          :class="{ 'input-error': errors.logo }"
+          placeholder="https://example.com/logo.png"
+          :aria-invalid="Boolean(errors.logo)"
+          :aria-describedby="errors.logo ? 'brand-logo-url-error' : 'brand-logo-url-hint'"
+          @input="onLogoLinkChanged"
+        />
+        <p id="brand-logo-url-hint" class="mt-1 text-xs text-muted">{{ $t('admin.brands.logo_url_hint') }}</p>
+        <p v-if="errors.logo" id="brand-logo-url-error" class="mt-1 text-xs text-red-600" role="alert">{{ errors.logo }}</p>
+        <p v-if="logoPreviewFailed" class="mt-1 text-xs text-red-600" role="alert">{{ $t('admin.brands.logo_preview_error') }}</p>
       </div>
     </div>
 
