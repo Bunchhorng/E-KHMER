@@ -54,9 +54,8 @@ onMounted(loadOrders)
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <h1 class="text-2xl font-bold text-ink dark:text-ink">{{ $t('nav.my_orders') }}</h1>
-      <span v-if="!loading" class="chip w-fit">{{ $t('order.count_orders', { count: orders.length }) }}</span>
+    <div v-if="!loading && !error" class="flex justify-end">
+      <span class="chip w-fit">{{ $t('order.count_orders', { count: orders.length }, orders.length) }}</span>
     </div>
 
     <div v-if="loading" class="card p-10 text-center">

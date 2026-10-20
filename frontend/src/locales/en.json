@@ -535,7 +535,7 @@
     "order_progress": "Order Progress",
     "qty": "Qty {qty}",
     "more": "more",
-    "count_orders": "{count} orders",
+    "count_orders": "{count} orders | {count} order | {count} orders",
     "placed": "Placed",
     "action": "Action",
     "track": "Track"
