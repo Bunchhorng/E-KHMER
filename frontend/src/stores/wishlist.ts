@@ -25,7 +25,8 @@ export const useWishlistStore = defineStore('wishlist', {
   state: () => ({
     productIds: load() as number[],
     products: [] as CatalogProduct[],
-    loading: false
+    loading: false,
+    error: false
   }),
 
   getters: {
@@ -41,16 +42,14 @@ export const useWishlistStore = defineStore('wishlist', {
   actions: {
     async fetchProducts() {
       this.loading = true
+      this.error = false
       try {
-        const ids = this.productIds
-        if (ids.length === 0) {
-          this.products = []
-          return
-        }
         const { data } = await wishlistApi.list()
         this.products = data.data
+        this.productIds = data.data.map(product => product.id)
+        save(this.productIds)
       } catch {
-        this.products = []
+        this.error = true
       } finally {
         this.loading = false
       }
@@ -96,6 +95,7 @@ export const useWishlistStore = defineStore('wishlist', {
     clear() {
       this.productIds = []
       this.products = []
+      this.error = false
       save(this.productIds)
     }
   }

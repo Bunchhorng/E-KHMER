@@ -8,6 +8,8 @@ import type { PaginatedResponse } from '@/api/catalog'
 import { extractErrorMessage } from '@/api/errors'
 import BaseModal from '@/components/BaseModal.vue'
 import BasePagination from '@/components/BasePagination.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import { PackageCheck, RotateCcw } from 'lucide-vue-next'
 import { formatPrice } from '@/utils/format'
 interface ReturnRecord { id: number; order_number: string; product_name: string; variant_label: string; quantity: number; status: string; reason: string; resolution_note: string | null; refund_amount: number; refund_memo: string; currency: string; photo_count: number; shop_name: string | null }
 const props = withDefaults(defineProps<{ manage?: boolean }>(), { manage: false })
@@ -20,6 +22,9 @@ const form = reactive({ orderNumber: String(route.query.order ?? ''), itemId: 0,
 const order = ref<ApiOrder | null>(null); const files = ref<File[]>([])
 const selected = ref<ReturnRecord | null>(null); const action = ref('approved'); const note = ref(''); const reference = ref('')
 const restock = ref(false)
+const finding = ref(false)
+const submitted = ref(false)
+const photoInput = ref<HTMLInputElement | null>(null)
 async function load(page = 1) {
   loading.value = true; error.value = ''
   try { const result = (await apiClient.get<PaginatedResponse<ReturnRecord>>(prefix.value, { params: { page } })).data; items.value = result.data; meta.value = result.meta }
@@ -27,18 +32,21 @@ async function load(page = 1) {
   finally { loading.value = false }
 }
 async function findOrder() {
+  if (finding.value) return
+  finding.value = true
   error.value = ''; order.value = null; form.itemId = 0
   try { order.value = (await apiClient.get<{ data: ApiOrder }>(`/orders/${encodeURIComponent(form.orderNumber.trim())}`)).data.data; form.itemId = order.value.items[0]?.id ?? 0 }
   catch (cause) { error.value = extractErrorMessage(cause, t('seller.load_failed')) }
+  finally { finding.value = false }
 }
 async function submit() {
   if (busy.value) return
-  busy.value = true; error.value = ''
+  busy.value = true; error.value = ''; submitted.value = false
   try {
     const data = new FormData(); data.append('order_item_id', String(form.itemId)); data.append('quantity', String(form.quantity)); data.append('reason', form.reason.trim())
     files.value.forEach((file, index) => data.append(`photos[${index}]`, file))
     await apiClient.post('/returns', data)
-    form.reason = ''; form.quantity = 1; files.value = []; await load()
+    form.reason = ''; form.quantity = 1; files.value = []; if (photoInput.value) photoInput.value.value = ''; submitted.value = true; await load()
   } catch (cause) { error.value = extractErrorMessage(cause, t('seller.save_failed')) }
   finally { busy.value = false }
 }
@@ -63,20 +71,24 @@ onBeforeUnmount(closeEvidence)
 </script>
 <template>
   <div class="space-y-6">
-    <h1 class="text-2xl font-bold">{{ t('returns.title') }}</h1><p class="text-sm text-muted">{{ t('returns.help') }}</p>
+    <h1 v-if="manage" class="text-2xl font-bold">{{ t('returns.title') }}</h1>
     <p v-if="error" role="alert" class="card p-4 text-sm text-red-600">{{ error }}</p>
-    <section v-if="!manage" class="card space-y-4 p-5">
-      <form class="flex flex-wrap items-end gap-3" @submit.prevent="findOrder"><label class="flex-1"><span class="label">{{ t('returns.order_number') }}</span><input v-model="form.orderNumber" class="input w-full" required maxlength="100" /></label><button class="btn-secondary">{{ t('returns.find_order') }}</button></form>
+    <p v-if="submitted" role="status" class="rounded-xl border border-success/20 bg-success/10 p-4 text-sm text-success">{{ t('account.ui.return_submitted') }}</p>
+    <section v-if="!manage" class="card max-w-3xl space-y-5 p-5 sm:p-6">
+      <div class="flex items-center gap-3"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><RotateCcw class="h-5 w-5" /></span><h2 class="font-semibold">{{ t('account.ui.new_return') }}</h2></div>
+      <p class="text-sm leading-relaxed text-muted">{{ t('returns.help') }}</p>
+      <form class="flex flex-col items-stretch gap-3 sm:flex-row sm:items-end" @submit.prevent="findOrder"><label class="min-w-0 flex-1"><span class="label">{{ t('returns.order_number') }}</span><input v-model="form.orderNumber" class="input w-full" required maxlength="100" @input="order = null; submitted = false" /></label><button class="btn-secondary" :disabled="finding || busy">{{ t(finding ? 'account.ui.finding_order' : 'returns.find_order') }}</button></form>
       <form v-if="order" class="space-y-4" @submit.prevent="submit">
         <label class="block"><span class="label">{{ t('returns.item') }}</span><select v-model.number="form.itemId" class="select w-full" required><option v-for="item in order.items" :key="item.id" :value="item.id">{{ item.product_name }} · {{ item.variant_label }} ({{ item.quantity }})</option></select></label>
         <label class="block"><span class="label">{{ t('returns.quantity') }}</span><input v-model.number="form.quantity" class="input" type="number" required min="1" :max="order.items.find(item => item.id === form.itemId)?.quantity ?? 1" /></label>
         <label class="block"><span class="label">{{ t('returns.reason') }}</span><textarea v-model="form.reason" class="textarea w-full" required minlength="10" maxlength="2000" rows="3"></textarea></label>
-        <label class="block"><span class="label">{{ t('returns.photos') }}</span><input type="file" multiple accept="image/jpeg,image/png,image/webp" @change="files = Array.from(($event.target as HTMLInputElement).files ?? [])" /></label>
+        <label class="block"><span class="label">{{ t('returns.photos') }}</span><input ref="photoInput" type="file" class="input" multiple accept="image/jpeg,image/png,image/webp" @change="files = Array.from(($event.target as HTMLInputElement).files ?? [])" /></label>
         <button class="btn-primary" :disabled="busy">{{ t('returns.submit') }}</button>
       </form>
     </section>
+    <h2 v-if="!manage" class="text-lg font-semibold">{{ t('account.ui.return_history') }}</h2>
     <p v-if="loading" role="status" class="text-sm text-muted">{{ t('common.loading') }}</p>
-    <p v-else-if="!items.length" class="card p-8 text-sm text-muted">{{ t('returns.empty') }}</p>
+    <EmptyState v-else-if="!items.length && !error" :title="t('returns.empty')" :description="t('account.ui.returns_help')"><template #icon><PackageCheck class="h-7 w-7" /></template></EmptyState>
     <section v-for="item in items" :key="item.id" class="card space-y-3 p-5">
       <div class="flex flex-wrap justify-between gap-3"><div><h2 class="font-semibold">{{ item.product_name }} × {{ item.quantity }}</h2><p class="mt-1 text-xs text-muted">{{ item.order_number }} · {{ item.shop_name }}</p></div><span class="text-sm font-semibold text-primary">{{ t('returns.' + item.status) }}</span></div>
       <p class="whitespace-pre-line text-sm">{{ item.reason }}</p><p v-if="item.resolution_note" class="text-sm text-muted">{{ item.resolution_note }}</p>

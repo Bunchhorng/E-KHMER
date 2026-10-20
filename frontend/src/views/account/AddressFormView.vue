@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { MapPin, Save, User } from 'lucide-vue-next'
+import { ArrowLeft, MapPin, Save, User } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { addressesApi, type AddressPayload } from '@/api/addresses'
 import type { Address } from '@/types'
+import AccountState from '@/components/account/AccountState.vue'
 
 const { t } = useI18n()
 
@@ -56,24 +57,16 @@ function mapAddress(raw: { id: number; label: string | null; full_name: string; 
   }
 }
 
-const formTitle = computed(() =>
-  isEdit.value ? t('account.edit_address') : t('account.add_address')
-)
-
 const initializing = ref(true)
 const saving = ref(false)
-const toast = ref('')
-let toastTimer: ReturnType<typeof setTimeout> | undefined
+const saveError = ref('')
+const loadError = ref('')
 
-function showToast(msg: string) {
-  toast.value = msg
-  if (toastTimer) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => {
-    toast.value = ''
-  }, 2500)
-}
-
-onMounted(async () => {
+async function initialize() {
+  initializing.value = true
+  loadError.value = ''
+  saveError.value = ''
+  Object.assign(form, emptyForm())
   try {
     if (isEdit.value && addressId.value) {
       const res = await addressesApi.list()
@@ -96,18 +89,17 @@ onMounted(async () => {
       })
     }
   } catch {
-    if (isEdit.value) {
-      showToast(t('account.toast_load_error'))
-      router.replace({ name: 'account-addresses' })
-    }
+    loadError.value = t('account.ui.load_error')
   } finally {
     initializing.value = false
   }
-})
+}
+watch(() => route.params.id, initialize, { immediate: true })
 
 async function save() {
-  if (saving.value) return
+  if (saving.value || initializing.value) return
   saving.value = true
+  saveError.value = ''
   try {
     const payload: AddressPayload = {
       label: form.label || undefined,
@@ -127,6 +119,8 @@ async function save() {
       await addressesApi.create(payload)
     }
     router.push({ name: 'account-addresses' })
+  } catch {
+    saveError.value = t('account.ui.save_error')
   } finally {
     saving.value = false
   }
@@ -134,26 +128,11 @@ async function save() {
 </script>
 
 <template>
-  <form class="space-y-6 pb-16" @submit.prevent="save()">
-    <div class="card flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <div class="section-eyebrow">{{ $t('nav.account') }}</div>
-        <h1 class="text-xl font-bold text-ink">{{ formTitle }}</h1>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button class="btn-secondary btn-sm" type="button" @click="router.push({ name: 'account-addresses' })">{{ $t('actions.cancel') }}</button>
-        <button class="btn-primary btn-sm" type="submit" :disabled="saving">
-          <Save class="h-4 w-4" />
-          {{ isEdit ? $t('account.update_address') : $t('account.add_address') }}
-        </button>
-      </div>
-    </div>
+  <form class="max-w-4xl space-y-6" @submit.prevent="save()">
+    <router-link to="/account/addresses" class="inline-flex min-h-10 items-center gap-2 text-sm text-muted hover:text-primary"><ArrowLeft class="h-4 w-4" />{{ $t('account.my_addresses') }}</router-link>
+    <p v-if="saveError" role="alert" class="rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-500">{{ saveError }}</p>
 
-    <div v-if="initializing" class="card p-10 text-center">
-      <p class="text-sm text-gray-500 dark:text-muted">{{ $t('common.loading') }}</p>
-    </div>
-
-    <template v-else>
+    <AccountState :loading="initializing" :error="loadError" @retry="initialize">
       <div class="card p-6">
         <div class="flex items-center gap-2.5">
           <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
@@ -167,7 +146,7 @@ async function save() {
         <div class="mt-5 grid gap-4 sm:grid-cols-2">
           <div class="sm:col-span-2">
             <label class="label" for="addr-full-name">{{ $t('checkout.full_name') }}</label>
-            <input id="addr-full-name" v-model="form.fullName" type="text" class="input" />
+            <input id="addr-full-name" v-model="form.fullName" type="text" class="input" required autocomplete="name" />
           </div>
           <div>
             <label class="label" for="addr-label">{{ $t('account.label') }}</label>
@@ -175,7 +154,7 @@ async function save() {
           </div>
           <div>
             <label class="label" for="addr-phone">{{ $t('checkout.phone') }}</label>
-            <input id="addr-phone" v-model="form.phone" type="tel" class="input" />
+            <input id="addr-phone" v-model="form.phone" type="tel" class="input" autocomplete="tel" />
           </div>
         </div>
       </div>
@@ -193,27 +172,27 @@ async function save() {
         <div class="mt-5 grid gap-4 sm:grid-cols-2">
           <div class="sm:col-span-2">
             <label class="label" for="addr-line1">{{ $t('checkout.address_line_1') }}</label>
-            <input id="addr-line1" v-model="form.line1" type="text" class="input" :placeholder="$t('checkout.street_placeholder')" />
+            <input id="addr-line1" v-model="form.line1" type="text" class="input" required autocomplete="address-line1" :placeholder="$t('checkout.street_placeholder')" />
           </div>
           <div>
             <label class="label" for="addr-line2">{{ $t('checkout.address_line_2') }}</label>
-            <input id="addr-line2" v-model="form.line2" type="text" class="input" :placeholder="$t('checkout.apt_placeholder')" />
+            <input id="addr-line2" v-model="form.line2" type="text" class="input" autocomplete="address-line2" :placeholder="$t('checkout.apt_placeholder')" />
           </div>
           <div>
             <label class="label" for="addr-city">{{ $t('checkout.city') }}</label>
-            <input id="addr-city" v-model="form.city" type="text" class="input" />
+            <input id="addr-city" v-model="form.city" type="text" class="input" required autocomplete="address-level2" />
           </div>
           <div>
             <label class="label" for="addr-state">{{ $t('checkout.state') }}</label>
-            <input id="addr-state" v-model="form.state" type="text" class="input" />
+            <input id="addr-state" v-model="form.state" type="text" class="input" required autocomplete="address-level1" />
           </div>
           <div>
             <label class="label" for="addr-postal">{{ $t('checkout.postal_code') }}</label>
-            <input id="addr-postal" v-model="form.postalCode" type="text" class="input" />
+            <input id="addr-postal" v-model="form.postalCode" type="text" class="input" required autocomplete="postal-code" />
           </div>
           <div>
             <label class="label" for="addr-country">{{ $t('checkout.country') }}</label>
-            <input id="addr-country" v-model="form.country" type="text" class="input" />
+            <input id="addr-country" v-model="form.country" type="text" class="input" autocomplete="country-name" />
           </div>
         </div>
       </div>
@@ -222,18 +201,9 @@ async function save() {
         <button class="btn-secondary" type="button" @click="router.push({ name: 'account-addresses' })">{{ $t('actions.cancel') }}</button>
         <button class="btn-primary" type="submit" :disabled="saving">
           <Save class="h-4 w-4" />
-          {{ isEdit ? $t('account.update_address') : $t('account.add_address') }}
+          {{ saving ? $t('common.saving') : isEdit ? $t('account.update_address') : $t('account.add_address') }}
         </button>
       </div>
-    </template>
-
-    <transition name="fade">
-      <div
-        v-if="toast"
-        class="fixed bottom-6 right-6 card px-5 py-3 text-sm shadow-popover"
-      >
-        {{ toast }}
-      </div>
-    </transition>
+    </AccountState>
   </form>
 </template>

@@ -1,315 +1,129 @@
 <script setup lang="ts">
-import { RouterLink, useRoute } from 'vue-router'
-import {
-  Bell,
-  Check,
-  Heart,
-  KeyRound,
-  LayoutDashboard,
-  LogOut,
-  MapPin,
-  Menu,
-  ShoppingBag,
-  Star,
-  User,
-  X
-} from 'lucide-vue-next'
+import { computed, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
+import { ArrowUpRight, Menu, ShoppingBag } from 'lucide-vue-next'
 import { useWishlistStore } from '@/stores/wishlist'
 import { useAuthStore } from '@/stores/auth'
+import { accountApi } from '@/api'
+import AccountNavigation from '@/components/account/AccountNavigation.vue'
 import ThemeToggle from '@/components/ThemeToggle.vue'
 import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
-import { useRouter } from 'vue-router'
-import { ref, computed, onMounted } from 'vue'
-import { accountApi } from '@/api'
-import type { Component } from 'vue'
-import eKhmerLogo from '@/assets/E-KHMER-LOGO.jpg'
 import ContentLayout from '@/layouts/ContentLayout.vue'
-
-interface NavItem {
-  nameKey: string
-  route: string
-  icon: Component
-  count?: number
-}
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 const wishlist = useWishlistStore()
-const mobileOpen = ref(false)
-
-const displayName = computed(() => auth.user?.name ?? '')
-const displayEmail = computed(() => auth.user?.email ?? '')
-
-const isEmailVerified = computed(() => Boolean(auth.user?.email_verified))
-
-const unreadCount = ref(0)
+const drawer = ref<HTMLDialogElement | null>(null)
+const menuButton = ref<HTMLButtonElement | null>(null)
+const drawerOpen = ref(false)
 const ordersCount = ref(0)
-
-onMounted(async () => {
-  try {
-    const [notiRes, dashRes] = await Promise.all([
-      accountApi.getNotifications(),
-      accountApi.getDashboard()
-    ])
-    unreadCount.value = (notiRes.data.data ?? []).filter((n: { read_at: string | null }) => !n.read_at).length
-    ordersCount.value = dashRes.data.orders_count ?? 0
-  } catch {
-    // ignore
-  }
-})
-
-const navItems = computed<NavItem[]>(() => [
-  { nameKey: 'nav.dashboard', route: 'account-dashboard', icon: LayoutDashboard },
-  { nameKey: 'nav.my_orders', route: 'account-orders', icon: ShoppingBag, count: ordersCount.value || undefined },
-  { nameKey: 'returns.title', route: 'account-returns', icon: ShoppingBag },
-  { nameKey: 'support.inbox', route: 'account-support', icon: Bell },
-  { nameKey: 'nav.wishlist', route: 'account-wishlist', icon: Heart, count: wishlist.count || undefined },
-  { nameKey: 'nav.addresses', route: 'account-addresses', icon: MapPin },
-  { nameKey: 'nav.profile', route: 'account-profile', icon: User },
-  { nameKey: 'nav.notifications', route: 'account-notifications', icon: Bell, count: unreadCount.value || undefined },
-  { nameKey: 'nav.reviews', route: 'account-reviews', icon: Star },
-  { nameKey: 'nav.change_password', route: 'account-password', icon: KeyRound }
-])
-
-function isActive(name: string): boolean {
-  return route.name === name
+const unreadCount = ref(0)
+provide('account-notifications-read', (count: number) => { unreadCount.value = count })
+const pageKeys: Record<string, [string, string]> = {
+  'account-dashboard': ['nav.dashboard', 'dashboard_help'],
+  'account-orders': ['nav.my_orders', 'orders_help'],
+  'account-order-detail': ['account.ui.order_details', 'order_detail_help'],
+  'account-wishlist': ['nav.wishlist', 'wishlist_help'],
+  'account-addresses': ['account.my_addresses', 'addresses_help'],
+  'account-address-create': ['account.add_address', 'address_form_help'],
+  'account-address-edit': ['account.edit_address', 'address_form_help'],
+  'account-profile': ['nav.profile', 'profile_help'],
+  'account-notifications': ['nav.notifications', 'notifications_help'],
+  'account-reviews': ['nav.reviews', 'reviews_help'],
+  'account-password': ['account.change_password', 'password_help'],
+  'account-returns': ['returns.title', 'returns_help'],
+  'account-support': ['support.inbox', 'support_help']
 }
-
+const page = computed(() => pageKeys[String(route.name)] ?? pageKeys['account-dashboard']!)
 const resending = ref(false)
 const resendSent = ref(false)
 const resendError = ref(false)
-
-const showVerifyBanner = computed(
-  () => auth.isAuthenticated && !auth.user?.email_verified
-)
-
-async function resendVerification() {
-  resending.value = true
-  resendSent.value = false
-  resendError.value = false
-  try {
-    await auth.sendVerificationEmail()
-    resendSent.value = true
-  } catch {
-    resendError.value = true
-  } finally {
-    resending.value = false
+const showVerifyBanner = computed(() => auth.isAuthenticated && !auth.user?.email_verified)
+let previousOverflow = ''
+function closeDrawer() { drawer.value?.close() }
+function openDrawer() {
+  if (drawer.value?.open) return
+  previousOverflow = document.body.style.overflow
+  document.body.style.overflow = 'hidden'
+  drawer.value?.showModal()
+  drawerOpen.value = true
+}
+function onDrawerClosed() {
+  drawerOpen.value = false
+  document.body.style.overflow = previousOverflow
+  menuButton.value?.focus()
+}
+function backdropClick(event: MouseEvent) {
+  if (event.target === drawer.value) closeDrawer()
+}
+function onDrawerKeydown(event: KeyboardEvent) {
+  if (event.key !== 'Tab' || !drawer.value) return
+  const controls = [...drawer.value.querySelectorAll<HTMLElement>('a[href], button:not([disabled])')]
+    .filter(element => element.getClientRects().length > 0)
+  const first = controls[0]
+  const last = controls[controls.length - 1]
+  if (!first || !last) return
+  if (event.shiftKey && document.activeElement === first) {
+    event.preventDefault()
+    last.focus()
+  } else if (!event.shiftKey && document.activeElement === last) {
+    event.preventDefault()
+    first.focus()
   }
 }
-
-async function signOut() {
-  await auth.logout()
-  router.push('/auth/login')
+watch(() => route.fullPath, closeDrawer)
+const desktopQuery = window.matchMedia('(min-width: 1024px)')
+function onViewportChange() { if (desktopQuery.matches) closeDrawer() }
+onMounted(async () => {
+  desktopQuery.addEventListener('change', onViewportChange)
+  const results = await Promise.allSettled([accountApi.getNotifications(), accountApi.getDashboard(), wishlist.fetchProducts()])
+  const notifications = results[0]
+  if (notifications.status === 'fulfilled') unreadCount.value = (notifications.value.data.data ?? []).filter(n => !n.read_at).length
+  const dashboard = results[1]
+  if (dashboard.status === 'fulfilled') ordersCount.value = dashboard.value.data.orders_count ?? 0
+})
+onBeforeUnmount(() => {
+  desktopQuery.removeEventListener('change', onViewportChange)
+  if (drawer.value?.open) document.body.style.overflow = previousOverflow
+})
+async function resendVerification() {
+  resending.value = true; resendSent.value = false; resendError.value = false
+  try { await auth.sendVerificationEmail(); resendSent.value = true }
+  catch { resendError.value = true }
+  finally { resending.value = false }
 }
+async function signOut() { closeDrawer(); await auth.logout(); router.push('/auth/login') }
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col bg-canvas lg:flex-row">
-    <header class="sticky top-0 z-40 shrink-0 border-b border-border-gray bg-surface lg:hidden">
-      <ContentLayout class="flex items-center justify-between py-3">
-        <button type="button" class="btn-icon" @click="mobileOpen = true">
-          <Menu class="h-5 w-5" />
-        </button>
-        <h2 class="text-base font-bold text-ink">{{ $t('account.my_account') }}</h2>
-        <div class="flex items-center gap-1">
-          <ThemeToggle />
-          <LanguageSwitcher />
-          <RouterLink to="/" class="btn-icon">
-            <ShoppingBag class="h-5 w-5" />
-          </RouterLink>
-        </div>
-      </ContentLayout>
-    </header>
-
-    <div v-if="mobileOpen" class="fixed inset-0 z-50 lg:hidden">
-      <div class="absolute inset-0 bg-black/50" @click="mobileOpen = false"></div>
-      <div class="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col overflow-y-auto bg-surface shadow-2xl dark:shadow-black/40">
-        <div class="flex h-16 shrink-0 items-center gap-2.5 border-b border-border-gray px-4">
-          <img :src="eKhmerLogo" alt="E-KHMER" class="h-9 w-9 shrink-0 rounded-lg object-cover" />
-          <div class="flex flex-col items-start leading-none">
-            <span class="text-base font-extrabold tracking-tight text-ink">E-KHMER</span>
-            <span class="chip mt-1 !px-2 !py-0 text-[10px] uppercase tracking-wide">{{ $t('account.my_account') }}</span>
-          </div>
-          <button type="button" class="btn-icon ml-auto" :title="$t('actions.close')" @click="mobileOpen = false">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-
-        <div class="p-4">
-          <div class="flex items-center gap-3 rounded-xl border border-border-gray bg-canvas/60 p-4">
-            <div class="relative shrink-0">
-              <div class="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-white overflow-hidden ring-2 ring-surface">
-                <img v-if="auth.user?.avatar" :key="auth.user.avatar" :src="auth.user.avatar" :alt="displayName" class="h-full w-full object-cover" />
-                <User v-else class="h-5 w-5" />
-              </div>
-              <span
-                v-if="isEmailVerified"
-                class="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-success text-white ring-2 ring-surface"
-              >
-                <Check class="h-2.5 w-2.5" />
-              </span>
-            </div>
-            <div class="min-w-0">
-              <p class="truncate text-sm font-semibold text-ink">{{ displayName }}</p>
-              <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-muted">{{ displayEmail }}</p>
-            </div>
-          </div>
-        </div>
-        <nav class="flex-1 space-y-1 p-4">
-          <RouterLink
-            v-for="item in navItems"
-            :key="item.route"
-            :to="{ name: item.route }"
-            class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm"
-            :class="isActive(item.route) ? 'bg-primary/10 font-semibold text-primary' : 'text-gray-600 hover:bg-gray-100 dark:text-muted dark:hover:bg-surface-hover'"
-          >
-            <component :is="item.icon" class="h-5 w-5 shrink-0" />
-            <span>{{ $t(item.nameKey) }}</span>
-            <span
-              v-if="item.count"
-              class="ml-auto rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary"
-            >
-              {{ item.count }}
-            </span>
-          </RouterLink>
-        </nav>
-        <div class="border-t border-border-gray p-4">
-          <RouterLink
-            to="/"
-            class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-600 dark:text-muted hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-ink dark:hover:text-ink"
-          >
-            <ShoppingBag class="h-5 w-5 shrink-0" />
-            {{ $t('nav.back_to_store') }}
-          </RouterLink>
-          <button
-            type="button"
-            class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-600 dark:text-muted hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-red-500"
-            @click="signOut"
-          >
-            <LogOut class="h-5 w-5 shrink-0" />
-            {{ $t('nav.sign_out') }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <aside class="sticky top-0 hidden h-screen max-h-screen w-72 shrink-0 self-start flex-col overflow-hidden border-r border-border-gray bg-surface lg:flex">
-      <div class="flex h-16 shrink-0 items-center gap-2.5 border-b border-border-gray px-4">
-        <img :src="eKhmerLogo" alt="E-KHMER" class="h-9 w-9 shrink-0 rounded-lg object-cover" />
-        <div class="flex flex-col items-start leading-none">
-          <span class="text-base font-extrabold tracking-tight text-ink">E-KHMER</span>
-          <span class="chip mt-1 !px-2 !py-0 text-[10px] uppercase tracking-wide">{{ $t('account.my_account') }}</span>
-        </div>
-      </div>
-
-      <div class="px-4 pt-4">
-        <div class="flex items-center gap-3 rounded-xl border border-border-gray bg-canvas/60 p-4">
-          <div class="relative shrink-0">
-            <div class="flex h-12 w-12 items-center justify-center rounded-full bg-primary text-sm font-bold text-white overflow-hidden ring-2 ring-surface">
-              <img v-if="auth.user?.avatar" :key="auth.user.avatar" :src="auth.user.avatar" :alt="displayName" class="h-full w-full object-cover" />
-              <User v-else class="h-6 w-6" />
-            </div>
-            <span
-              v-if="isEmailVerified"
-              class="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-success text-white ring-2 ring-surface"
-            >
-              <Check class="h-2.5 w-2.5" />
-            </span>
-          </div>
-          <div class="min-w-0">
-            <p class="truncate text-sm font-semibold text-ink">{{ displayName }}</p>
-            <p class="mt-0.5 truncate text-xs text-gray-500 dark:text-muted">{{ displayEmail }}</p>
-          </div>
-        </div>
-      </div>
-
-      <div class="px-6 pb-1 pt-5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 dark:text-gray-500">
-        {{ $t('account.my_account') }}
-      </div>
-
-      <nav class="flex-1 space-y-1 overflow-y-auto px-3 pb-4">
-        <RouterLink
-          v-for="item in navItems"
-          :key="item.route"
-          :to="{ name: item.route }"
-          class="group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors"
-          :class="isActive(item.route) ? 'bg-primary/10 font-semibold text-primary' : 'text-gray-600 hover:bg-gray-100 dark:text-muted dark:hover:bg-surface-hover'"
-        >
-          <span
-            class="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r-full bg-primary"
-            :class="isActive(item.route) ? 'opacity-100' : 'opacity-0 transition-opacity group-hover:opacity-40'"
-          ></span>
-          <span
-            class="flex h-8 w-8 items-center justify-center rounded-lg transition-colors"
-            :class="isActive(item.route) ? 'bg-primary/15 text-primary' : 'bg-gray-50 text-gray-500 dark:bg-surface-hover dark:text-muted group-hover:text-ink'"
-          >
-            <component :is="item.icon" class="h-[18px] w-[18px] shrink-0" />
-          </span>
-          <span class="flex-1 truncate">{{ $t(item.nameKey) }}</span>
-          <span
-            v-if="item.count"
-            class="rounded-full px-2 py-0.5 text-xs font-semibold"
-            :class="isActive(item.route) ? 'bg-primary text-white' : 'bg-primary/10 text-primary'"
-          >
-            {{ item.count }}
-          </span>
-        </RouterLink>
-      </nav>
-
-      <div class="shrink-0 border-t border-border-gray p-3">
-        <RouterLink
-          to="/"
-          class="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-600 dark:text-muted transition-colors hover:bg-gray-100 dark:hover:bg-surface-hover hover:text-ink"
-        >
-          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500 dark:bg-surface-hover dark:text-muted">
-            <ShoppingBag class="h-[18px] w-[18px] shrink-0" />
-          </span>
-          {{ $t('nav.back_to_store') }}
-        </RouterLink>
-        <button
-          type="button"
-          class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm text-gray-600 dark:text-muted transition-colors hover:bg-red-50 hover:text-red-500 dark:hover:bg-red-500/10 dark:hover:text-red-400"
-          @click="signOut"
-        >
-          <span class="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-50 text-gray-500 dark:bg-surface-hover dark:text-muted">
-            <LogOut class="h-[18px] w-[18px] shrink-0" />
-          </span>
-          {{ $t('nav.sign_out') }}
-        </button>
-      </div>
+  <div class="account-shell flex min-h-screen bg-canvas">
+    <a href="#account-content" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[60] focus:rounded-lg focus:bg-surface focus:p-3">{{ $t('account.ui.skip_content') }}</a>
+    <aside class="sticky top-0 hidden h-dvh w-64 shrink-0 border-r border-border-gray lg:block xl:w-72">
+      <AccountNavigation :orders-count="ordersCount" :unread-count="unreadCount" :wishlist-count="wishlist.count" @sign-out="signOut" />
     </aside>
-
-    <ContentLayout as="main" class="flex-1 py-4 sm:py-6 lg:py-8">
-      <div class="mb-6 flex items-center justify-between gap-3">
-        <h1 class="text-2xl font-bold text-ink">{{ route.meta.title ?? 'Dashboard' }}</h1>
-        <div class="flex items-center gap-1">
-          <LanguageSwitcher />
-          <ThemeToggle />
+    <dialog id="account-navigation" ref="drawer" :aria-label="$t('account.my_account')" class="account-drawer fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-80 max-w-[88vw] border-0 bg-surface p-0 text-ink shadow-2xl backdrop:bg-black/50" @click="backdropClick" @close="onDrawerClosed" @keydown="onDrawerKeydown">
+      <div class="h-full" @click.stop><AccountNavigation mobile :orders-count="ordersCount" :unread-count="unreadCount" :wishlist-count="wishlist.count" @navigate="closeDrawer" @close="closeDrawer" @sign-out="signOut" /></div>
+    </dialog>
+    <div class="min-w-0 flex-1">
+      <header class="sticky top-0 z-30 flex h-16 items-center justify-between gap-3 border-b border-border-gray bg-surface/95 px-4 backdrop-blur sm:px-6 lg:h-20 lg:px-8">
+        <div class="flex min-w-0 items-center gap-2">
+          <button ref="menuButton" type="button" class="btn-icon shrink-0 lg:hidden" :aria-label="$t('account.ui.open_menu')" :aria-expanded="drawerOpen" aria-controls="account-navigation" @click="openDrawer"><Menu class="h-5 w-5" /></button>
+          <RouterLink to="/account" class="truncate text-sm font-medium text-muted hover:text-primary">{{ $t('account.my_account') }}</RouterLink>
         </div>
-      </div>
-      <div
-        v-if="showVerifyBanner"
-        class="mb-6 flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm sm:flex-row sm:items-center dark:border-amber-900/50 dark:bg-amber-900/20"
-      >
-        <div class="flex-1">
-          <p class="font-semibold text-amber-800 dark:text-amber-300">{{ $t('verify.banner_message') }}</p>
-          <p class="mt-0.5 text-amber-700 dark:text-amber-400">{{ $t('verify.banner_hint') }}</p>
-          <p v-if="resendSent" class="mt-1 font-medium text-emerald-600 dark:text-success">
-            {{ $t('verify.email_sent') }}
-          </p>
-          <p v-else-if="resendError" class="mt-1 font-medium text-red-500">{{ $t('verify.resend_failed') }}</p>
+        <div class="flex shrink-0 items-center gap-1">
+          <RouterLink to="/shop" class="btn-ghost mr-2 hidden sm:inline-flex"><ShoppingBag class="h-4 w-4" />{{ $t('account.ui.shop') }}<ArrowUpRight class="h-3.5 w-3.5" /></RouterLink>
+          <LanguageSwitcher /><ThemeToggle />
         </div>
-        <button
-          type="button"
-          class="btn-outline shrink-0"
-          :disabled="resending"
-          @click="resendVerification"
-        >
-          {{ resending ? $t('verify.sending') : $t('verify.banner_resend') }}
-        </button>
-      </div>
-      <router-view />
-    </ContentLayout>
+      </header>
+      <ContentLayout as="main" id="account-content" tabindex="-1" class="account-content py-6 sm:py-8">
+        <div class="mb-6 sm:mb-8"><h1 class="text-2xl font-bold tracking-tight text-ink sm:text-3xl">{{ $t(page[0]) }}</h1><p class="mt-2 max-w-2xl text-sm leading-relaxed text-muted">{{ $t('account.ui.' + page[1]) }}</p></div>
+        <div v-if="showVerifyBanner" class="mb-6 flex flex-col gap-3 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm sm:flex-row sm:items-center">
+          <div class="flex-1"><p class="font-semibold">{{ $t('verify.banner_message') }}</p><p class="mt-1 text-muted">{{ $t('verify.banner_hint') }}</p><p v-if="resendSent" role="status" class="mt-2 text-success">{{ $t('verify.email_sent') }}</p><p v-if="resendError" role="alert" class="mt-2 text-red-500">{{ $t('verify.resend_failed') }}</p></div>
+          <button type="button" class="btn-secondary shrink-0" :disabled="resending" @click="resendVerification">{{ $t(resending ? 'verify.sending' : 'verify.banner_resend') }}</button>
+        </div>
+        <router-view />
+      </ContentLayout>
+    </div>
   </div>
 </template>

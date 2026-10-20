@@ -1,123 +1,57 @@
 <script setup lang="ts">
-import { RouterLink, useRouter } from 'vue-router'
+import { onMounted, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ShoppingBag } from 'lucide-vue-next'
-import { ordersApi } from '@/api/orders'
+import { ordersApi, type ApiOrderListItem } from '@/api/orders'
 import EmptyState from '@/components/EmptyState.vue'
-import StatusTag from '@/components/StatusTag.vue'
-import { formatDate, formatPrice } from '@/utils/format'
-import { onMounted, ref } from 'vue'
-import { extractErrorMessage } from '@/api/errors'
-
-interface OrderRow {
-  id: string
-  number: string
-  placedAt: string
-  total: number
-  status: string
-  itemsCount: number
-}
+import BasePagination from '@/components/BasePagination.vue'
+import AccountOrderList from '@/components/account/AccountOrderList.vue'
+import AccountState from '@/components/account/AccountState.vue'
 
 const router = useRouter()
 const { t } = useI18n()
-
-const orders = ref<OrderRow[]>([])
+const orders = ref<ApiOrderListItem[]>([])
 const loading = ref(true)
 const error = ref('')
-
-function capitalizeStatus(status: string): string {
-  return status.charAt(0).toUpperCase() + status.slice(1)
-}
-
-async function loadOrders() {
+const status = ref('')
+const meta = ref({ current_page: 1, last_page: 1, per_page: 15, total: 0 })
+const statuses = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded']
+let requestId = 0
+async function loadOrders(page = 1) {
+  const current = ++requestId
   loading.value = true
   error.value = ''
   try {
-    const res = await ordersApi.list()
-    orders.value = (res.data.data ?? []).map((o) => ({
-      id: o.order_number,
-      number: o.order_number,
-      placedAt: o.placed_at,
-      total: o.total,
-      status: capitalizeStatus(o.status),
-      itemsCount: o.items_count
-    }))
-  } catch (requestError) {
-    error.value = extractErrorMessage(requestError, 'Could not load your orders.')
+    const { data } = await ordersApi.list(status.value || undefined, page)
+    if (current !== requestId) return
+    orders.value = data.data
+    meta.value = data.meta
+  } catch {
+    if (current === requestId) error.value = t('account.ui.load_error')
   } finally {
-    loading.value = false
+    if (current === requestId) loading.value = false
   }
 }
-
+function resetFilter() { status.value = ''; void loadOrders() }
 onMounted(loadOrders)
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div v-if="!loading && !error" class="flex justify-end">
-      <span class="chip w-fit">{{ $t('order.count_orders', { count: orders.length }, orders.length) }}</span>
+  <div class="space-y-5">
+    <div class="account-toolbar">
+      <div class="flex items-center gap-3">
+        <label for="order-status" class="sr-only">{{ $t('order.status') }}</label>
+        <select id="order-status" v-model="status" class="select w-auto min-w-40" @change="loadOrders()"><option value="">{{ $t('account.ui.all_statuses') }}</option><option v-for="item in statuses" :key="item" :value="item">{{ $t('status.' + item) }}</option></select>
+      </div>
+      <span v-if="!loading && !error" class="chip">{{ $t('order.count_orders', { count: meta.total }, meta.total) }}</span>
     </div>
-
-    <div v-if="loading" class="card p-10 text-center">
-      <p class="text-sm text-gray-500 dark:text-muted">{{ $t('common.loading') }}</p>
-    </div>
-
-    <div v-else-if="error" class="card p-10 text-center">
-      <p class="text-sm text-red-600">{{ error }}</p>
-      <button type="button" class="btn-secondary btn-sm mt-4" @click="loadOrders">{{ $t('actions.retry') }}</button>
-    </div>
-
-    <div v-else-if="orders.length" class="card overflow-x-auto p-0">
-      <table class="w-full min-w-[720px] text-sm">
-        <thead>
-          <tr class="border-b border-border-gray dark:border-border-gray text-left text-xs uppercase tracking-wide text-gray-500 dark:text-muted">
-            <th class="px-4 py-3 font-semibold">{{ $t('order.order') }}</th>
-            <th class="px-4 py-3 font-semibold">{{ $t('order.placed') }}</th>
-            <th class="px-4 py-3 font-semibold">{{ $t('order.items') }}</th>
-            <th class="px-4 py-3 font-semibold">{{ $t('order.total') }}</th>
-            <th class="px-4 py-3 font-semibold">{{ $t('order.status') }}</th>
-            <th class="px-4 py-3 font-semibold">{{ $t('order.action') }}</th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-border-gray dark:divide-border-gray">
-          <tr v-for="o in orders" :key="o.id">
-            <td class="px-4 py-3">
-              <RouterLink
-                :to="{ name: 'account-order-detail', params: { orderNumber: o.number } }"
-                class="font-semibold text-primary hover:underline"
-              >
-                {{ o.number }}
-              </RouterLink>
-            </td>
-            <td class="px-4 py-3 text-gray-600 dark:text-muted">{{ formatDate(o.placedAt) }}</td>
-            <td class="px-4 py-3 text-gray-600 dark:text-muted">{{ o.itemsCount }} {{ t('order.items') }}</td>
-            <td class="px-4 py-3 font-medium text-ink dark:text-ink">{{ formatPrice(o.total) }}</td>
-            <td class="px-4 py-3">
-              <StatusTag :status="o.status" />
-            </td>
-            <td class="px-4 py-3">
-              <RouterLink
-                :to="`/order/tracking/${o.number}`"
-                class="btn-secondary btn-sm"
-              >
-                {{ $t('order.track') }}
-              </RouterLink>
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
-
-    <EmptyState
-      v-else
-      :title="$t('account.no_orders_title')"
-      :description="$t('account.no_orders_description')"
-      :cta-label="$t('account.start_shopping')"
-      @cta="router.push('/shop')"
-    >
-      <template #icon>
-        <ShoppingBag class="h-10 w-10 text-gray-300" />
+    <AccountState :loading="loading" :error="error" @retry="loadOrders(meta.current_page)">
+      <template v-if="orders.length">
+        <AccountOrderList :orders="orders" />
+        <BasePagination :page="meta.current_page" :page-count="meta.last_page" :total-items="meta.total" :page-size="meta.per_page" @update:page="loadOrders" />
       </template>
-    </EmptyState>
+      <EmptyState v-else :title="$t(status ? 'account.ui.filtered_orders_empty' : 'account.no_orders_title')" :description="$t(status ? 'account.ui.filtered_orders_help' : 'account.no_orders_description')" :cta-label="$t(status ? 'account.ui.reset_filter' : 'account.start_shopping')" @cta="status ? resetFilter() : router.push('/shop')"><template #icon><ShoppingBag class="h-7 w-7" /></template></EmptyState>
+    </AccountState>
   </div>
 </template>

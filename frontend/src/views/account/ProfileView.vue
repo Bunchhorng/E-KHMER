@@ -19,9 +19,12 @@ import {
 import { accountApi } from '@/api/account'
 import { useAuthStore } from '@/stores/auth'
 import { formatDate } from '@/utils/format'
-import { computed, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 const authStore = useAuthStore()
+const { t } = useI18n()
+const saveError = ref('')
 const activeUser = computed(() => authStore.user)
 
 const form = reactive({
@@ -57,12 +60,14 @@ function onAvatarSelected(e: Event) {
   const input = e.target as HTMLInputElement
   const file = input.files?.[0]
   if (!file) return
-  if (file.size > 2 * 1024 * 1024) {
+  if (avatarLoading.value) return
+  if (file.size > 2 * 1024 * 1024 || !['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) {
     avatarError.value = true
     if (avatarTimer) clearTimeout(avatarTimer)
     avatarTimer = setTimeout(() => (avatarError.value = false), 3000)
     return
   }
+  if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
   avatarPreview.value = URL.createObjectURL(file)
   avatarSaved.value = false
   avatarError.value = false
@@ -86,12 +91,16 @@ async function uploadAvatar(file: File) {
     avatarTimer = setTimeout(() => (avatarError.value = false), 3000)
   } finally {
     avatarLoading.value = false
+    if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
+    avatarPreview.value = null
   }
 }
 
 async function saveProfile() {
   if (saving.value) return
   saving.value = true
+  saved.value = false
+  saveError.value = ''
   try {
     const res = await accountApi.updateProfile({
       name: form.name.trim(),
@@ -109,10 +118,17 @@ async function saveProfile() {
     saved.value = true
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => { saved.value = false }, 3000)
+  } catch {
+    saveError.value = t('account.ui.save_error')
   } finally {
     saving.value = false
   }
 }
+onBeforeUnmount(() => {
+  if (timer) clearTimeout(timer)
+  if (avatarTimer) clearTimeout(avatarTimer)
+  if (avatarPreview.value) URL.revokeObjectURL(avatarPreview.value)
+})
 </script>
 
 <template>
@@ -128,9 +144,9 @@ async function saveProfile() {
             class="flex h-20 w-20 items-center justify-center rounded-2xl bg-gradient-to-br from-white/30 to-white/10 text-2xl font-extrabold text-white shadow-lg ring-2 ring-white/40 sm:h-24 sm:w-24 overflow-hidden"
           >
             <img
-              v-if="avatarUrl"
-              :key="avatarUrl"
-              :src="avatarPreview ?? avatarUrl"
+              v-if="avatarPreview || avatarUrl"
+              :key="avatarPreview ?? avatarUrl ?? undefined"
+              :src="avatarPreview ?? avatarUrl ?? undefined"
               :alt="activeUser?.name ?? ''"
               class="h-full w-full object-cover"
             />
@@ -142,6 +158,8 @@ async function saveProfile() {
             type="button"
             class="absolute inset-0 flex items-center justify-center rounded-2xl bg-black/50 opacity-0 transition-opacity group-hover:opacity-100 focus:opacity-100"
             :title="$t('account.change_photo')"
+            :aria-label="$t('account.change_photo')"
+            :disabled="avatarLoading"
             @click="triggerAvatarPicker"
           >
             <span v-if="avatarLoading" class="flex items-center justify-center">
@@ -175,9 +193,9 @@ async function saveProfile() {
             <Mail class="h-4 w-4 shrink-0" />
             <span class="truncate">{{ emailDisplay }}</span>
           </p>
-          <p class="mt-3 flex items-center gap-2 text-xs text-white/70">
+          <p v-if="activeUser?.created_at" class="mt-3 flex items-center gap-2 text-xs text-white/70">
             <ShieldCheck class="h-4 w-4 shrink-0" />
-            {{ $t('account.member_since', { date: formatDate(activeUser?.created_at ?? new Date().toISOString()) }) }}
+            {{ $t('account.member_since', { date: formatDate(activeUser.created_at) }) }}
           </p>
         </div>
 
@@ -186,7 +204,6 @@ async function saveProfile() {
           <span class="chip !bg-white/15 !text-white backdrop-blur-sm">
             {{ isAdmin ? $t('account.admin_role') : $t('account.customer_role') }}
           </span>
-          <span class="text-xs font-medium text-white/60">{{ activeUser?.email }}</span>
         </div>
       </div>
 
@@ -212,9 +229,9 @@ async function saveProfile() {
     </div>
 
     <!-- Main grid -->
-    <div class="grid gap-6 lg:grid-cols-3">
+    <div class="grid items-start gap-6 xl:grid-cols-3">
       <!-- Personal information form -->
-      <div class="card p-6 lg:col-span-2">
+      <div class="card p-5 sm:p-6 xl:col-span-2">
         <div class="flex items-start justify-between gap-4">
           <div>
             <h3 class="text-lg font-bold text-ink">{{ $t('account.personal_information') }}</h3>
@@ -233,7 +250,7 @@ async function saveProfile() {
                 {{ $t('checkout.full_name') }}
               </span>
             </label>
-            <input id="profile-name" v-model="form.name" type="text" class="input" />
+            <input id="profile-name" v-model="form.name" type="text" class="input" required maxlength="255" autocomplete="name" />
           </div>
           <div>
             <label class="label" for="profile-phone">
@@ -242,7 +259,7 @@ async function saveProfile() {
                 {{ $t('checkout.phone') }}
               </span>
             </label>
-            <input id="profile-phone" v-model="form.phone" type="tel" class="input" />
+            <input id="profile-phone" v-model="form.phone" type="tel" class="input" autocomplete="tel" />
           </div>
 
           <div class="sm:col-span-2">
@@ -264,9 +281,10 @@ async function saveProfile() {
             </p>
           </div>
 
-          <div class="sm:col-span-2 flex items-center justify-end gap-3">
+          <p v-if="saveError" role="alert" class="sm:col-span-2 text-sm text-red-500">{{ saveError }}</p>
+          <div class="sm:col-span-2 flex flex-wrap items-center justify-end gap-3 border-t border-border-gray pt-5">
             <Transition name="fade-in">
-              <p v-if="saved" class="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-success">
+              <p v-if="saved" role="status" class="flex items-center gap-2 text-sm font-medium text-emerald-600 dark:text-success">
                 <CheckCircle2 class="h-4 w-4 shrink-0" />
                 {{ $t('account.save_successful') }}
               </p>
@@ -294,7 +312,6 @@ async function saveProfile() {
                 </span>
                 <div>
                   <p class="text-xs text-gray-500 dark:text-muted">{{ $t('account.email_status') }}</p>
-                  <p class="text-sm font-medium text-gray-600 dark:text-muted">{{ emailDisplay }}</p>
                 </div>
               </div>
               <span

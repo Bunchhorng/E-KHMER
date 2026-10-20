@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { CheckCircle2, Eye, EyeOff } from 'lucide-vue-next'
-import { clamp } from '@/utils/format'
+import { CheckCircle2, Eye, EyeOff, ShieldCheck } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { computed, reactive, ref } from 'vue'
 import { accountApi } from '@/api/account'
@@ -24,26 +23,33 @@ const submitting = ref(false)
 const showNew = ref(false)
 const showConfirm = ref(false)
 
-const strengthPercent = computed(() => clamp((form.password.length / 12) * 100, 0, 100))
+const strengthScore = computed(() => {
+  const password = form.password
+  if (!password) return 0
+  if (password.length < 8) return 1
+  return 1 + Number(password.length >= 12) + Number(/[a-z]/.test(password) && /[A-Z]/.test(password)) + Number(/\d/.test(password) && /[^a-zA-Z0-9]/.test(password))
+})
+const strengthPercent = computed(() => strengthScore.value * 25)
 
 const strengthBar = computed(() => {
-  const length = form.password.length
-  if (length === 0) return 'bg-gray-200'
-  if (length < 5) return 'bg-red-500'
-  if (length < 8) return 'bg-accent'
+  const score = strengthScore.value
+  if (score === 0) return 'bg-gray-200'
+  if (score === 1) return 'bg-red-500'
+  if (score === 2) return 'bg-accent'
   return 'bg-success'
 })
 
 const strengthLabel = computed(() => {
-  const length = form.password.length
-  if (length === 0) return ''
-  if (length < 5) return t('account.password_weak')
-  if (length < 8) return t('account.password_fair')
-  if (length < 12) return t('account.password_good')
+  const score = strengthScore.value
+  if (score === 0) return ''
+  if (score === 1) return t('account.password_weak')
+  if (score === 2) return t('account.password_fair')
+  if (score === 3) return t('account.password_good')
   return t('account.password_strong')
 })
 
 async function submit() {
+  if (submitting.value) return
   errors.current = form.current.length ? '' : t('account.require_current_password')
   errors.password = form.password.length >= 8 ? '' : t('error.password_short')
   errors.confirm = form.confirm && form.confirm === form.password ? '' : t('error.password_mismatch')
@@ -72,12 +78,9 @@ async function submit() {
 </script>
 
 <template>
-  <div>
-    <div class="card space-y-6 p-6">
-      <div>
-        <h2 class="text-xl font-bold text-ink dark:text-ink">{{ $t('account.change_password') }}</h2>
-        <p class="mt-1 text-sm text-gray-500 dark:text-muted">{{ $t('account.change_password_subtitle') }}</p>
-      </div>
+  <div class="w-full">
+  <div class="grid max-w-5xl items-start gap-6 xl:grid-cols-3">
+    <div class="card space-y-6 p-5 sm:p-6 xl:col-span-2">
 
       <form class="space-y-4" @submit.prevent="submit">
         <div>
@@ -86,6 +89,9 @@ async function submit() {
             id="cp-current"
             v-model="form.current"
             type="password"
+            autocomplete="current-password"
+            required
+            :aria-invalid="Boolean(errors.current)"
             class="input"
             :class="{ 'input-error': Boolean(errors.current) }"
           />
@@ -99,12 +105,18 @@ async function submit() {
               id="cp-new"
               v-model="form.password"
               :type="showNew ? 'text' : 'password'"
+              autocomplete="new-password"
+              required
+              minlength="8"
+              :aria-invalid="Boolean(errors.password)"
               class="input pr-10"
               :class="{ 'input-error': Boolean(errors.password) }"
             />
             <button
               type="button"
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+              class="btn-icon absolute right-0 top-1/2 -translate-y-1/2"
+              :aria-label="$t(showNew ? 'account.ui.hide_password' : 'account.ui.show_password')"
+              :aria-pressed="showNew"
               @click="showNew = !showNew"
             >
               <Eye v-if="!showNew" class="h-4 w-4" />
@@ -133,12 +145,17 @@ async function submit() {
               id="cp-confirm"
               v-model="form.confirm"
               :type="showConfirm ? 'text' : 'password'"
+              autocomplete="new-password"
+              required
+              :aria-invalid="Boolean(errors.confirm)"
               class="input pr-10"
               :class="{ 'input-error': Boolean(errors.confirm) }"
             />
             <button
               type="button"
-              class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300"
+              class="btn-icon absolute right-0 top-1/2 -translate-y-1/2"
+              :aria-label="$t(showConfirm ? 'account.ui.hide_password' : 'account.ui.show_password')"
+              :aria-pressed="showConfirm"
               @click="showConfirm = !showConfirm"
             >
               <Eye v-if="!showConfirm" class="h-4 w-4" />
@@ -153,10 +170,12 @@ async function submit() {
         </button>
       </form>
 
-      <p v-if="success" class="flex items-start gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-3 text-sm font-medium text-emerald-700 dark:text-success">
+      <p v-if="success" role="status" class="flex items-start gap-2 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 p-3 text-sm font-medium text-emerald-700 dark:text-success">
         <CheckCircle2 class="h-4 w-4 shrink-0" />
         {{ $t('account.password_changed') }}
       </p>
     </div>
+    <aside class="rounded-2xl border border-primary/15 bg-primary/5 p-5"><ShieldCheck class="h-7 w-7 text-primary" /><h2 class="mt-4 text-sm font-semibold">{{ $t('account.ui.password_safety') }}</h2><p class="mt-2 text-sm leading-relaxed text-muted">{{ $t('account.ui.password_tip') }}</p></aside>
+  </div>
   </div>
 </template>

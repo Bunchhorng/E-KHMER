@@ -2,107 +2,62 @@
 import { Bell, Check, Package, ShieldCheck } from 'lucide-vue-next'
 import { accountApi, type ApiNotification } from '@/api/account'
 import { formatDateTime } from '@/utils/format'
-import { computed, onMounted, ref } from 'vue'
-import type { Component } from 'vue'
-import type { NotificationType } from '@/types'
+import { computed, inject, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
+import AccountState from '@/components/account/AccountState.vue'
+import EmptyState from '@/components/EmptyState.vue'
 
-const typeMeta: Record<NotificationType, { icon: Component; tint: string }> = {
-  order: { icon: Package, tint: 'bg-primary/10 text-primary' },
-  promo: { icon: Bell, tint: 'bg-accent/10 text-accent' },
-  system: { icon: ShieldCheck, tint: 'bg-gray-100 dark:bg-surface text-gray-600 dark:text-muted' }
-}
-
-interface NotifItem {
-  id: string
-  type: NotificationType
-  title: string
-  message: string
-  date: string
-  read: boolean
-}
-
-const notifs = ref<NotifItem[]>([])
+const { t } = useI18n()
+const updateBadge = inject<(count: number) => void>('account-notifications-read', () => {})
+const notifications = ref<ApiNotification[]>([])
 const loading = ref(true)
-
-const unreadCount = computed(() => notifs.value.filter((n) => !n.read).length)
-
-function mapNotification(n: ApiNotification): NotifItem {
-  const typeKey: NotificationType = ['order', 'promo', 'system'].includes(n.type) ? n.type as NotificationType : 'system'
-  return {
-    id: n.id,
-    type: typeKey,
-    title: n.title,
-    message: n.message,
-    date: n.created_at,
-    read: n.read_at !== null
-  }
+const error = ref('')
+const actionError = ref('')
+const busy = ref(false)
+const unreadOnly = ref(false)
+const unreadCount = computed(() => notifications.value.filter(n => !n.read_at).length)
+const visible = computed(() => unreadOnly.value ? notifications.value.filter(n => !n.read_at) : notifications.value)
+function icon(type: string) { return type === 'order' ? Package : type === 'promo' ? Bell : ShieldCheck }
+async function load() {
+  loading.value = true; error.value = ''
+  try { notifications.value = (await accountApi.getNotifications()).data.data; updateBadge(unreadCount.value) }
+  catch { error.value = t('account.ui.load_error') }
+  finally { loading.value = false }
 }
-
-async function markAllRead() {
-  if (!unreadCount.value) return
-  await accountApi.markAllNotificationsRead()
-  notifs.value.forEach((n) => {
-    n.read = true
-  })
-}
-
-async function toggleRead(n: NotifItem) {
-  if (!n.read) {
-    await accountApi.markNotificationRead(n.id)
-    n.read = true
-  }
-}
-
-onMounted(async () => {
-  loading.value = true
+async function markRead(notification?: ApiNotification) {
+  if (busy.value || (notification ? notification.read_at : !unreadCount.value)) return
+  busy.value = true; actionError.value = ''
   try {
-    const res = await accountApi.getNotifications()
-    notifs.value = (res.data.data ?? []).map(mapNotification)
-  } finally {
-    loading.value = false
-  }
-})
+    if (notification) await accountApi.markNotificationRead(notification.id)
+    else await accountApi.markAllNotificationsRead()
+    const now = new Date().toISOString()
+    notifications.value.forEach(item => { if (!notification || notification.id === item.id) item.read_at = item.read_at || now })
+    updateBadge(unreadCount.value)
+  } catch { actionError.value = t('account.ui.action_error') }
+  finally { busy.value = false }
+}
+onMounted(load)
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-ink dark:text-ink">{{ $t('nav.notifications') }}</h1>
-        <p v-if="unreadCount" class="mt-1 text-sm text-gray-500 dark:text-muted">{{ $t('account.unread_count', { count: unreadCount }) }}</p>
+  <div class="space-y-5">
+    <div class="account-toolbar">
+      <div class="inline-flex rounded-xl border border-border-gray bg-surface p-1">
+        <button type="button" :aria-pressed="!unreadOnly" class="min-h-10 rounded-lg px-3 text-sm" :class="!unreadOnly ? 'bg-primary/10 font-semibold text-primary' : 'text-muted'" @click="unreadOnly = false">{{ $t('account.ui.all_notifications') }}</button>
+        <button type="button" :aria-pressed="unreadOnly" class="min-h-10 rounded-lg px-3 text-sm" :class="unreadOnly ? 'bg-primary/10 font-semibold text-primary' : 'text-muted'" @click="unreadOnly = true">{{ $t('account.ui.unread') }}<span v-if="unreadCount" class="ml-1.5 rounded-full bg-primary/10 px-1.5 py-0.5 text-xs text-primary">{{ unreadCount }}</span></button>
       </div>
-      <button v-if="unreadCount" type="button" class="btn-secondary btn-sm w-fit" @click="markAllRead">
-        <Check class="h-4 w-4" />
-        {{ $t('account.mark_all_read') }}
-      </button>
+      <button v-if="unreadCount && !loading" type="button" class="btn-secondary min-h-10" :disabled="busy" @click="markRead()"><Check class="h-4 w-4" />{{ $t('account.mark_all_read') }}</button>
     </div>
-
-    <div v-if="loading" class="card p-10 text-center">
-      <p class="text-sm text-gray-500 dark:text-muted">{{ $t('common.loading') }}</p>
-    </div>
-
-    <div v-else-if="notifs.length" class="card divide-y divide-border-gray dark:divide-border-gray">
-      <button
-        v-for="n in notifs"
-        :key="n.id"
-        type="button"
-        class="relative flex w-full cursor-pointer gap-4 p-4 text-left transition-colors hover:bg-canvas dark:hover:bg-surface-hover"
-        @click="toggleRead(n)"
-      >
-        <div :class="['flex h-10 w-10 shrink-0 items-center justify-center rounded-full', typeMeta[n.type].tint]">
-          <component :is="typeMeta[n.type].icon" class="h-5 w-5" />
-        </div>
-        <div class="min-w-0 flex-1 pr-4">
-          <p :class="n.read ? 'font-medium text-gray-600 dark:text-muted' : 'font-semibold text-ink dark:text-ink'">{{ n.title }}</p>
-          <p class="mt-0.5 text-sm text-gray-500 dark:text-muted">{{ n.message }}</p>
-          <p class="mt-1 text-xs text-gray-400 dark:text-gray-500">{{ formatDateTime(n.date) }}</p>
-        </div>
-        <span v-if="!n.read" class="absolute right-4 top-4 h-2 w-2 rounded-full bg-primary"></span>
-      </button>
-    </div>
-
-    <div v-else class="card p-10 text-center">
-      <p class="text-sm text-gray-500 dark:text-muted">{{ $t('account.all_caught_up') }}</p>
-    </div>
+    <p v-if="actionError" role="alert" class="text-sm text-red-500">{{ actionError }}</p>
+    <AccountState :loading="loading" :error="error" @retry="load">
+      <div v-if="visible.length" class="card divide-y divide-border-gray overflow-hidden">
+        <button v-for="notification in visible" :key="notification.id" type="button" :disabled="busy || !!notification.read_at" class="flex w-full items-start gap-3 p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:gap-4 sm:p-5" :class="notification.read_at ? 'bg-surface' : 'bg-primary/5 hover:bg-primary/10'" @click="markRead(notification)">
+          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><component :is="icon(notification.type)" class="h-5 w-5" /></span>
+          <span class="min-w-0 flex-1"><span class="block break-words text-sm" :class="notification.read_at ? 'font-medium text-muted' : 'font-semibold text-ink'">{{ notification.title }}</span><span class="mt-1 block break-words text-sm leading-relaxed text-muted">{{ notification.message }}</span><span class="mt-2 block text-xs text-muted">{{ formatDateTime(notification.created_at) }}</span></span>
+          <span v-if="!notification.read_at" class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" :aria-label="$t('account.ui.unread')"></span>
+        </button>
+      </div>
+      <EmptyState v-else :title="$t('account.all_caught_up')" :description="$t('account.ui.notifications_empty_help')"><template #icon><Bell class="h-7 w-7" /></template></EmptyState>
+    </AccountState>
   </div>
 </template>

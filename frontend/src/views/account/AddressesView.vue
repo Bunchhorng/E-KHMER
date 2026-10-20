@@ -3,6 +3,9 @@ import { useRouter } from 'vue-router'
 import { MapPin, Pencil, Phone, Plus, Trash2 } from 'lucide-vue-next'
 import { addressesApi } from '@/api/addresses'
 import BaseBadge from '@/components/BaseBadge.vue'
+import EmptyState from '@/components/EmptyState.vue'
+import BaseModal from '@/components/BaseModal.vue'
+import AccountState from '@/components/account/AccountState.vue'
 import { useI18n } from 'vue-i18n'
 import { onMounted, ref } from 'vue'
 import type { Address } from '@/types'
@@ -14,6 +17,8 @@ const addresses = ref<Address[]>([])
 const loading = ref(true)
 const deleteError = ref('')
 const deletingId = ref<string | null>(null)
+const error = ref('')
+const pendingDelete = ref<Address | null>(null)
 
 function mapAddress(raw: { id: number; label: string | null; full_name: string; phone: string | null; address_line1: string; address_line2: string | null; city: string; state: string; postal_code: string; country: string; is_default: boolean }): Address {
   return {
@@ -33,9 +38,12 @@ function mapAddress(raw: { id: number; label: string | null; full_name: string; 
 
 async function fetchAddresses() {
   loading.value = true
+  error.value = ''
   try {
     const res = await addressesApi.list()
     addresses.value = (res.data.data ?? []).map(mapAddress)
+  } catch {
+    error.value = t('account.ui.load_error')
   } finally {
     loading.value = false
   }
@@ -49,9 +57,10 @@ async function removeAddress(address: Address) {
   deletingId.value = address.id
   try {
     await addressesApi.remove(Number(address.id))
+    pendingDelete.value = null
     await fetchAddresses()
   } catch {
-    deleteError.value = t('account.toast_load_error')
+    deleteError.value = t('account.ui.action_error')
   } finally {
     deletingId.value = null
   }
@@ -60,33 +69,22 @@ async function removeAddress(address: Address) {
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex items-center gap-3">
-        <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
-          <MapPin class="h-5 w-5" />
-        </span>
-        <h1 class="text-2xl font-bold text-ink">{{ $t('account.my_addresses') }}</h1>
-      </div>
+    <div class="flex justify-end">
       <router-link :to="{ name: 'account-address-create' }" class="btn-primary btn-sm w-fit">
         <Plus class="h-4 w-4" />
         {{ $t('checkout.add_new_address') }}
       </router-link>
     </div>
 
-    <p v-if="deleteError" class="text-sm text-red-500">{{ deleteError }}</p>
-
-    <div v-if="loading" class="card p-10 text-center">
-      <p class="text-sm text-gray-500 dark:text-muted">{{ $t('common.loading') }}</p>
-    </div>
-
-    <div v-else-if="addresses.length" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-      <div v-for="a in addresses" :key="a.id" class="card p-5 transition-shadow duration-300 hover:shadow-popover">
+    <AccountState :loading="loading" :error="error" @retry="fetchAddresses">
+    <div v-if="addresses.length" class="grid gap-4 md:grid-cols-2 2xl:grid-cols-3">
+      <div v-for="a in addresses" :key="a.id" class="card flex flex-col p-5" :class="{ '!border-primary/40': a.isDefault }">
         <div class="flex items-center gap-3">
           <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary">
             <MapPin class="h-5 w-5" />
           </span>
           <div class="flex flex-wrap items-center gap-2">
-            <span class="chip">{{ a.label }}</span>
+            <span v-if="a.label" class="chip">{{ a.label }}</span>
             <BaseBadge v-if="a.isDefault" variant="success" dot>{{ $t('account.default') }}</BaseBadge>
           </div>
         </div>
@@ -110,7 +108,7 @@ async function removeAddress(address: Address) {
             type="button"
             class="btn-ghost btn-sm text-red-500 hover:text-red-600"
             :disabled="deletingId !== null"
-            @click="removeAddress(a)"
+            @click="pendingDelete = a; deleteError = ''"
           >
             <Trash2 class="h-4 w-4" />
             {{ deletingId === a.id ? $t('common.loading') : $t('actions.delete') }}
@@ -121,8 +119,8 @@ async function removeAddress(address: Address) {
 
     <EmptyState
       v-else
-      :title="$t('account.no_addresses_title')"
-      :description="$t('account.no_addresses_description')"
+      :title="$t('account.ui.no_addresses')"
+      :description="$t('account.ui.no_addresses_help')"
       :cta-label="$t('checkout.add_new_address')"
       @cta="router.push({ name: 'account-address-create' })"
     >
@@ -130,5 +128,11 @@ async function removeAddress(address: Address) {
         <Plus class="h-10 w-10 text-gray-300" />
       </template>
     </EmptyState>
+    </AccountState>
+    <BaseModal :model-value="!!pendingDelete" :title="$t('account.ui.delete_address')" size="sm" @update:model-value="!deletingId && (pendingDelete = null)">
+      <p class="text-sm text-muted">{{ $t('account.ui.delete_address_help') }}</p><p class="mt-3 text-sm font-semibold">{{ pendingDelete?.fullName }}</p><p class="mt-1 text-sm text-muted">{{ pendingDelete?.line1 }}</p>
+      <p v-if="deleteError" role="alert" class="mt-3 text-sm text-red-500">{{ deleteError }}</p>
+      <template #footer><div class="flex justify-end gap-2"><button type="button" class="btn-secondary" :disabled="!!deletingId" @click="pendingDelete = null">{{ $t('actions.cancel') }}</button><button type="button" class="btn-danger" :disabled="!!deletingId" @click="pendingDelete && removeAddress(pendingDelete)">{{ $t(deletingId ? 'common.loading' : 'actions.delete') }}</button></div></template>
+    </BaseModal>
   </div>
 </template>

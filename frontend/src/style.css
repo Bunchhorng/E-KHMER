@@ -109,6 +109,23 @@
     @apply rounded-xl border border-border-gray bg-surface shadow-card transition-colors duration-300;
   }
 
+  .account-content > .space-y-6,
+  .account-content > .space-y-8 {
+    @apply min-w-0;
+  }
+
+  .account-content .card {
+    @apply rounded-2xl;
+  }
+
+  .account-toolbar {
+    @apply flex flex-wrap items-center justify-between gap-3;
+  }
+
+  .account-content .btn-icon {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary;
+  }
+
   /* Premium gradient banner: deep blue → midnight navy with an electric-blue radial glow */
   .hero-gradient {
     background-image:

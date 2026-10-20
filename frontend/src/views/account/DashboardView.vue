@@ -1,261 +1,84 @@
 <script setup lang="ts">
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
-import { ChevronRight, Clock, Heart, Package, PackageCheck, ShoppingBag } from 'lucide-vue-next'
+import { ArrowUpRight, Heart, MapPin, Package, ShoppingBag, Star } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { accountApi } from '@/api/account'
-import { ordersApi } from '@/api/orders'
+import { ordersApi, type ApiOrderListItem } from '@/api/orders'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import { useWishlistStore } from '@/stores/wishlist'
 import EmptyState from '@/components/EmptyState.vue'
 import ProductCard from '@/components/ProductCard.vue'
-import StatusTag from '@/components/StatusTag.vue'
-import { formatDate, formatPrice } from '@/utils/format'
+import AccountOrderList from '@/components/account/AccountOrderList.vue'
+import AccountState from '@/components/account/AccountState.vue'
 import { mapCatalogProduct } from '@/utils/product'
-import { computed, onMounted, ref } from 'vue'
-import type { Component } from 'vue'
 import type { Product } from '@/types'
 
-interface AddToCartPayload {
-  variantId?: string
-}
-
-interface SummaryCard {
-  labelKey: string
-  value: number
-  icon: Component
-  tint: string
-  to: { name: string }
-}
-
-interface DashboardOrder {
-  id: string
-  number: string
-  placedAt: string
-  total: number
-  status: string
-  itemsCount: number
-}
-
+const { t } = useI18n()
 const router = useRouter()
-const cartStore = useCartStore()
+const auth = useAuthStore()
+const cart = useCartStore()
 const wishlist = useWishlistStore()
-
 const loading = ref(true)
-const dashboardOrders = ref<DashboardOrder[]>([])
-const ordersCount = ref(0)
-const reviewsCount = ref(0)
-const wishlistCount = ref(0)
-
-const userName = computed(() => useAuthStore().user?.name ?? 'User')
-const firstName = computed(() => userName.value.split(' ')[0])
-const initials = computed(() =>
-  userName.value
-    .split(' ')
-    .map((word) => word[0])
-    .join('')
-)
-
-const pendingCount = computed(
-  () => dashboardOrders.value.filter((o) => ['pending', 'confirmed', 'processing'].includes(o.status.toLowerCase())).length
-)
-
-const completedCount = computed(() => dashboardOrders.value.filter((o) => o.status.toLowerCase() === 'delivered').length)
-
-const recentOrders = computed(() => dashboardOrders.value.slice(0, 4))
-
-const cards = computed<SummaryCard[]>(() => [
-  {
-    labelKey: 'account.total_orders',
-    value: ordersCount.value,
-    icon: ShoppingBag,
-    tint: 'bg-primary/10 text-primary',
-    to: { name: 'account-orders' }
-  },
-  {
-    labelKey: 'account.pending_orders',
-    value: pendingCount.value,
-    icon: Clock,
-    tint: 'bg-accent/10 text-accent',
-    to: { name: 'account-orders' }
-  },
-  {
-    labelKey: 'account.completed_orders',
-    value: completedCount.value,
-    icon: PackageCheck,
-    tint: 'bg-emerald-100 text-emerald-600 dark:bg-success/15 dark:text-success',
-    to: { name: 'account-orders' }
-  },
-  {
-    labelKey: 'account.wishlist_items',
-    value: wishlistCount.value,
-    icon: Heart,
-    tint: 'bg-red-100 text-red-500 dark:bg-red-500/15 dark:text-red-400',
-    to: { name: 'account-wishlist' }
-  }
+const error = ref('')
+const actionError = ref('')
+const orders = ref<ApiOrderListItem[]>([])
+const summary = ref({ orders_count: 0, reviews_count: 0, wishlist_count: 0 })
+const firstName = computed(() => auth.user?.name?.split(' ')[0] ?? '')
+const cards = computed(() => [
+  { key: 'account.total_orders', value: summary.value.orders_count, icon: ShoppingBag, to: '/account/orders', tint: 'bg-primary/10 text-primary' },
+  { key: 'account.wishlist_items', value: summary.value.wishlist_count, icon: Heart, to: '/account/wishlist', tint: 'bg-rose-500/10 text-rose-500' },
+  { key: 'nav.reviews', value: summary.value.reviews_count, icon: Star, to: '/account/reviews', tint: 'bg-amber-500/10 text-amber-600 dark:text-amber-400' }
 ])
-
-const wishlistProducts = computed(() => wishlist.products.map(mapCatalogProduct))
-
-function capitalizeStatus(status: string): string {
-  return status.charAt(0).toUpperCase() + status.slice(1)
-}
-
-function addFromWishlist(product: Product, payload: AddToCartPayload) {
-  if (!payload.variantId) return
-  cartStore.addItem({ variantId: payload.variantId, quantity: 1 })
-  wishlist.remove(product.id)
-}
-
-onMounted(async () => {
-  loading.value = true
+const products = computed(() => wishlist.products.slice(0, 4).map(mapCatalogProduct))
+async function load() {
+  loading.value = true; error.value = ''
   try {
-    const [dashRes, ordersRes] = await Promise.all([
-      accountApi.getDashboard(),
-      ordersApi.list()
-    ])
-    ordersCount.value = dashRes.data.orders_count
-    reviewsCount.value = dashRes.data.reviews_count
-    wishlistCount.value = dashRes.data.wishlist_count
-
-    dashboardOrders.value = (ordersRes.data.data ?? []).map((o) => ({
-      id: o.order_number,
-      number: o.order_number,
-      placedAt: o.placed_at,
-      total: o.total,
-      status: capitalizeStatus(o.status),
-      itemsCount: o.items_count
-    }))
-  } finally {
-    loading.value = false
-  }
-})
+    const [dashboard, recent] = await Promise.all([accountApi.getDashboard(), ordersApi.list()])
+    summary.value = dashboard.data
+    orders.value = recent.data.data.slice(0, 4)
+  } catch { error.value = t('account.ui.load_error') }
+  finally { loading.value = false }
+}
+async function addFromWishlist(product: Product, payload: { variantId?: string }) {
+  if (!payload.variantId) return
+  actionError.value = ''
+  try {
+    await cart.addItem({ variantId: payload.variantId, quantity: 1 })
+    await wishlist.remove(product.id)
+  } catch { actionError.value = t('account.ui.action_error') }
+}
+onMounted(load)
 </script>
 
 <template>
-  <div class="space-y-8">
-    <div class="hero-gradient flex items-center justify-between rounded-xl p-6 text-white">
-      <div>
-        <h2 class="text-xl font-bold sm:text-2xl">{{ $t('account.welcome_back_name', { name: firstName }) }}</h2>
-        <p class="mt-1 text-sm text-blue-100">{{ $t('account.today_summary') }}</p>
-      </div>
-      <div class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-white/20 font-bold">
-        {{ initials }}
-      </div>
-    </div>
-
-    <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-      <div v-for="card in cards" :key="card.labelKey" class="card p-5">
-        <div :class="['flex h-10 w-10 items-center justify-center rounded-full', card.tint]">
-          <component :is="card.icon" class="h-5 w-5" />
-        </div>
-        <p class="mt-3 text-sm text-gray-500 dark:text-muted">{{ $t(card.labelKey) }}</p>
-        <p class="mt-1 text-3xl font-extrabold text-ink dark:text-ink">{{ card.value }}</p>
-        <RouterLink
-          :to="card.to"
-          class="mt-3 inline-flex items-center gap-1 text-xs font-medium text-primary hover:underline"
-        >
-          {{ $t('actions.view_all') }}
-          <ChevronRight class="h-3.5 w-3.5" />
-        </RouterLink>
-      </div>
-    </div>
-
-    <section class="space-y-4">
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-bold text-ink dark:text-ink">{{ $t('account.recent_orders') }}</h3>
-        <RouterLink :to="{ name: 'account-orders' }" class="text-sm font-medium text-primary hover:underline">
-          {{ $t('actions.view_all') }}
-        </RouterLink>
-      </div>
-
-      <div v-if="loading" class="card p-10 text-center">
-        <p class="text-sm text-gray-500 dark:text-muted">{{ $t('common.loading') }}</p>
-      </div>
-
-      <div v-else-if="recentOrders.length" class="card overflow-x-auto">
-        <table class="w-full min-w-[640px] text-sm">
-          <thead>
-            <tr class="border-b border-border-gray dark:border-border-gray text-left text-xs uppercase tracking-wide text-gray-500 dark:text-muted">
-              <th class="px-4 py-3 font-semibold">{{ $t('order.order') }}</th>
-              <th class="px-4 py-3 font-semibold">{{ $t('order.date') }}</th>
-              <th class="px-4 py-3 font-semibold">{{ $t('order.items') }}</th>
-              <th class="px-4 py-3 font-semibold">{{ $t('order.total') }}</th>
-              <th class="px-4 py-3 font-semibold">{{ $t('order.status') }}</th>
-              <th class="px-4 py-3 font-semibold"></th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-border-gray dark:divide-border-gray">
-            <tr v-for="o in recentOrders" :key="o.id">
-              <td class="px-4 py-3">
-                <RouterLink
-                  :to="`/order/tracking/${o.number}`"
-                  class="font-semibold text-primary hover:underline"
-                >
-                  {{ o.number }}
-                </RouterLink>
-              </td>
-              <td class="px-4 py-3 text-gray-600 dark:text-muted">{{ formatDate(o.placedAt) }}</td>
-              <td class="px-4 py-3 text-gray-600 dark:text-muted">{{ o.itemsCount }} {{ $t('order.items') }}</td>
-              <td class="px-4 py-3 font-medium text-ink dark:text-ink">{{ formatPrice(o.total) }}</td>
-              <td class="px-4 py-3">
-                <StatusTag :status="o.status" />
-              </td>
-              <td class="px-4 py-3 text-right">
-                <RouterLink
-                  :to="`/order/tracking/${o.number}`"
-                  class="inline-flex items-center rounded-lg p-1 text-primary hover:bg-primary/10"
-                  :aria-label="$t('order.track_my_order')"
-                >
-                  <ChevronRight class="h-4 w-4" />
-                </RouterLink>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <EmptyState
-        v-else
-        :title="$t('account.no_orders_title')"
-        :description="$t('account.no_orders_description')"
-        :cta-label="$t('account.start_shopping')"
-        @cta="router.push('/shop')"
-      >
-        <template #icon>
-          <Package class="h-10 w-10 text-gray-300" />
-        </template>
-      </EmptyState>
+  <div class="space-y-6">
+    <section class="hero-gradient flex flex-col justify-between gap-5 rounded-2xl p-5 text-white sm:flex-row sm:items-center sm:p-7">
+      <div><p class="text-xs font-medium uppercase tracking-widest text-blue-200">E-KHMER</p><h2 class="mt-2 text-xl font-bold sm:text-2xl">{{ $t('account.welcome_back_name', { name: firstName }) }}</h2><p class="mt-2 max-w-xl text-sm leading-relaxed text-blue-100">{{ $t('account.today_summary') }}</p></div>
+      <RouterLink to="/shop" class="btn-secondary w-fit shrink-0 !border-white/20 !bg-white/10 !text-white hover:!bg-white/20">{{ $t('account.ui.shop') }}<ArrowUpRight class="h-4 w-4" /></RouterLink>
     </section>
-
-    <section class="space-y-4">
-      <div class="flex items-center justify-between">
-        <h3 class="text-lg font-bold text-ink dark:text-ink">{{ $t('account.your_wishlist') }}</h3>
-        <RouterLink :to="{ name: 'account-wishlist' }" class="text-sm font-medium text-primary hover:underline">
-          {{ $t('actions.view_all') }}
+    <AccountState :loading="loading" :error="error" @retry="load">
+      <div class="grid gap-3 sm:grid-cols-3 sm:gap-4">
+        <RouterLink v-for="card in cards" :key="card.key" :to="card.to" class="card group flex items-center gap-4 p-5 transition hover:border-primary/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl" :class="card.tint"><component :is="card.icon" class="h-5 w-5" /></span>
+          <div class="min-w-0 flex-1"><p class="text-xs text-muted">{{ $t(card.key) }}</p><p class="mt-1 text-2xl font-bold">{{ card.value }}</p></div><ArrowUpRight class="h-4 w-4 shrink-0 text-muted group-hover:text-primary" />
         </RouterLink>
       </div>
-
-      <div v-if="wishlistProducts.length" class="grid grid-cols-2 gap-5 sm:grid-cols-3 xl:grid-cols-4">
-        <ProductCard
-          v-for="p in wishlistProducts"
-          :key="p.id"
-          :product="p"
-          @add-to-cart="(e) => addFromWishlist(p, e)"
-          @wishlist-toggle="wishlist.toggle($event)"
-        />
-      </div>
-
-      <EmptyState
-        v-else
-        :title="$t('account.wishlist_empty_title')"
-        :description="$t('account.wishlist_empty_description')"
-        :cta-label="$t('account.explore_products')"
-        @cta="router.push('/shop')"
-      >
-        <template #icon>
-          <Heart class="h-10 w-10 text-gray-300" />
-        </template>
-      </EmptyState>
+      <section class="space-y-4">
+        <div class="account-toolbar"><h2 class="text-lg font-semibold">{{ $t('account.recent_orders') }}</h2><RouterLink to="/account/orders" class="btn-ghost btn-sm min-h-10 text-primary">{{ $t('actions.view_all') }}<ArrowUpRight class="h-4 w-4" /></RouterLink></div>
+        <AccountOrderList v-if="orders.length" :orders="orders" />
+        <EmptyState v-else :title="$t('account.no_orders_title')" :description="$t('account.no_orders_description')" :cta-label="$t('account.start_shopping')" @cta="router.push('/shop')"><template #icon><Package class="h-7 w-7" /></template></EmptyState>
+      </section>
+    </AccountState>
+    <section class="space-y-4">
+      <div class="account-toolbar"><h2 class="text-lg font-semibold">{{ $t('account.your_wishlist') }}</h2><RouterLink to="/account/wishlist" class="btn-ghost btn-sm min-h-10 text-primary">{{ $t('actions.view_all') }}<ArrowUpRight class="h-4 w-4" /></RouterLink></div>
+      <p v-if="actionError" role="alert" class="text-sm text-red-500">{{ actionError }}</p>
+      <AccountState :loading="wishlist.loading" :error="wishlist.error ? $t('account.ui.load_error') : ''" @retry="wishlist.fetchProducts()">
+        <div v-if="products.length" class="grid grid-cols-2 gap-3 xl:grid-cols-4"><ProductCard v-for="product in products" :key="product.id" :product="product" @add-to-cart="addFromWishlist(product, $event)" @wishlist-toggle="wishlist.toggle($event)" /></div>
+        <EmptyState v-else :title="$t('account.wishlist_empty_title')" :description="$t('account.wishlist_empty_description')" :cta-label="$t('account.explore_products')" @cta="router.push('/shop')"><template #icon><Heart class="h-7 w-7" /></template></EmptyState>
+      </AccountState>
     </section>
+    <RouterLink to="/account/addresses" class="card flex items-center gap-4 p-5 hover:border-primary/40"><MapPin class="h-5 w-5 shrink-0 text-primary" /><div class="flex-1"><p class="text-sm font-semibold">{{ $t('account.my_addresses') }}</p><p class="mt-1 text-xs text-muted">{{ $t('account.manage_addresses_hint') }}</p></div><ArrowUpRight class="h-4 w-4 text-muted" /></RouterLink>
   </div>
 </template>

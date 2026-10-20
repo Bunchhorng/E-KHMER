@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ArrowLeft, FileText, Package, PackageCheck, Printer } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
@@ -8,6 +8,7 @@ import type { ApiOrder } from '@/api/checkout'
 import StatusTag from '@/components/StatusTag.vue'
 import ShopDeliveryTracker from '@/components/ShopDeliveryTracker.vue'
 import AssetImage from '@/components/AssetImage.vue'
+import AccountState from '@/components/account/AccountState.vue'
 import { formatDateTime, formatPrice } from '@/utils/format'
 import { openPrintWindow, printBlob } from '@/utils/download'
 
@@ -17,6 +18,8 @@ const router = useRouter()
 
 const order = ref<ApiOrder | null>(null)
 const loading = ref(true)
+const error = ref('')
+const receiptError = ref('')
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -42,17 +45,21 @@ async function printReceipt() {
   if (!printWindow) return
 
   printingReceipt.value = true
+  receiptError.value = ''
   try {
     const response = await ordersApi.receipt(orderNumber)
     printBlob(response.data, printWindow)
   } catch {
     printWindow.close()
+    receiptError.value = t('account.ui.receipt_error')
   } finally {
     printingReceipt.value = false
   }
 }
 
-onMounted(async () => {
+async function loadOrder() {
+  loading.value = true
+  error.value = ''
   const orderNumber = route.params.orderNumber as string
   if (!orderNumber) {
     loading.value = false
@@ -64,32 +71,32 @@ onMounted(async () => {
     order.value = data.data
   } catch {
     order.value = null
-    router.replace({ name: 'account-orders' })
+    error.value = t('account.ui.load_error')
   } finally {
     loading.value = false
   }
-})
+}
+watch(() => route.params.orderNumber, loadOrder, { immediate: true })
 </script>
 
 <template>
-  <div v-if="loading" class="card p-10 text-center">
-    <p class="text-sm text-gray-500 dark:text-muted">{{ $t('common.loading') }}</p>
-  </div>
-
-  <template v-else-if="order">
+  <div class="space-y-6">
+  <AccountState :loading="loading" :error="error" @retry="loadOrder">
+  <template v-if="order">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div class="flex items-center gap-3">
         <RouterLink
           :to="{ name: 'account-orders' }"
           class="btn-icon"
           :title="$t('account.order_detail.back')"
+          :aria-label="$t('account.order_detail.back')"
         >
           <ArrowLeft class="h-5 w-5" />
         </RouterLink>
         <div>
-          <h1 class="text-2xl font-bold text-ink dark:text-ink">
+          <h2 class="break-all text-lg font-bold text-ink sm:text-xl">
             {{ $t('order.track_title', { number: order.order_number }) }}
-          </h1>
+          </h2>
           <p class="mt-0.5 text-sm text-gray-500 dark:text-muted">
             {{ $t('order.placed', { date: formatDateTime(order.placed_at ?? '') }) }}
           </p>
@@ -100,7 +107,7 @@ onMounted(async () => {
 
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div class="flex flex-wrap gap-3"><RouterLink v-if="order.payment?.method === 'bakong' && order.status === 'pending'" :to="{ name: 'bakong-payment', params: { orderNumber: order.order_number } }" class="btn-primary">{{ $t('bakong.title') }}</RouterLink><RouterLink :to="{ name: 'account-returns', query: { order: order.order_number } }" class="btn-secondary">{{ $t('returns.title') }}</RouterLink></div>
-      <RouterLink :to="`/order/tracking/${order.order_number}`" class="card flex items-center gap-4 p-5 transition hover:bg-canvas/40">
+      <RouterLink :to="`/order/tracking/${order.order_number}`" class="card flex w-full items-center gap-4 p-4 transition hover:bg-canvas/40 sm:order-last">
         <div class="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
           <Package class="h-6 w-6" />
         </div>
@@ -116,6 +123,7 @@ onMounted(async () => {
         {{ $t('account.order_detail.receipt') }}
       </button>
     </div>
+    <p v-if="receiptError" role="alert" class="text-sm text-red-500">{{ receiptError }}</p>
 
     <ShopDeliveryTracker v-if="order.shop_orders?.length" class="mt-6" :allocations="order.shop_orders" :platform-shipment="order.shipment" />
 
@@ -123,7 +131,13 @@ onMounted(async () => {
       <div class="border-b border-border-gray p-4">
         <h2 class="text-base font-semibold text-ink dark:text-ink">{{ $t('order.items') }}</h2>
       </div>
-      <div class="overflow-x-auto">
+      <div class="divide-y divide-border-gray md:hidden">
+        <div v-for="item in order.items" :key="item.id" class="flex items-start gap-3 p-4">
+          <AssetImage :src="item.image_path" :alt="item.product_name" class="h-16 w-14 shrink-0 rounded-xl border border-border-gray" />
+          <div class="min-w-0 flex-1"><p class="break-words text-sm font-semibold">{{ item.product_name }}</p><p v-if="item.variant_label" class="mt-1 text-xs text-muted">{{ item.variant_label }}</p><p class="mt-1 break-all text-xs text-muted">{{ item.sku }}</p><div class="mt-2 flex flex-wrap justify-between gap-2 text-sm"><span class="text-muted">{{ formatPrice(item.unit_price) }} × {{ item.quantity }}</span><span class="font-semibold">{{ formatPrice(item.line_total) }}</span></div></div>
+        </div>
+      </div>
+      <div class="hidden overflow-x-auto md:block">
         <table class="w-full min-w-[640px] text-sm">
           <thead>
             <tr class="border-b border-border-gray bg-canvas/60 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-muted">
@@ -247,4 +261,6 @@ onMounted(async () => {
       </div>
     </div>
   </template>
+  </AccountState>
+  </div>
 </template>

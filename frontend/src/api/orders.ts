@@ -10,8 +10,8 @@ export interface ApiOrderListItem {
 }
 
 export const ordersApi = {
-  list(status?: string) {
-    const params: Record<string, string> = {}
+  list(status?: string, page = 1) {
+    const params: Record<string, string | number> = { page }
     if (status) params.status = status
     return apiClient.get<{ data: ApiOrderListItem[]; meta: { current_page: number; last_page: number; per_page: number; total: number } }>('/orders', { params })
   },

@@ -52,15 +52,15 @@ const rangeEnd = computed(() => {
 
 <template>
   <div v-if="pageCount > 1" class="flex flex-wrap items-center justify-between gap-4">
-    <p v-if="totalItems" class="text-sm text-gray-600">
-      Showing {{ rangeStart }}–{{ rangeEnd }} of {{ totalItems }}
+    <p v-if="totalItems" class="text-sm text-muted">
+      {{ $t('pagination.showing', { from: rangeStart, to: rangeEnd, total: totalItems }) }}
     </p>
     <div class="flex items-center gap-1">
       <button
         type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        class="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-canvas hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
         :disabled="page <= 1"
-        aria-label="Previous page"
+        :aria-label="$t('pagination.previous')"
         @click="selectPage(page - 1)"
       >
         <ChevronLeft :size="18" />
@@ -70,17 +70,18 @@ const rangeEnd = computed(() => {
         :key="item"
         type="button"
         class="h-10 w-10 rounded-lg text-sm font-medium transition-colors disabled:cursor-default"
-        :class="item === page ? 'bg-primary text-white' : 'text-gray-600 hover:bg-gray-100 hover:text-primary'"
+        :class="item === page ? 'bg-primary text-white' : 'text-muted hover:bg-canvas hover:text-primary'"
         :disabled="typeof item !== 'number'"
+        :aria-current="item === page ? 'page' : undefined"
         @click="typeof item === 'number' && selectPage(item)"
       >
         {{ typeof item === 'number' ? item : '…' }}
       </button>
       <button
         type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-lg text-gray-600 transition-colors hover:bg-gray-100 hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        class="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-canvas hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
         :disabled="page >= pageCount"
-        aria-label="Next page"
+        :aria-label="$t('pagination.next')"
         @click="selectPage(page + 1)"
       >
         <ChevronRight :size="18" />
