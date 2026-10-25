@@ -10,11 +10,119 @@ use App\Models\Shop;
 use App\Models\ShopOrder;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PHPUnit\Framework\Attributes\TestWith;
 use Tests\TestCase;
 
 class SellerWorkspaceTest extends TestCase
 {
     use RefreshDatabase;
+
+    public function test_product_listing_returns_shop_totals_and_stock_after_checkout_holds(): void
+    {
+        $shop = Shop::factory()->create();
+        $other = Shop::factory()->create();
+        $product = Product::factory()->withVariant(20, 19)->create(['shop_id' => $shop->id]);
+        $product->variants()->sole()->inventory()->update(['reserved_quantity' => 14]);
+        Product::factory()->withVariant(20, 20)->inactive()->create(['shop_id' => $shop->id]);
+        Product::factory()->withVariant(20, 0)->create(['shop_id' => $shop->id]);
+        Product::factory()->withVariant(20, 1)->create(['shop_id' => $other->id]);
+
+        $this->actingAs($this->owner($shop), 'sanctum')
+            ->getJson("/api/seller/shops/{$shop->id}/products?q={$product->sku}&shop_id={$other->id}")
+            ->assertOk()->assertJsonPath('meta.total', 1)
+            ->assertJsonPath('data.0.sku', $product->sku)
+            ->assertJsonPath('data.0.available_quantity', 5)
+            ->assertJsonPath('data.0.is_low_stock', true)
+            ->assertJsonPath('summary.total_products', 3)
+            ->assertJsonPath('summary.live_products', 2)
+            ->assertJsonPath('summary.hidden_products', 1)
+            ->assertJsonPath('summary.low_stock_products', 2)
+            ->assertJsonCount(3, 'categories');
+    }
+
+    public function test_product_filters_combine_category_visibility_stock_and_variant_search(): void
+    {
+        $shop = Shop::factory()->create();
+        $product = Product::factory()->withVariant(20, 3)->create(['shop_id' => $shop->id]);
+        $variant = $product->variants()->sole();
+        $variant->update(['barcode' => '0012345678905']);
+        Product::factory()->withVariant(20, 3)->inactive()->create(['shop_id' => $shop->id, 'category_id' => $product->category_id]);
+        Product::factory()->withVariant(20, 30)->create(['shop_id' => $shop->id, 'category_id' => $product->category_id]);
+        Product::factory()->withVariant(20, 3)->create(['shop_id' => $shop->id]);
+        $url = "/api/seller/shops/{$shop->id}/products?category_id={$product->category_id}&status=live&stock_status=low";
+        $this->actingAs($this->owner($shop), 'sanctum');
+
+        $this->getJson($url)->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $product->id);
+        $this->getJson($url.'&q='.$variant->sku)->assertOk()->assertJsonPath('data.0.id', $product->id);
+        $this->getJson($url.'&q=0012345678905')->assertOk()->assertJsonPath('data.0.id', $product->id);
+        $this->getJson($url.'&q=missing')->assertOk()->assertJsonPath('meta.total', 0)->assertJsonPath('summary.total_products', 4);
+    }
+
+    public function test_product_stock_filters_ignore_inactive_variants_and_reservations(): void
+    {
+        $shop = Shop::factory()->create();
+        $held = Product::factory()->withVariant(20, 12)->create(['shop_id' => $shop->id]);
+        $held->variants()->sole()->inventory()->update(['reserved_quantity' => 12]);
+        $inactive = Product::factory()->withVariant(20, 50)->create(['shop_id' => $shop->id]);
+        $inactive->variants()->update(['is_active' => false]);
+        $healthy = Product::factory()->withVariant(20, 50)->create(['shop_id' => $shop->id]);
+        $this->actingAs($this->owner($shop), 'sanctum');
+
+        $this->getJson("/api/seller/shops/{$shop->id}/products?stock_status=in")
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $healthy->id);
+        $this->getJson("/api/seller/shops/{$shop->id}/products?stock_status=out")
+            ->assertOk()->assertJsonPath('meta.total', 2);
+        $this->getJson("/api/seller/shops/{$shop->id}/products?stock_status=low")
+            ->assertOk()->assertJsonPath('meta.total', 1)->assertJsonPath('data.0.id', $held->id)
+            ->assertJsonPath('data.0.available_quantity', 0);
+    }
+
+    #[TestWith(['newest', 'Beta'])]
+    #[TestWith(['name_asc', 'Alpha'])]
+    #[TestWith(['name_desc', 'Beta'])]
+    #[TestWith(['price_asc', 'Beta'])]
+    #[TestWith(['price_desc', 'Alpha'])]
+    public function test_product_sort_order_is_applied_before_pagination(string $sort, string $first): void
+    {
+        $shop = Shop::factory()->create();
+        Product::factory()->create(['shop_id' => $shop->id, 'name' => 'Alpha', 'price' => 30]);
+        Product::factory()->create(['shop_id' => $shop->id, 'name' => 'Beta', 'price' => 10]);
+
+        $this->actingAs($this->owner($shop), 'sanctum')->getJson("/api/seller/shops/{$shop->id}/products?sort={$sort}")
+            ->assertOk()->assertJsonPath('data.0.name', $first);
+    }
+
+    public function test_product_page_size_and_page_number_apply_to_the_whole_shop(): void
+    {
+        $shop = Shop::factory()->create();
+        Product::factory()->count(11)->create(['shop_id' => $shop->id]);
+
+        $this->actingAs($this->owner($shop), 'sanctum')->getJson("/api/seller/shops/{$shop->id}/products?per_page=10&page=2")
+            ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('meta.current_page', 2)
+            ->assertJsonPath('meta.last_page', 2)->assertJsonPath('meta.per_page', 10)
+            ->assertJsonPath('meta.total', 11)->assertJsonPath('summary.total_products', 11);
+    }
+
+    #[TestWith(['sort', 'price; DROP TABLE products'])]
+    #[TestWith(['per_page', 100000])]
+    #[TestWith(['page', 0])]
+    #[TestWith(['category_id', -1])]
+    #[TestWith(['status', 'deleted'])]
+    #[TestWith(['stock_status', 'invalid'])]
+    public function test_invalid_product_filters_return_422(string $key, mixed $value): void
+    {
+        $shop = Shop::factory()->create();
+
+        $this->actingAs($this->owner($shop), 'sanctum')->getJson("/api/seller/shops/{$shop->id}/products?".http_build_query([$key => $value]))
+            ->assertUnprocessable()->assertJsonValidationErrors($key);
+    }
+
+    public function test_product_listing_requires_authentication(): void
+    {
+        $shop = Shop::factory()->create();
+
+        $this->getJson("/api/seller/shops/{$shop->id}/products")->assertUnauthorized();
+    }
 
     private function owner(Shop $shop): User
     {

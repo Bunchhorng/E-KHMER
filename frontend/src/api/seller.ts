@@ -1,6 +1,6 @@
 import apiClient from './client'
 import type { AdminInventoryItem, AdminProduct, InventoryTransaction } from './admin'
-import type { PaginatedResponse } from './catalog'
+import type { CatalogProduct, PaginatedResponse } from './catalog'
 import type { ApiShopOrder, ShopOrderTransitionPayload, ShopShipmentPayload } from './checkout'
 import type { ApiShippingMethod } from './shipping'
 
@@ -35,6 +35,28 @@ export interface SellerDashboard {
 
 export type SellerShopOrder = ApiShopOrder
 
+export interface SellerProductListItem extends CatalogProduct {
+  sku: string | null
+  barcode: string | null
+  available_quantity: number
+  is_low_stock: boolean
+}
+
+export interface SellerProductFilters {
+  q?: string
+  page?: number
+  category_id?: number
+  status?: 'live' | 'hidden'
+  stock_status?: 'in' | 'low' | 'out'
+  sort?: 'newest' | 'name_asc' | 'name_desc' | 'price_asc' | 'price_desc'
+  per_page?: number
+}
+
+export interface SellerProductListResponse extends PaginatedResponse<SellerProductListItem> {
+  summary: { total_products: number; live_products: number; hidden_products: number; low_stock_products: number }
+  categories: { id: number; name: string }[]
+}
+
 export const sellerApi = {
   getSettings(shopId: number) { return apiClient.get<{ data: SellerShop }>(`/seller/shops/${shopId}/settings`) },
   updateSettings(shopId: number, payload: FormData) { payload.set('_method', 'PUT'); return apiClient.post<{ data: SellerShop }>(`/seller/shops/${shopId}/settings`, payload) },
@@ -48,7 +70,7 @@ export const sellerApi = {
   dashboard() { return apiClient.get<{ data: SellerDashboard }>('/seller/dashboard') },
   listShops() { return apiClient.get<{ data: SellerShop[] }>('/seller/shops') },
   dashboardForShop(shopId: number) { return apiClient.get<{ data: SellerDashboard }>(`/seller/shops/${shopId}/dashboard`) },
-  listProducts(shopId: number, params: { q?: string; page?: number } = {}) { return apiClient.get<PaginatedResponse<AdminProduct>>(`/seller/shops/${shopId}/products`, { params }) },
+  listProducts(shopId: number, params: SellerProductFilters = {}) { return apiClient.get<SellerProductListResponse>(`/seller/shops/${shopId}/products`, { params }) },
   getProduct(shopId: number, productId: number) { return apiClient.get<{ data: AdminProduct }>(`/seller/shops/${shopId}/products/${productId}`) },
   createProduct(shopId: number, payload: Record<string, unknown> | FormData) { return apiClient.post<{ data: AdminProduct }>(`/seller/shops/${shopId}/products`, payload) },
   updateProduct(shopId: number, productId: number, payload: Record<string, unknown> | FormData) {

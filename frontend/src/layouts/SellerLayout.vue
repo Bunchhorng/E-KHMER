@@ -98,7 +98,7 @@ async function signOut() { await auth.logout(); workspace.reset(); await router.
         <div v-if="workspace.currentShop" class="relative flex min-w-0 items-center gap-3">
           <AssetImage v-if="workspace.currentShop.logo" :src="workspace.currentShop.logo" :alt="workspace.currentShop.name" class="h-9 w-9 shrink-0 rounded-lg border border-border-gray object-cover" /><span v-else class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Store :size="20" /></span>
           <template v-if="workspace.shops.length > 1"><label for="seller-shop-select" class="sr-only">{{ t('seller.switch_shop') }}</label><select id="seller-shop-select" :value="workspace.selectedId" class="seller-shop-select min-w-0 flex-1 appearance-none bg-transparent pr-5 text-[14px] font-semibold" @change="switchShop"><option v-for="shop in workspace.shops" :key="shop.id" :value="shop.id">{{ shop.name }}</option></select><ChevronDown :size="17" class="pointer-events-none absolute right-0 text-muted" /></template>
-          <RouterLink v-else :to="{ name: 'seller-shop-settings', params: { id: workspace.currentShop.id } }" class="flex min-w-0 flex-1 items-center justify-between gap-2"><span class="truncate text-[14px] font-semibold tracking-tight">{{ workspace.currentShop.name }}</span><ChevronRight :size="17" class="shrink-0 text-muted" /></RouterLink>
+          <RouterLink v-else :to="{ name: 'seller-shop-settings', params: { id: workspace.currentShop.id } }" class="flex min-w-0 flex-1 items-center justify-between gap-2"><span class="truncate text-[13px] font-semibold tracking-tight" :title="workspace.currentShop.name">{{ workspace.currentShop.name }}</span><ChevronRight :size="17" class="shrink-0 text-muted" /></RouterLink>
         </div>
         <p v-else class="text-sm text-muted">{{ t('seller.no_shop') }}</p>
       </div>
@@ -148,14 +148,14 @@ async function signOut() { await auth.logout(); workspace.reset(); await router.
 }
 .seller-sidebar { inset: 10px auto 10px 12px; width: var(--seller-sidebar-width); border: 1px solid rgb(var(--color-border) / 65%); border-radius: 18px; box-shadow: 0 4px 24px rgb(41 83 145 / 2%); }
 .seller-sidebar.-translate-x-full { transform: translateX(calc(-100% - 12px)); }
-.seller-brand { min-height: 96px; padding: 18px 20px 22px; }
+.seller-brand { min-height: 88px; padding: 14px 20px 18px; }
 .seller-brand-icon { width: 56px; height: 56px; border: 1px solid rgb(255 255 255 / 20%); border-radius: 17px; background: linear-gradient(145deg, #1762ff, #2e69ff); box-shadow: inset 0 0 0 4px rgb(255 255 255 / 5%), 0 5px 12px rgb(30 99 255 / 10%); }
-.seller-shop { margin: 6px 20px 0; padding: 12px 14px; background: rgb(var(--color-canvas) / 70%); }
+.seller-shop { margin: 3px 20px 0; padding: 12px 14px; background: rgb(var(--color-canvas) / 70%); }
 .seller-add-shop { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 6px; }
 .seller-add-shop:hover { background: rgb(var(--color-primary) / 8%); }
 .seller-shop-select { height: 36px; text-overflow: ellipsis; cursor: pointer; }
 .seller-shop-select option { color: rgb(var(--color-ink)); background: rgb(var(--color-surface)); }
-.seller-nav { min-height: 100px; margin: 24px 0 12px; padding: 0 20px; }
+.seller-nav { min-height: 100px; margin: 17px 0 12px; padding: 0 20px; }
 .seller-nav-link { min-height: 52px; padding: 12px 16px; font-size: 17px; }
 .seller-nav-active { background: rgb(var(--color-primary) / 10%); }
 .seller-nav-active::before { content: ''; position: absolute; left: -5px; top: 11px; bottom: 11px; width: 4px; border-radius: 4px; background: rgb(var(--color-primary)); }

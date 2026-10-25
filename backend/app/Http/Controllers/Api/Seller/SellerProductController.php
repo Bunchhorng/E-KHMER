@@ -8,6 +8,7 @@ use App\Http\Requests\SellerProductRequest;
 use App\Models\Product;
 use App\Models\Shop;
 use App\Services\MediaUploadService;
+use App\Services\SellerProductListingService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use Throwable;
@@ -16,9 +17,19 @@ class SellerProductController extends Controller
 {
     public function __construct(private AdminProductController $products, private MediaUploadService $media) {}
 
-    public function index(Request $request, Shop $shop): mixed
+    public function index(Request $request, Shop $shop, SellerProductListingService $listing): array
     {
-        return $this->products->index($request);
+        $filters = $request->validate([
+            'q' => ['nullable', 'string', 'max:255'],
+            'category_id' => ['nullable', 'integer', 'min:1'],
+            'status' => ['nullable', 'in:live,hidden'],
+            'stock_status' => ['nullable', 'in:in,low,out'],
+            'sort' => ['nullable', 'in:newest,name_asc,name_desc,price_asc,price_desc'],
+            'per_page' => ['nullable', 'integer', 'in:10,15,25,50'],
+            'page' => ['nullable', 'integer', 'min:1'],
+        ]);
+
+        return $listing->listing($shop, $filters);
     }
 
     public function store(SellerProductRequest $request, Shop $shop): mixed
