@@ -3,6 +3,7 @@
 namespace Database\Seeders;
 
 use App\Models\BakongPayment;
+use App\Models\BusinessExpense;
 use App\Models\CheckoutAttempt;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
@@ -71,7 +72,7 @@ class OrderSeeder extends Seeder
                 'shop_id' => $variant->shop_id, 'product_name' => $variant->product->name,
                 'variant_label' => $variant->name, 'sku' => $variant->sku,
                 'image_path' => $variant->image->image_path,
-                'unit_price' => $variant->price, 'quantity' => 2, 'line_total' => $subtotal,
+                'unit_price' => $variant->price, 'unit_cost' => $variant->cost_price, 'quantity' => 2, 'line_total' => $subtotal,
             ]);
             CouponUsage::create([
                 'coupon_id' => $coupon->id, 'user_id' => $customer->id,
@@ -124,6 +125,12 @@ class OrderSeeder extends Seeder
             CheckoutAttempt::create([
                 'owner_key' => hash('sha256', 'user:'.$customer->id), 'request_key' => 'demo-checkout-'.$number,
                 'payload_hash' => hash('sha256', $number), 'order_id' => $order->id,
+            ]);
+            BusinessExpense::create([
+                'shop_id' => $variant->shop_id, 'created_by' => $admin->id,
+                'incurred_on' => $placedAt->toDateString(), 'category' => 'shipping',
+                'description' => 'Demo courier cost for '.$number,
+                'amount' => round((float) $method->price + 1.25, 2), 'currency' => 'USD',
             ]);
         }
     }

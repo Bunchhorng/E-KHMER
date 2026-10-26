@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Services\Analytics\BusinessForecastService;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Seeder;
@@ -15,6 +16,7 @@ class DatabaseSeeder extends Seeder
 
     /** Business tables in child-before-parent deletion order. */
     public const TABLES = [
+        'business_expenses',
         'payment_refunds', 'order_returns', 'bakong_payments', 'checkout_attempts',
         'coupon_usages', 'tracking_events', 'notifications', 'reviews', 'shipments',
         'payment_transactions', 'payments', 'order_items', 'shop_orders', 'orders',
@@ -55,6 +57,7 @@ class DatabaseSeeder extends Seeder
                     NotificationSeeder::class,
                     EngagementSeeder::class,
                 ]);
+                DB::afterCommit(static fn () => BusinessForecastService::invalidate());
             });
         });
     }

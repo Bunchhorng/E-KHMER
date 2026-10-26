@@ -1590,6 +1590,36 @@ Validation result: **94 backend tests / 493 assertions passed**, including the e
 
 Coverage includes forecast trends and negative profit; insufficient/empty data; gaps and current/partial periods; all three period views; discounts and tax/shipping separation; partial/full refunds and unrecovered-stock loss; cross-shop gateway refunds; failed/cancelled sales; duplicate payment transactions; supported currency separation; snapshot privacy and stability after catalog edits; role/membership isolation and forged ownership; invalid forecast parameters; expense create/edit/delete and cache refresh; query counts; UI filters, retry, expense validation/confirmation, HTML escaping, English/Khmer, dark mode, and desktop/mobile overflow.
 
+## Optional local demo data
+
+Run the standalone analytics seeder from the project root:
+
+```text
+docker compose exec app php artisan db:seed --class=BusinessForecastSeeder --no-interaction
+```
+
+It requires an existing Super Admin and runs only in `local` or `testing`. It does not invoke the standard database reset seeder. The first Super Admin and the existing demo seller account, when present, can manage the new sample shops using their existing logins.
+
+- **Demo Forecast - Growing Shop:** increasing sales and recorded profit.
+- **Demo Forecast - Steady Shop:** broadly stable trading, with occasional sample returns.
+- **Demo Forecast - Declining Shop:** falling sales, rising expenses, recent losses, and a fully refunded sale with unrecovered merchandise cost.
+
+History begins on 1 January four years before the current year and ends in the current partial month. At the October 2026 reference date this creates **58 monthly periods, 351 sample orders, and 348 expenses** across three demo shops. The dataset includes immutable item cost snapshots, matching payments/transactions, completed shipments, sample cash refunds, and failed/cancelled orders excluded from revenue. Historical items are standalone snapshots; live catalog records and stock are not changed, and no payment gateway or notification is called.
+
+In admin Analytics, use **Find a shop** to search for **Demo Forecast**, select a sample shop, and apply the filters. For yearly predictions, widen **From** to **2022-01-01** at the October 2026 reference date, or 1 January four years before the current year in later runs.
+
+Reserved `DEMO-FC-` identifiers make reruns additive and repeatable. Existing orders, costs, expense edits, soft-deleted sample rows, and login tokens are preserved. Forecast caches are invalidated once after the seed transaction commits. Older real orders without cost snapshots remain unchanged and can still show unavailable profit in the aggregate marketplace view.
+
+The standard `DatabaseSeeder` retains its 20-record-per-business-table dataset. It now includes 20 courier expenses, cost snapshots on newly seeded order items, correct expense deletion order, and transactional forecast-cache invalidation. The standalone history remains opt-in.
+
+Seeder regression check:
+
+```text
+docker compose exec app php artisan test --compact tests/Feature/BusinessForecastSeederTest.php tests/Feature/DatabaseSeederTest.php
+```
+
+Result: **7 tests / 895 assertions passed**, covering usable monthly/quarterly/yearly forecasts, growing/stable/declining trends, consistent refunds, no external side effects, rerun preservation, production rejection, missing prerequisites, collision rollback, and the standard seed/reset workflow.
+
 ## Remaining limitations and next improvements
 
 1. Older missing cost snapshots cannot be reconstructed reliably from current catalog costs. An audited historical correction/import workflow would need separate design and verified source documents.
