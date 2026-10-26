@@ -23,6 +23,8 @@ use App\Http\Controllers\Api\Admin\DashboardController;
 use App\Http\Controllers\Api\AttributeController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BrandController;
+use App\Http\Controllers\Api\BusinessExpenseController;
+use App\Http\Controllers\Api\BusinessForecastController;
 use App\Http\Controllers\Api\CartController;
 use App\Http\Controllers\Api\CatalogController;
 use App\Http\Controllers\Api\CategoryController;
@@ -74,6 +76,14 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('seller/shops', [SellerShopController::class, 'index']);
     Route::get('seller/shops/{shop}/dashboard', [SellerShopController::class, 'dashboard']);
     Route::prefix('seller/shops/{shop}')->middleware('shop.manager')->group(function () {
+        Route::get('analytics/overview', [BusinessForecastController::class, 'seller']);
+        Route::get('analytics/history', [BusinessForecastController::class, 'seller']);
+        Route::get('forecasts', [BusinessForecastController::class, 'seller']);
+        Route::post('forecasts/generate', [BusinessForecastController::class, 'seller'])->middleware('throttle:10,1');
+        Route::get('expenses', [BusinessExpenseController::class, 'index']);
+        Route::post('expenses', [BusinessExpenseController::class, 'store']);
+        Route::put('expenses/{expense}', [BusinessExpenseController::class, 'update']);
+        Route::delete('expenses/{expense}', [BusinessExpenseController::class, 'destroy']);
         Route::get('returns', [SellerReturnController::class, 'index']);
         Route::put('returns/{orderReturn}', [SellerReturnController::class, 'transition']);
         Route::get('returns/{orderReturn}/photos/{index}', [SellerReturnController::class, 'photo'])->whereNumber('index');
@@ -197,6 +207,14 @@ Route::prefix('admin')
         Route::get('support', [SupportController::class, 'index']);
         Route::put('support/{supportRequest}', [SupportController::class, 'reply']);
         Route::get('dashboard/overview', [DashboardController::class, 'overview']);
+        Route::get('analytics/overview', [BusinessForecastController::class, 'admin']);
+        Route::get('analytics/history', [BusinessForecastController::class, 'admin']);
+        Route::get('forecasts', [BusinessForecastController::class, 'admin']);
+        Route::post('forecasts/generate', [BusinessForecastController::class, 'admin'])->middleware('throttle:10,1');
+        Route::get('expenses', [BusinessExpenseController::class, 'index']);
+        Route::post('expenses', [BusinessExpenseController::class, 'store']);
+        Route::put('expenses/{expense}', [BusinessExpenseController::class, 'update']);
+        Route::delete('expenses/{expense}', [BusinessExpenseController::class, 'destroy']);
 
         Route::get('shops', [AdminShopController::class, 'index']);
         Route::post('shops', [AdminShopController::class, 'store']);

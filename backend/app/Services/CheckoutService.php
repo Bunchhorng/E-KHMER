@@ -174,6 +174,7 @@ class CheckoutService
                     'sku' => $variant?->sku ?? $product?->sku,
                     'image_path' => $product?->cover_image,
                     'unit_price' => $unitPrice,
+                    'unit_cost' => $variant?->cost_price,
                     'quantity' => (int) $item->quantity,
                     'line_total' => round($unitPrice * (int) $item->quantity, 2),
                 ]);

@@ -7,6 +7,7 @@ use App\Models\CartItem;
 use App\Models\Coupon;
 use App\Models\Inventory;
 use App\Models\Order;
+use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Consumer\CheckoutGuest;
@@ -14,7 +15,7 @@ use Tests\TestCase;
 
 class CheckoutTest extends TestCase
 {
-    use RefreshDatabase, CheckoutGuest;
+    use CheckoutGuest, RefreshDatabase;
 
     public function test_begin_reserves_stock_and_creates_pending_order(): void
     {
@@ -42,6 +43,24 @@ class CheckoutTest extends TestCase
         $this->assertSame('pending', $order->payment->status);
         $this->assertNotNull($order->shipments()->first());
         $this->assertSame(225.0, (float) $order->total);
+    }
+
+    public function test_checkout_keeps_purchase_cost_private_and_unchanged_after_catalog_updates(): void
+    {
+        $user = User::factory()->create();
+        $this->productWithStock(10, 100.00);
+        $variant = ProductVariant::findOrFail($this->variantId);
+        $variant->update(['cost_price' => 37.25]);
+        $this->authAs($user);
+        $this->postJson('/api/cart', ['product_variant_id' => $this->variantId, 'quantity' => 2])->assertCreated();
+
+        $response = $this->beginCheckout()->assertCreated();
+
+        $item = Order::where('order_number', $response->json('data.order_number'))->firstOrFail()->items()->sole();
+        $this->assertSame('37.25', $item->unit_cost);
+        $this->assertArrayNotHasKey('unit_cost', $response->json('data.items.0'));
+        $variant->update(['cost_price' => 80]);
+        $this->assertSame('37.25', $item->fresh()->unit_cost);
     }
 
     public function test_checkout_requires_non_empty_cart(): void
@@ -204,7 +223,7 @@ class CheckoutTest extends TestCase
 
         $this->postJson('/api/cart', ['product_variant_id' => $this->variantId, 'quantity' => 1])
             ->assertCreated();
-        \App\Models\ProductVariant::whereKey($this->variantId)->update(['is_active' => false]);
+        ProductVariant::whereKey($this->variantId)->update(['is_active' => false]);
 
         $this->beginCheckout()
             ->assertStatus(422)

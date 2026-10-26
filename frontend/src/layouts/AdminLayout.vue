@@ -63,6 +63,7 @@ const navGroups: NavGroup[] = [
     titleKey: 'admin.nav.group_overview',
     items: [
       { labelKey: 'nav.dashboard', route: { name: 'admin-dashboard' }, icon: LayoutDashboard },
+      { labelKey: 'analytics.nav', route: { name: 'admin-analytics' }, icon: FileBarChart },
       { labelKey: 'admin.nav.shops', route: { name: 'admin-shops' }, icon: Store },
       { labelKey: 'admin.overview.shop_members', route: { name: 'admin-shop-members' }, icon: Users }
     ]

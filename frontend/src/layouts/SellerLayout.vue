@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import { Box, BriefcaseBusiness, ChevronDown, ChevronRight, ClipboardCheck, LayoutDashboard, PackageCheck, Plus, Settings, Store, Warehouse } from 'lucide-vue-next'
+import { Box, BriefcaseBusiness, ChartNoAxesCombined, ChevronDown, ChevronRight, ClipboardCheck, LayoutDashboard, PackageCheck, Plus, Settings, Store, Warehouse } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { useSellerWorkspace } from '@/stores/sellerWorkspace'
 import { useAuthStore } from '@/stores/auth'
@@ -20,6 +20,7 @@ const { t } = useI18n()
 const error = ref('')
 const nav = [
   { key: 'overview', name: 'seller-shop-dashboard', icon: LayoutDashboard },
+  { key: 'analytics', name: 'seller-shop-analytics', icon: ChartNoAxesCombined },
   { key: 'products', name: 'seller-shop-products', icon: Box },
   { key: 'stock', name: 'seller-shop-inventory', icon: Warehouse },
   { key: 'orders', name: 'seller-shop-orders', icon: ClipboardCheck },
@@ -33,7 +34,7 @@ const isEditor = computed(() => route.name === 'seller-shop-product-create' || r
 const groups = computed<DashboardNavGroup[]>(() => [{
   items: [
     ...(workspace.selectedId ? nav : nav.slice(0, 1)).map(item => ({
-      id: item.key, label: t(`seller.${item.key}`), icon: item.icon,
+      id: item.key, label: t(item.key === 'analytics' ? 'analytics.nav' : `seller.${item.key}`), icon: item.icon,
       to: workspace.selectedId ? { name: item.name, params: { id: workspace.selectedId } } : { name: 'seller-dashboard' },
       active: activeKey.value === item.key && !isApplication.value
     })),

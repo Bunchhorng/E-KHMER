@@ -2,14 +2,20 @@
 
 namespace App\Providers;
 
+use App\Models\BusinessExpense;
 use App\Models\Coupon;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\OrderItem;
+use App\Models\OrderReturn;
+use App\Models\Payment;
+use App\Models\PaymentRefund;
 use App\Models\Product;
 use App\Models\Review;
 use App\Models\ShippingMethod;
 use App\Models\Shop;
+use App\Models\ShopOrder;
+use App\Policies\BusinessForecastPolicy;
 use App\Policies\CouponPolicy;
 use App\Policies\InventoryPolicy;
 use App\Policies\OrderItemPolicy;
@@ -18,7 +24,9 @@ use App\Policies\ProductPolicy;
 use App\Policies\ReviewPolicy;
 use App\Policies\ShippingMethodPolicy;
 use App\Policies\ShopPolicy;
+use App\Services\Analytics\BusinessForecastService;
 use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\ServiceProvider;
 
@@ -37,6 +45,15 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::define('business-analytics', [BusinessForecastPolicy::class, 'view']);
+        foreach ([Order::class, OrderItem::class, ShopOrder::class, Payment::class,
+            PaymentRefund::class, OrderReturn::class, BusinessExpense::class] as $model) {
+            $invalidate = static function (): void {
+                DB::afterCommit(static fn () => BusinessForecastService::invalidate());
+            };
+            $model::saved($invalidate);
+            $model::deleted($invalidate);
+        }
         // Platform control belongs to Super Admin; owners and managers act
         // through their own active shop memberships on the shared marketplace.
         Gate::policy(Shop::class, ShopPolicy::class);
