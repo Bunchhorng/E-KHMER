@@ -8,15 +8,17 @@ import RevenueChart from '@/components/admin/charts/RevenueChart.vue'
 import OrdersTrendChart from '@/components/admin/charts/OrdersTrendChart.vue'
 import OrderStatusChart from '@/components/admin/charts/OrderStatusChart.vue'
 import PaymentStatusChart from '@/components/admin/charts/PaymentStatusChart.vue'
-import DashboardMetricCard from '@/components/admin/DashboardMetricCard.vue'
-import DashboardSection from '@/components/admin/DashboardSection.vue'
+import DashboardMetricCard from '@/components/dashboard/DashboardMetricCard.vue'
+import DashboardSection from '@/components/dashboard/DashboardSection.vue'
+import DashboardPageHeader from '@/components/dashboard/DashboardPageHeader.vue'
+import type { DashboardTone } from '@/components/dashboard/types'
 import BaseModal from '@/components/BaseModal.vue'
 import StatusTag from '@/components/StatusTag.vue'
 import { useAdminDashboard } from '@/composables/useAdminDashboard'
 import type { AdminShop } from '@/api/admin'
 import { formatCompactNumber, formatPrice } from '@/utils/format'
 
-interface MetricCard { key: string; label: string; value: string; detail: string; delta?: number | null; icon: Component; tone: string }
+interface MetricCard { key: string; label: string; value: string; detail: string; delta?: number | null; icon: Component; tone: DashboardTone }
 const { t, locale } = useI18n()
 const {
   dashboard, loading, error, range, customFrom, customTo, rangeError, lastUpdated, autoRefresh,
@@ -42,10 +44,10 @@ const cards = computed<MetricCard[]>(() => {
   const m = metrics.value
   if (!p || !m) return []
   return [
-    { key: 'revenue', label: t('admin.overview.paid_order_value'), value: formatPrice(p.revenue), detail: `${t('admin.overview.lifetime_paid_value')}: ${formatPrice(m.total_revenue)}`, delta: p.revenue_delta, icon: CircleDollarSign, tone: 'bg-blue-50 text-blue-600 dark:bg-blue-500/15 dark:text-blue-300' },
-    { key: 'orders', label: t('admin.nav.orders'), value: formatCompactNumber(p.orders_count), detail: `${t('admin.dashboard.total_orders')}: ${formatCompactNumber(m.orders_count)}`, delta: p.orders_delta, icon: ShoppingBag, tone: 'bg-violet-50 text-violet-600 dark:bg-violet-500/15 dark:text-violet-300' },
-    { key: 'customers', label: t('admin.dashboard.new_customers'), value: formatCompactNumber(p.customers_count), detail: `${t('admin.dashboard.total_customers')}: ${formatCompactNumber(m.customers_count)}`, delta: p.customers_delta, icon: Users, tone: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-500/15 dark:text-emerald-300' },
-    { key: 'average', label: t('admin.dashboard.average_order'), value: formatPrice(p.average_order_value), detail: t('admin.dashboard.paid_orders_only'), icon: Wallet, tone: 'bg-amber-50 text-amber-600 dark:bg-amber-500/15 dark:text-amber-300' }
+    { key: 'revenue', label: t('admin.overview.paid_order_value'), value: formatPrice(p.revenue), detail: `${t('admin.overview.lifetime_paid_value')}: ${formatPrice(m.total_revenue)}`, delta: p.revenue_delta, icon: CircleDollarSign, tone: 'blue' },
+    { key: 'orders', label: t('admin.nav.orders'), value: formatCompactNumber(p.orders_count), detail: `${t('admin.dashboard.total_orders')}: ${formatCompactNumber(m.orders_count)}`, delta: p.orders_delta, icon: ShoppingBag, tone: 'violet' },
+    { key: 'customers', label: t('admin.dashboard.new_customers'), value: formatCompactNumber(p.customers_count), detail: `${t('admin.dashboard.total_customers')}: ${formatCompactNumber(m.customers_count)}`, delta: p.customers_delta, icon: Users, tone: 'green' },
+    { key: 'average', label: t('admin.dashboard.average_order'), value: formatPrice(p.average_order_value), detail: t('admin.dashboard.paid_orders_only'), icon: Wallet, tone: 'amber' }
   ]
 })
 const catalogTotals = computed(() => metrics.value ? [
@@ -86,23 +88,19 @@ async function confirmRejection() {
 
 <template>
   <div class="space-y-5 sm:space-y-6" :aria-busy="loading">
-    <header class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <h1 class="text-2xl font-bold tracking-tight text-ink sm:text-3xl">{{ t('admin.dashboard.title') }}</h1>
-        <p class="mt-1.5 text-sm text-gray-500 dark:text-muted">{{ t('admin.overview.description') }}</p>
+    <DashboardPageHeader :title="t('admin.dashboard.title')" :description="t('admin.overview.description')">
+      <template #meta>
         <p v-if="lastUpdated" class="mt-2 text-xs text-gray-400 dark:text-muted">{{ t('admin.dashboard.updated_at', { time: updatedLabel }) }}</p>
-      </div>
-      <div class="flex flex-wrap items-center gap-3">
+      </template>
         <label class="inline-flex items-center gap-2 text-xs text-gray-500 dark:text-muted"><input v-model="autoRefresh" type="checkbox" class="accent-primary" />{{ t('admin.dashboard.auto_refresh') }}</label>
-        <RouterLink :to="{ name: 'admin-reports' }" class="btn-secondary btn-sm"><ArrowUpRight class="h-4 w-4" aria-hidden="true" />{{ t('admin.nav.reports') }}</RouterLink>
-        <button type="button" class="btn-icon h-9 w-9" :disabled="loading || shopsLoading" :aria-label="t('actions.refresh')" :title="t('actions.refresh')" @click="refresh"><RefreshCw class="h-4 w-4" :class="{ 'animate-spin': loading || shopsLoading }" aria-hidden="true" /></button>
-      </div>
-    </header>
+        <RouterLink :to="{ name: 'admin-reports' }" class="btn-primary"><ArrowUpRight class="h-4 w-4" aria-hidden="true" />{{ t('admin.nav.reports') }}</RouterLink>
+        <button type="button" class="btn-secondary !px-3" :disabled="loading || shopsLoading" :aria-label="t('actions.refresh')" :title="t('actions.refresh')" @click="refresh"><RefreshCw class="h-5 w-5" :class="{ 'animate-spin': loading || shopsLoading }" aria-hidden="true" /></button>
+    </DashboardPageHeader>
 
-    <section class="card flex flex-wrap items-end justify-between gap-4 px-5 py-4">
+    <section class="card flex flex-wrap items-end justify-between gap-4 px-5 py-5 sm:px-6">
       <div class="flex flex-wrap items-end gap-3">
         <label class="block text-xs font-medium text-gray-500 dark:text-muted">{{ t('admin.dashboard.date_range') }}
-          <select v-model="range" :aria-label="t('admin.dashboard.date_range')" class="select mt-1.5 min-w-40 text-sm" @change="onRangeChange"><option v-for="option in rangeOptions" :key="option" :value="option">{{ t(`admin.dashboard.range.${option}`) }}</option></select>
+          <select v-model="range" :aria-label="t('admin.dashboard.date_range')" class="select mt-2 min-w-48 text-sm" @change="onRangeChange"><option v-for="option in rangeOptions" :key="option" :value="option">{{ t(`admin.dashboard.range.${option}`) }}</option></select>
         </label>
         <form v-if="range === 'custom'" class="flex flex-wrap items-end gap-3" @submit.prevent="applyRange">
           <label class="block text-xs font-medium text-gray-500 dark:text-muted">{{ t('admin.dashboard.from') }}<input v-model="customFrom" type="date" class="input mt-1.5 text-sm" required /></label>

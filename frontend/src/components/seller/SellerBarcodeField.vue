@@ -8,7 +8,7 @@ import { captureBarcodeFrame, createBarcodeScanner, type BarcodeScanner } from '
 type CameraCapabilities = MediaTrackCapabilities & { focusMode?: string[]; torch?: boolean }
 type CameraConstraintSet = MediaTrackConstraintSet & { focusMode?: string; torch?: boolean }
 
-const props = withDefaults(defineProps<{ modelValue: string; disabled?: boolean; error?: string }>(), { disabled: false })
+const props = withDefaults(defineProps<{ modelValue: string; disabled?: boolean; error?: string; placeholder?: string; help?: string }>(), { disabled: false })
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const { t } = useI18n()
 const id = useId()
@@ -166,10 +166,10 @@ onBeforeUnmount(() => {
   <div>
     <label :for="id" class="label">{{ t('seller.barcode') }}</label>
     <div class="flex flex-wrap gap-2">
-      <input :id="id" :value="modelValue" type="text" autocomplete="off" spellcheck="false" class="input min-w-0 flex-1 font-mono" maxlength="255" :disabled="disabled" :aria-describedby="`${id}-help`" :aria-invalid="!!error" @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)" @keydown.enter.prevent />
+      <input :id="id" :value="modelValue" type="text" autocomplete="off" spellcheck="false" class="input min-w-0 flex-1 font-mono" maxlength="255" :disabled="disabled" :placeholder="placeholder" :aria-describedby="`${id}-help`" :aria-invalid="!!error" @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)" @keydown.enter.prevent />
       <button type="button" class="btn-secondary shrink-0" :disabled="disabled" @click="start"><ScanBarcode :size="17" />{{ t('barcode_scanner.scan') }}</button>
     </div>
-    <p :id="`${id}-help`" class="mt-1.5 text-xs leading-relaxed" :class="error ? 'text-red-600' : 'text-muted'">{{ error || t('seller.barcode_help') }}</p>
+    <p :id="`${id}-help`" class="mt-1.5 text-xs leading-relaxed" :class="error ? 'text-red-600' : 'text-muted'">{{ error || help || t('seller.barcode_help') }}</p>
     <p v-if="scanned && scanned === modelValue" role="status" class="mt-1.5 text-xs text-primary">{{ t('barcode_scanner.success', { barcode: scanned }) }}</p>
     <BaseModal :model-value="open" :title="t('barcode_scanner.scan')" size="lg" @update:model-value="close">
       <div v-show="!cameraError" data-testid="barcode-viewport" class="relative overflow-hidden rounded-2xl bg-slate-950">
