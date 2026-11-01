@@ -92,6 +92,9 @@ export interface Coupon {
   type: 'percentage' | 'fixed'
   value: number
   minOrderAmount: number
+  shopId: number | null
+  eligibleSubtotal: number
+  discountAmount: number
   description: string
 }
 

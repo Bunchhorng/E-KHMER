@@ -3,6 +3,7 @@
 namespace Tests\Feature\Api;
 
 use App\Models\Coupon;
+use App\Models\Product;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -10,6 +11,16 @@ use Tests\TestCase;
 class CouponTest extends TestCase
 {
     use RefreshDatabase;
+
+    private int $variantId;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        $this->actingAs(User::factory()->create(), 'sanctum');
+        $this->variantId = Product::factory()->withVariant(100, 20)->create()->variants()->sole()->id;
+        $this->postJson('/api/cart', ['product_variant_id' => $this->variantId, 'quantity' => 1])->assertCreated();
+    }
 
     public function test_percentage_coupon_validates(): void
     {
@@ -65,6 +76,7 @@ class CouponTest extends TestCase
         ])->assertStatus(422)
             ->assertJsonPath('errors.code.0', 'This coupon requires a minimum order amount of 200.00.');
 
+        $this->postJson('/api/cart', ['product_variant_id' => $this->variantId, 'quantity' => 1])->assertCreated();
         $this->postJson('/api/coupons/validate', [
             'code' => 'BIGSPEND',
             'subtotal' => 200,
@@ -89,11 +101,12 @@ class CouponTest extends TestCase
 
         $coupon->usages()->create(['user_id' => $user->id, 'redeemed_at' => now()]);
 
+        $this->actingAs($user, 'sanctum')->postJson('/api/cart', ['product_variant_id' => $this->variantId, 'quantity' => 1])->assertCreated();
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/coupons/validate', [
                 'code' => 'ONEPERSON',
                 'subtotal' => 100,
-            ])->assertStatus(422);
+            ])->assertStatus(422)->assertJsonPath('errors.code.0', 'You have already used this coupon.');
     }
 
     public function test_admin_cannot_create_an_invalid_percentage_coupon(): void

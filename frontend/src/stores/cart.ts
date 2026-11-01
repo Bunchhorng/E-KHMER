@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 import { cartApi, couponsApi } from '@/api'
 import type { ApiCart, ApiCartItem } from '@/api/cart'
 import type { CartItem, Coupon } from '@/types'
+import { extractErrorMessage } from '@/api/errors'
 
 export const TAX_RATE = 0.1
 
@@ -53,6 +54,8 @@ export const useCartStore = defineStore('cart', {
     appliedCoupon: null as Coupon | null,
     couponError: '',
     couponSuccess: '',
+    couponValidating: false,
+    couponRevision: 0,
     loaded: false,
     loading: false
   }),
@@ -62,11 +65,7 @@ export const useCartStore = defineStore('cart', {
       return state.totals.subtotal
     },
     discountAmount(state): number {
-      if (!state.appliedCoupon) return 0
-      if (state.appliedCoupon.type === 'percentage') {
-        return round2((this.totals.subtotal * state.appliedCoupon.value) / 100)
-      }
-      return round2(Math.min(state.appliedCoupon.value, this.totals.subtotal))
+      return state.appliedCoupon?.discountAmount ?? 0
     },
     taxAmount(): number {
       // Checkout taxes the post-discount amount, so keep the cart estimate in
@@ -95,7 +94,7 @@ export const useCartStore = defineStore('cart', {
       this.loading = true
       try {
         const { data } = await cartApi.get()
-        this.applyCart(data.data)
+        await this.applyCart(data.data)
       } catch {
         /* keep last known state */
       } finally {
@@ -104,42 +103,46 @@ export const useCartStore = defineStore('cart', {
       }
     },
 
-    applyCart(cart: ApiCart): void {
+    async applyCart(cart: ApiCart): Promise<void> {
+      const couponCode = this.appliedCoupon?.code
+      this.removeCoupon()
       this.items = cart.items.map(toDisplayItem)
       this.totals = { ...EMPTY_TOTALS, ...cart.totals }
+      if (couponCode && this.items.length > 0) await this.applyCoupon(couponCode)
     },
 
     async addItem({ variantId, quantity = 1 }: AddToCartInput): Promise<void> {
       const { data } = await cartApi.addItem(Number(variantId), quantity)
-      this.applyCart(data.data)
-      this.clearCouponFeedback()
+      await this.applyCart(data.data)
     },
 
     async updateQuantity(itemId: string | number, quantity: number): Promise<void> {
       const { data } = await cartApi.updateItem(Number(itemId), quantity)
-      this.applyCart(data.data)
+      await this.applyCart(data.data)
     },
 
     async removeItem(itemId: string | number): Promise<void> {
       const { data } = await cartApi.removeItem(Number(itemId))
-      this.applyCart(data.data)
+      await this.applyCart(data.data)
     },
 
     async clear(): Promise<void> {
       const { data } = await cartApi.clear()
-      this.applyCart(data.data)
-      this.appliedCoupon = null
-      this.couponSuccess = ''
-      this.couponError = ''
+      this.removeCoupon()
+      await this.applyCart(data.data)
     },
 
     async applyCoupon(code: string): Promise<boolean> {
       const normalized = code.trim().toUpperCase()
+      const revision = ++this.couponRevision
+      this.appliedCoupon = null
+      this.couponValidating = true
       this.couponError = ''
       this.couponSuccess = ''
 
       try {
-        const { data } = await couponsApi.validate(normalized, this.totals.subtotal)
+        const { data } = await couponsApi.validate(normalized)
+        if (revision !== this.couponRevision) return false
         const result = data.data
 
         if (!result.valid) {
@@ -153,17 +156,25 @@ export const useCartStore = defineStore('cart', {
           type: result.type,
           value: result.value,
           minOrderAmount: result.min_order_amount ?? 0,
+          shopId: result.shop_id,
+          eligibleSubtotal: result.eligible_subtotal,
+          discountAmount: result.discount_amount,
           description: result.message
         }
         this.couponSuccess = result.message || `Coupon ${result.code} applied!`
         return true
-      } catch {
-        this.couponError = `Coupon "${normalized}" is not valid.`
+      } catch (error) {
+        if (revision !== this.couponRevision) return false
+        this.couponError = extractErrorMessage(error, `Coupon "${normalized}" is not valid.`)
         return false
+      } finally {
+        if (revision === this.couponRevision) this.couponValidating = false
       }
     },
 
     removeCoupon(): void {
+      this.couponRevision++
+      this.couponValidating = false
       this.appliedCoupon = null
       this.couponSuccess = ''
       this.couponError = ''

@@ -440,19 +440,20 @@ Variants of unpublished products, unpublished variants and soft-deleted rows are
 
 ### POST /coupons/validate — Validate a coupon code
 
-`CouponController@validate` → `CouponResource` with `subtotal` additional field. **Public** (guest coupon checks are supported because `$request->user()` may be null).
+`CouponController@validate` → `CouponResource`. Uses the authenticated customer's persisted cart, or the guest cart identified by `X-Session-Id`. Guests without that header receive `422` with an `errors.session` message.
 
 **Request body** (`CouponValidateRequest`)
 ```json
-{ "code": "SAVE10", "subtotal": 120.0 }
+{ "code": "SAVE10" }
 ```
 
-**Validation:** `code` required string, `subtotal` required numeric min:0.
+**Validation:** `code` required string. The legacy `subtotal` input is optional numeric min:0 and ignored for pricing. Prices, quantities, and shop ownership come from the server. A shop coupon uses only that shop's eligible subtotal for minimum spend and discount calculation; `shop_id: null` coupons apply across the cart. Discounts cannot exceed the eligible subtotal and percentage caps are enforced.
 
 **Response `200`** (`CouponResource`)
 ```json
 {
   "data": {
+    "shop_id": null,
     "code": "SAVE10",
     "type": "percentage",
     "value": 10,
@@ -460,12 +461,15 @@ Variants of unpublished products, unpublished variants and soft-deleted rows are
     "max_discount_amount": 20,
     "valid": true,
     "discount_amount": 12,
+    "eligible_subtotal": 120,
     "message": "10% off"
   },
-  "subtotal": 120
+  "subtotal": 120,
+  "eligible_subtotal": 120,
+  "discount_amount": 12
 }
 ```
-> When invalid, `valid: false` and `message: "This coupon is not currently valid."`. Business validation lives in `CouponService::validate()` (expiry → usage limit → min order amount).
+Invalid codes, expired/inactive coupons, exhausted usage, and insufficient eligible spend return `422` with `errors.code`. A wrong-shop-only cart receives `This coupon does not apply to products in your cart.` Previewing does not consume usage. Checkout revalidates under a coupon row lock and records usage inside the order transaction. Clients should display `data.discount_amount` and revalidate after cart changes.
 
 ---
 
@@ -1089,7 +1093,7 @@ Pending → Confirmed → Processing → Shipped → Delivered
 | `CartAddRequest` | POST /cart | product_variant_id required+exists, quantity 1–99 |
 | `CartUpdateRequest` | PUT /cart/items/{id} | quantity required 1–99 |
 | `CheckoutRequest` | POST /checkout | shipping_method_id, payment_method in:card,cod, address rules |
-| `CouponValidateRequest` | POST /coupons/validate | code, subtotal min:0 |
+| `CouponValidateRequest` | POST /coupons/validate | code required; legacy subtotal optional min:0, ignored for pricing; guest X-Session-Id required |
 | `AddressRequest` | /addresses* | address fields + is_default |
 | `ReviewStoreRequest` | POST /reviews | product_id, rating 1–5, title max:120, body max:3000 |
 | `ReviewUpdateRequest` | PUT /reviews/{id} | optional rating/title/body |

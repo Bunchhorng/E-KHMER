@@ -1,6 +1,7 @@
 import apiClient from './client'
 
 export interface CouponValidation {
+  shop_id: number | null
   code: string
   type: 'percentage' | 'fixed'
   value: number
@@ -8,14 +9,14 @@ export interface CouponValidation {
   max_discount_amount: number | null
   valid: boolean
   discount_amount: number
+  eligible_subtotal: number
   message: string
 }
 
 export const couponsApi = {
-  validate(code: string, subtotal: number) {
+  validate(code: string) {
     return apiClient.post<{ data: CouponValidation; subtotal: number }>('/coupons/validate', {
-      code,
-      subtotal
+      code
     })
   }
 }

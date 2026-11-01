@@ -39,11 +39,16 @@ class CheckoutService
         return DB::transaction(function () use ($payload, $user): Order {
             $cart = $payload['cart'] ?? $this->cart->forUser($user, $payload['session_id'] ?? null);
 
-            if ($cart->items()->count() === 0) {
+            $cartItems = $cart->items()->with([
+                'variant.product.shop', 'variant.product.images', 'variant.attributeValues.value.attribute',
+            ])->lockForUpdate()->get();
+            $cart->setRelation('items', $cartItems);
+
+            if ($cartItems->isEmpty()) {
                 throw ValidationException::withMessages(['message' => 'Your cart is empty']);
             }
 
-            $totals = $this->cart->totals($cart);
+            $totals = $this->cart->totals($cart, $cartItems);
             $subtotal = round((float) $totals['subtotal'], 2);
 
             $discount = 0.0;
@@ -52,13 +57,13 @@ class CheckoutService
             $coupon = null;
 
             if (! empty($payload['coupon_code'])) {
-                $coupon = $this->coupon->validate($user, $payload['coupon_code'], $subtotal);
-                $discount = round($this->coupon->discountFor($coupon, $subtotal), 2);
+                // Keep the coupon's owner/rules stable through allocation and usage.
+                $coupon = $this->coupon->validate($user, $payload['coupon_code'], $cart, lockForUpdate: true);
+                $discount = $this->coupon->discountFor($coupon, $this->coupon->eligibleSubtotal($coupon, $cart));
                 $couponId = $coupon->id;
                 $couponCode = $coupon->code;
             }
 
-            $cartItems = $cart->items()->with('variant.product.shop')->lockForUpdate()->get();
             $shippingByShop = [];
             $shippingMethods = [];
             if (is_array($payload['shipping_methods'] ?? null)) {
@@ -159,7 +164,7 @@ class CheckoutService
             ]);
 
             foreach ($cartItems as $item) {
-                $variant = $item->variant()->with(['product.images', 'attributeValues.value.attribute'])->first();
+                $variant = $item->variant;
                 $product = $variant?->product;
 
                 $unitPrice = round((float) ($variant?->price ?? $product?->price ?? 0), 2);
@@ -180,7 +185,7 @@ class CheckoutService
                 ]);
             }
 
-            $this->shopOrders->split($order, $shippingByShop);
+            $this->shopOrders->split($order, $shippingByShop, $coupon?->shop_id);
 
             if (($payload['payment_method'] ?? '') === 'bakong' && $order->shopOrders()->where('total', '<=', 0)->exists()) {
                 throw ValidationException::withMessages(['payment' => 'A shop total is zero. Choose cash on delivery to complete this order without a bank transfer.']);

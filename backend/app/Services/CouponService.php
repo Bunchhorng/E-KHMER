@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\Cart;
 use App\Models\Coupon;
 use App\Models\CouponUsage;
 use App\Models\Order;
@@ -11,10 +12,11 @@ use Illuminate\Validation\ValidationException;
 
 class CouponService
 {
-    public function validate(?User $user, string $code, float $subtotal): Coupon
+    public function validate(?User $user, string $code, Cart|Order $source, bool $lockForUpdate = false): Coupon
     {
         $coupon = Coupon::query()
             ->whereRaw('UPPER(code) = ?', [mb_strtoupper(trim($code))])
+            ->when($lockForUpdate, fn ($query) => $query->lockForUpdate())
             ->first();
 
         if ($coupon === null) {
@@ -23,9 +25,37 @@ class CouponService
             ]);
         }
 
-        $this->assertRedeemable($coupon, $user, $subtotal);
+        $this->assertRedeemable($coupon, $user, $this->eligibleSubtotal($coupon, $source));
 
         return $coupon;
+    }
+
+    /** Derive eligibility from persisted cart/catalog data or immutable order lines. */
+    public function eligibleSubtotal(Coupon $coupon, Cart|Order $source): float
+    {
+        $items = $source instanceof Cart
+            ? $source->loadMissing('items.variant.product')->items
+            : $source->loadMissing('items')->items;
+
+        $cents = 0;
+        foreach ($items as $item) {
+            $shopId = $source instanceof Cart ? $item->variant?->product?->shop_id : $item->shop_id;
+            if ($coupon->shop_id !== null && (int) $shopId !== (int) $coupon->shop_id) {
+                continue;
+            }
+
+            if ($source instanceof Cart) {
+                if ($item->variant === null) {
+                    continue;
+                }
+                $price = $item->variant->price ?? $item->variant->product?->price ?? 0;
+                $cents += (int) round((float) $price * 100) * (int) $item->quantity;
+            } else {
+                $cents += (int) round((float) $item->line_total * 100);
+            }
+        }
+
+        return $cents / 100;
     }
 
     /**
@@ -41,7 +71,7 @@ class CouponService
             return;
         }
 
-        $this->assertRedeemable($lockedCoupon, $user, (float) $order->subtotal);
+        $this->assertRedeemable($lockedCoupon, $user, $this->eligibleSubtotal($lockedCoupon, $order));
         $lockedCoupon->increment('used_count');
 
         $lockedCoupon->usages()->create([
@@ -60,7 +90,7 @@ class CouponService
             ]);
         }
 
-        if ($coupon->expires_at !== null && !$coupon->expires_at->isFuture()) {
+        if ($coupon->expires_at !== null && ! $coupon->expires_at->isFuture()) {
             throw ValidationException::withMessages([
                 'code' => ['This coupon has expired.'],
             ]);
@@ -72,6 +102,12 @@ class CouponService
             ]);
         }
 
+        if ($subtotal <= 0) {
+            throw ValidationException::withMessages([
+                'code' => ['This coupon does not apply to products in your cart.'],
+            ]);
+        }
+
         if ($coupon->usage_limit !== null && $coupon->used_count >= $coupon->usage_limit) {
             throw ValidationException::withMessages([
                 'code' => ['This coupon has reached its usage limit.'],
@@ -80,7 +116,7 @@ class CouponService
 
         if ($coupon->min_order_amount !== null && (float) $coupon->min_order_amount > $subtotal) {
             throw ValidationException::withMessages([
-                'code' => ['This coupon requires a minimum order amount of ' . number_format((float) $coupon->min_order_amount, 2) . '.'],
+                'code' => ['This coupon requires a minimum order amount of '.number_format((float) $coupon->min_order_amount, 2).'.'],
             ]);
         }
 

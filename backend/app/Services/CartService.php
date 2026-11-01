@@ -159,12 +159,12 @@ class CartService
      *
      * @return array{items_count: int, subtotal: float, tax_amount: float, discount_applicable: float, total: float}
      */
-    public function totals(Cart $cart): array
+    public function totals(Cart $cart, ?Collection $items = null): array
     {
         $subtotal = 0.0;
         $itemsCount = 0;
 
-        foreach ($cart->items()->with('variant.product')->get() as $item) {
+        foreach ($items ?? $cart->items()->with('variant.product')->get() as $item) {
             $variant = $item->variant;
 
             if ($variant === null) {

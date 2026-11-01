@@ -15,7 +15,8 @@ class CouponValidateRequest extends FormRequest
     {
         return [
             'code' => ['required', 'string'],
-            'subtotal' => ['required', 'numeric', 'min:0'],
+            // Kept for old callers; pricing always comes from the server's cart.
+            'subtotal' => ['sometimes', 'numeric', 'min:0'],
         ];
     }
 }

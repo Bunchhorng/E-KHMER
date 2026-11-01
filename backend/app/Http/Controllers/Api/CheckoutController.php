@@ -10,7 +10,6 @@ use App\Models\Order;
 use App\Services\BakongService;
 use App\Services\CartService;
 use App\Services\CheckoutService;
-use App\Services\CouponService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,7 +19,6 @@ class CheckoutController extends Controller
     public function __construct(
         protected CheckoutService $checkout,
         protected CartService $carts,
-        protected CouponService $coupons,
     ) {}
 
     protected function user(Request $request)
@@ -81,13 +79,6 @@ class CheckoutController extends Controller
 
         $address = $this->resolveAddress($request, $user, $sessionId);
 
-        $subtotal = $this->subtotalCart($cart);
-
-        $coupon = null;
-        if ($request->filled('coupon_code')) {
-            $coupon = $this->coupons->validate($user, (string) $request->coupon_code, $subtotal);
-        }
-
         $order = $this->checkout->begin([
             'cart' => $cart,
             'session_id' => $user === null ? (string) $sessionId : null,
@@ -96,7 +87,6 @@ class CheckoutController extends Controller
             'shipping_methods' => $request->input('shipping_methods'),
             'payment_method' => (string) $request->payment_method,
             'coupon_code' => $request->coupon_code,
-            'coupon' => $coupon,
             'address' => $address,
             'email' => $request->email ?? $user?->email,
             'customer_name' => $address['full_name'] ?? $user?->name,
@@ -208,15 +198,5 @@ class CheckoutController extends Controller
             'postal_code' => $address['postal_code'] ?? null,
             'country' => $address['country'] ?? 'US',
         ];
-    }
-
-    protected function subtotalCart($cart): float
-    {
-        $subtotal = 0.0;
-        foreach ($cart->items()->with('variant')->get() as $item) {
-            $subtotal += ((float) ($item->variant?->price ?? 0)) * (int) $item->quantity;
-        }
-
-        return round($subtotal, 2);
     }
 }

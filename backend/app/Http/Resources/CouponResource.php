@@ -10,13 +10,12 @@ class CouponResource extends JsonResource
     public function toArray(Request $request): array
     {
         $subtotal = $this->additional['subtotal'] ?? null;
-        $discountAmount = null;
+        $discountAmount = $this->additional['discount_amount'] ?? null;
         $message = '';
 
         if ($subtotal !== null) {
-            $discountAmount = $this->computeDiscount((float) $subtotal);
             $message = $this->is_valid
-                ? ($this->type === 'percentage' ? "{$this->value}% off" : '$' . number_format((float) $this->value, 2, '.', '') . ' off')
+                ? ($this->type === 'percentage' ? "{$this->value}% off" : '$'.number_format((float) $this->value, 2, '.', '').' off')
                 : 'This coupon is not currently valid.';
         }
 
@@ -30,18 +29,8 @@ class CouponResource extends JsonResource
             'max_discount_amount' => $this->max_discount_amount !== null ? (float) $this->max_discount_amount : null,
             'valid' => (bool) $this->is_valid,
             'discount_amount' => $discountAmount,
+            'eligible_subtotal' => $this->additional['eligible_subtotal'] ?? null,
             'message' => $message,
         ];
-    }
-
-    protected function computeDiscount(float $subtotal): float
-    {
-        if ($this->type === 'percentage') {
-            $discount = round($subtotal * (float) $this->value / 100, 2);
-            $max = $this->max_discount_amount !== null ? (float) $this->max_discount_amount : $subtotal;
-            return min($discount, $max);
-        }
-
-        return min((float) $this->value, $subtotal);
     }
 }

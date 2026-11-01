@@ -198,7 +198,7 @@ async function saveAddress() {
 }
 
 async function placeOrder() {
-  if (!selectedAddress.value || !selectedShipping.value || placing.value) return
+  if (!selectedAddress.value || !selectedShipping.value || placing.value || cartStore.couponValidating) return
   placing.value = true
   checkoutError.value = ''
   try {
@@ -484,7 +484,7 @@ async function placeOrder() {
               </div>
             </div>
 
-            <button type="button" class="btn-primary btn-lg w-full" :disabled="placing" @click="placeOrder">
+            <button type="button" class="btn-primary btn-lg w-full" :disabled="placing || cartStore.couponValidating" @click="placeOrder">
               <Lock class="h-4 w-4" />
               {{ placing ? 'Placing order…' : `Place Order · ${formatPrice(totalWithShipping)}` }}
             </button>

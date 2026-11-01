@@ -128,7 +128,7 @@ function variantLine(item: CartItem): string {
               :placeholder="$t('checkout.coupon_code')"
               @keyup.enter="applyCoupon"
             />
-            <button type="button" class="btn-primary btn-sm shrink-0" @click="applyCoupon">
+            <button type="button" class="btn-primary btn-sm shrink-0" :disabled="cartStore.couponValidating" @click="applyCoupon">
               {{ $t('checkout.apply_coupon') }}
             </button>
           </div>
