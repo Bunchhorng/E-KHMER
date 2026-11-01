@@ -8,6 +8,7 @@ import type { TableColumn, TableRow } from '@/types'
 import { adminApi } from '@/api/admin'
 import type { AdminPayment } from '@/api/admin'
 import { formatDate, formatPrice } from '@/utils/format'
+import CodCollectionPanel from '@/components/CodCollectionPanel.vue'
 
 const { t } = useI18n()
 const route = useRoute(); const router = useRouter()
@@ -97,6 +98,16 @@ async function onRowAction(payload: { action: string; row: TableRow }) {
   }
 }
 
+async function refreshCollection() {
+  if (!detail.value) return
+  const id = detail.value.id
+  try {
+    const { data } = await adminApi.getPayment(id)
+    detail.value = data.data
+    await loadPayments()
+  } catch { showToast(t('admin.payments.toast.load_error')) }
+}
+
 watch(attentionOnly, () => { filter.value = 'all'; void loadPayments() }, { immediate: true })
 </script>
 
@@ -180,6 +191,9 @@ watch(attentionOnly, () => { filter.value = 'all'; void loadPayments() }, { imme
         </div>
       </div>
 
+      <div v-if="detail.method === 'cod'" class="mt-5 space-y-4">
+        <CodCollectionPanel v-for="allocation in detail.cod_allocations" :key="allocation.id" class="rounded-xl border border-border-gray p-4" :payment="allocation" :endpoint="`/admin/payments/${detail.id}/shop-orders/${allocation.id}/collect-cod`" @collected="refreshCollection" />
+      </div>
       <div v-if="detail?.transactions?.length" class="mt-5">
         <h3 class="mb-3 text-sm font-semibold text-ink">{{ $t('admin.payments.transactions') }}</h3>
         <div class="overflow-x-auto">

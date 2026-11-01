@@ -16,7 +16,7 @@ class ShopOrderResource extends JsonResource
             'order_number' => $this->order?->order_number,
             'status' => $this->status,
             'parent_status' => $this->order?->status,
-            'payment_status' => $this->order?->payment_status,
+            'payment_status' => $this->order?->payment?->method === 'cod' ? $this->codPaymentStatus() : $this->order?->payment_status,
             'currency' => $this->order?->currency ?? 'USD',
             'customer_name' => $this->order?->customer_name,
             'email' => $this->order?->email,

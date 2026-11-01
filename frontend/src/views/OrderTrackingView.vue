@@ -10,6 +10,7 @@ import StatusTag from '@/components/StatusTag.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import ShopDeliveryTracker from '@/components/ShopDeliveryTracker.vue'
 import AssetImage from '@/components/AssetImage.vue'
+import CustomerPaymentStatus from '@/components/CustomerPaymentStatus.vue'
 import { formatDate, formatDateTime, formatPrice } from '@/utils/format'
 
 const route = useRoute()
@@ -17,6 +18,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const order = ref<Order | null>(null)
+const paymentOrder = ref<ApiOrder | null>(null)
 const loading = ref(true)
 const allocations = ref<ApiShopOrder[]>([])
 const platformShipment = ref<ApiOrder['shipment']>(null)
@@ -108,6 +110,7 @@ async function loadTracking() {
     allocations.value = data.data.shop_orders ?? []
     platformShipment.value = data.data.shipment
     order.value = mapOrderFromApi(data.data)
+    paymentOrder.value = data.data
   } catch {
     order.value = null
   } finally {
@@ -137,6 +140,7 @@ onMounted(loadTracking)
     </div>
 
     <ShopDeliveryTracker v-if="allocations.length" class="mt-6" :allocations="allocations" :platform-shipment="platformShipment" />
+    <CustomerPaymentStatus v-if="paymentOrder" class="mt-6" :order="paymentOrder" />
 
     <div v-if="order.status === 'Delivered'" class="mt-6 flex items-center gap-2 rounded-xl bg-emerald-100 p-4 text-sm font-medium text-emerald-700">
       <Check class="h-5 w-5" />

@@ -73,6 +73,10 @@ class OrderService
             $order = Order::with(['items', 'payment'])->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
             $from = $order->status;
 
+            if (in_array($to, [Order::STATUS_CANCELLED, Order::STATUS_REFUNDED], true)) {
+                $this->assertCodMoneyPreserved($order);
+            }
+
             if ($to === Order::STATUS_REFUNDED && $order->payment?->method === 'bakong') {
                 throw ValidationException::withMessages(['status' => 'Use the item return workflow and verify the bank refund before marking it refunded.']);
             }
@@ -214,6 +218,12 @@ class OrderService
             return;
         }
 
+        if ($payment->method === 'cod' && $payment->status === Payment::STATUS_PENDING) {
+            $payment->update(['status' => Payment::STATUS_FAILED]);
+
+            return;
+        }
+
         if ($payment->method === 'bakong') {
             if (! BakongPayment::where('order_id', $order->id)->whereIn('status', ['paid', 'refund_required'])->exists()) {
                 return;
@@ -255,6 +265,8 @@ class OrderService
             $order = Order::with(['items', 'payment'])->whereKey($order->getKey())->lockForUpdate()->firstOrFail();
             $from = $order->status;
 
+            $this->assertCodMoneyPreserved($order);
+
             $allowed = [Order::STATUS_PENDING, Order::STATUS_CONFIRMED, Order::STATUS_PROCESSING];
 
             if (! in_array($order->status, $allowed, true) || ! $order->canBeCancelled()) {
@@ -275,5 +287,12 @@ class OrderService
 
             return $order->load(['items.shop', 'payment', 'shipments', 'trackingEvents.changedBy', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents']);
         });
+    }
+
+    private function assertCodMoneyPreserved(Order $order): void
+    {
+        if ($order->payment?->method === 'cod' && ($order->payment_status === Order::PAYMENT_PAID || $order->payment->transactions()->where('type', 'collection')->exists())) {
+            throw ValidationException::withMessages(['status' => 'Cash has been collected. Use the return workflow and record the cash refund receipt.']);
+        }
     }
 }

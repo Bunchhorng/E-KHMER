@@ -31,16 +31,19 @@ class FinancialMetricService
             $buckets[$month->format('Y-m')] = $this->emptyBucket();
         }
         $firstActivity = null;
-        $paidOrders = fn (Builder $query) => $query
+        $eligibleOrders = fn (Builder $query) => $query
             ->whereBetween('placed_at', [$from->copy()->startOfDay(), $to->copy()->endOfDay()])
             ->where('currency', $currency)
-            ->whereNotIn('status', ['pending', 'cancelled'])
+            ->whereNotIn('status', ['pending', 'cancelled']);
+        $paidOrders = fn (Builder $query) => $eligibleOrders($query)
             ->whereIn('payment_status', ['paid', 'partially_refunded', 'refunded'])
             ->whereHas('payment', fn (Builder $payment) => $payment->whereIn('status', ['completed', 'refunded']));
 
         ShopOrder::query()->when($shopId !== null, fn (Builder $query) => $query->where('shop_id', $shopId))
             ->whereNotIn('status', ['pending', 'cancelled'])
-            ->whereHas('order', $paidOrders)
+            ->where(fn (Builder $query) => $query->whereHas('order', $paidOrders)
+                ->orWhere(fn (Builder $cod) => $cod->whereHas('codCollection')
+                    ->whereHas('order', fn (Builder $order) => $eligibleOrders($order)->whereHas('payment', fn (Builder $payment) => $payment->where('method', 'cod')))))
             ->with(['items.returns', 'order.refunds.returnRecord', 'order.refunds.bakongPayment'])
             ->chunkById(200, function ($orders) use (&$buckets, &$firstActivity): void {
                 foreach ($orders as $allocation) {

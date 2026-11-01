@@ -1,4 +1,28 @@
 {
+  "cod": {
+    "empty": "No cash-on-delivery payment records yet.",
+    "method": "Cash on Delivery",
+    "record": "Record cash collected",
+    "confirm_title": "Record COD payment?",
+    "confirm_help": "This confirms that the full amount of cash was actually received. Check the order and amount before confirming.",
+    "confirm": "Confirm collection",
+    "recording": "Recording collection…",
+    "success": "Cash collection recorded.",
+    "failed": "Collection could not be confirmed. Refresh the payment or retry safely.",
+    "delivery_required": "Collection is available after this shop's order is delivered.",
+    "audit": "Collected by {name} · {at}",
+    "status_unpaid": "Awaiting collection",
+    "status_paid": "Collected · Paid",
+    "status_cancelled": "Cancelled",
+    "status_partially_refunded": "Collected · Partially refunded",
+    "status_refunded": "Collected · Refunded",
+    "customer_pay_on_delivery": "Pay on delivery",
+    "customer_partial": "Partially paid",
+    "customer_paid": "Paid",
+    "customer_partially_refunded": "Partially refunded",
+    "customer_refunded": "Refunded",
+    "customer_cancelled": "Cancelled"
+  },
   "analytics": {
     "nav": "Analytics",
     "title": "Business Analytics",

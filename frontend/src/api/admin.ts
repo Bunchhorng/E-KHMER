@@ -271,6 +271,8 @@ export interface AdminShopMember {
 }
 
 export interface AdminPayment {
+  cod_allocations?: import('./cod').CodPayment[]
+  currency?: string
   order_payment_status?: string | null
   id: number
   order_id: number

@@ -25,7 +25,10 @@ class ReturnService
             if (($allocation?->status ?? $order->status) !== 'delivered' || ! $deliveredAt || now()->greaterThan(Carbon::parse($deliveredAt)->addDays(config('ecommerce.return_days', 14)))) {
                 throw ValidationException::withMessages(['order_item_id' => 'This item is not eligible for a return within the configured return window.']);
             }
-            if (! in_array($order->payment_status, ['paid', 'partially_refunded'], true)) {
+            $settled = $order->payment?->method === 'cod' && $allocation !== null
+                ? in_array($allocation->codPaymentStatus(), ['paid', 'partially_refunded'], true)
+                : in_array($order->payment_status, ['paid', 'partially_refunded'], true);
+            if (! $settled) {
                 throw ValidationException::withMessages(['order_item_id' => 'The payment must be settled before requesting a refund.']);
             }
             $existing = OrderReturn::where('order_item_id', $item->id)->where('status', '!=', 'rejected')->get();

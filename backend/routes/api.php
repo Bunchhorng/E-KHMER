@@ -88,6 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('returns/{orderReturn}', [SellerReturnController::class, 'transition']);
         Route::get('returns/{orderReturn}/photos/{index}', [SellerReturnController::class, 'photo'])->whereNumber('index');
         Route::get('payments', [SellerPaymentController::class, 'index']);
+        Route::post('payments/{shopOrder}/collect-cod', [SellerPaymentController::class, 'collectCod'])->middleware('throttle:30,1');
         Route::post('payments/{bakongPayment}/refund', [SellerPaymentController::class, 'refund'])->middleware('throttle:10,1');
         Route::get('settings', [SellerShopController::class, 'settings']);
         Route::put('settings', [SellerShopController::class, 'updateSettings']);
@@ -296,6 +297,7 @@ Route::prefix('admin')
 
         Route::get('payments', [AdminPaymentController::class, 'index']);
         Route::get('payments/{payment}', [AdminPaymentController::class, 'show']);
+        Route::post('payments/{payment}/shop-orders/{shopOrder}/collect-cod', [AdminPaymentController::class, 'collectCod'])->middleware('throttle:30,1');
 
         Route::get('shipments', [AdminShipmentController::class, 'index']);
         Route::get('shipments/{shipment}', [AdminShipmentController::class, 'show']);

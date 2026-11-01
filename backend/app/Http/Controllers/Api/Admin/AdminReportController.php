@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\Payment;
+use App\Models\PaymentRefund;
+use App\Models\PaymentTransaction;
 use App\Services\DashboardService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
@@ -46,7 +48,12 @@ class AdminReportController extends Controller
 
         $paidQuery = (clone $ordersQuery)->where('payment_status', Order::PAYMENT_PAID);
 
-        $revenue = round((float) (clone $paidQuery)->sum('total'), 2);
+        $hasCollections = fn ($query) => $query->whereHas('payment.transactions', fn ($transactions) => $transactions->where('type', 'collection')->where('status', 'success'));
+        $codOrders = (clone $ordersQuery)->whereNotIn('status', ['pending', 'cancelled'])->where($hasCollections);
+        $codCollected = PaymentTransaction::where('type', 'collection')->where('status', 'success')
+            ->whereHas('payment.order', fn ($query) => $query->whereIn('id', (clone $codOrders)->select('id')))->sum('amount');
+        $codRefunded = PaymentRefund::whereIn('order_id', (clone $codOrders)->select('id'))->sum('amount');
+        $revenue = round((float) (clone $paidQuery)->whereNot($hasCollections)->sum('total') + (float) $codCollected - (float) $codRefunded, 2);
         $refunded = round((float) (clone $ordersQuery)->whereIn('status', [Order::STATUS_REFUNDED])->sum('total'), 2);
         $ordersCount = (clone $ordersQuery)->count();
         $customersCount = (clone $ordersQuery)->whereNotNull('user_id')->distinct()->count('user_id');

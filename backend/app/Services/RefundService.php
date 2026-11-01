@@ -10,7 +10,7 @@ use Illuminate\Validation\ValidationException;
 
 class RefundService
 {
-    public function __construct(private BakongService $bakong) {}
+    public function __construct(private BakongService $bakong, private CodCollectionService $codCollections) {}
 
     public static function memo(Order $order, ?int $returnId = null): string
     {
@@ -36,6 +36,13 @@ class RefundService
 
         return DB::transaction(function () use ($order, $payment, $amount, $reference, $actor, $returnId) {
             $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            if ($payment === null && $order->payment?->method === 'cod' && $order->payment->transactions()->where('type', 'collection')->exists()) {
+                $collected = (float) $order->payment->transactions()->where('type', 'collection')->where('status', 'success')->sum('amount');
+                $alreadyRefunded = (float) PaymentRefund::where('order_id', $order->id)->sum('amount');
+                if (round($alreadyRefunded + (float) $amount, 2) > round($collected, 2)) {
+                    throw ValidationException::withMessages(['amount' => 'Refund exceeds the cash actually collected.']);
+                }
+            }
             if ($payment !== null) {
                 $payment = BakongPayment::whereKey($payment->id)->lockForUpdate()->firstOrFail();
             }
@@ -58,7 +65,11 @@ class RefundService
             if ($order->status === 'cancelled' && $payment !== null && ! BakongPayment::where('order_id', $order->id)->whereIn('status', ['paid', 'refund_required'])->exists()) {
                 $fully = true;
             }
-            $order->update(['payment_status' => $fully ? 'refunded' : ($order->status === 'cancelled' ? 'refund_pending' : 'partially_refunded')]);
+            if ($payment === null && $order->payment?->transactions()->where('type', 'collection')->exists()) {
+                $this->codCollections->synchronize($order);
+            } else {
+                $order->update(['payment_status' => $fully ? 'refunded' : ($order->status === 'cancelled' ? 'refund_pending' : 'partially_refunded')]);
+            }
             if ($fully) {
                 $order->payment?->update(['status' => 'refunded']);
             }

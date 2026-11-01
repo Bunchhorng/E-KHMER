@@ -18,6 +18,8 @@ class PaymentResource extends JsonResource
             'status' => $this->status,
             'order_payment_status' => $this->order?->payment_status,
             'amount' => (float) $this->amount,
+            'currency' => $this->order?->currency,
+            'cod_allocations' => $this->method === 'cod' ? CodPaymentResource::collection($this->order->shopOrders()->with(['order.payment', 'shop', 'shipment', 'codCollection'])->get()) : [],
             'transaction_id' => $this->transaction_id,
             'paid_at' => $this->paid_at?->toISOString(),
             'created_at' => $this->created_at?->toISOString(),
@@ -28,6 +30,8 @@ class PaymentResource extends JsonResource
                     'status' => $tx->status,
                     'amount' => (float) $tx->amount,
                     'reference' => $tx->reference,
+                    'shop_order_id' => $tx->shop_order_id,
+                    'recorded_by' => $tx->meta['actor_name'] ?? null,
                     'created_at' => $tx->created_at?->toISOString(),
                 ]
             )),

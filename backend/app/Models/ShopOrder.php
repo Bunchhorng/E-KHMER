@@ -41,6 +41,36 @@ class ShopOrder extends Model
         return $this->hasOne(Shipment::class);
     }
 
+    public function codCollection(): HasOne
+    {
+        return $this->hasOne(PaymentTransaction::class)->where('type', 'collection')->where('status', 'success');
+    }
+
+    public function codPaymentStatus(): string
+    {
+        if ($this->codCollection === null) {
+            return $this->status === Order::STATUS_CANCELLED ? 'cancelled' : Order::PAYMENT_UNPAID;
+        }
+        $refunded = PaymentRefund::whereHas('returnRecord', fn ($query) => $query->whereHas('item', fn ($items) => $items->where('shop_order_id', $this->id)))->sum('amount');
+
+        return (float) $refunded > 0
+            ? ((int) round((float) $refunded * 100) >= (int) round((float) $this->total * 100) ? 'refunded' : 'partially_refunded')
+            : Order::PAYMENT_PAID;
+    }
+
+    public function canCollectCod(): bool
+    {
+        return $this->order?->payment?->method === 'cod'
+            && $this->order->payment->status === Payment::STATUS_PENDING
+            && in_array($this->order->payment_status, [Order::PAYMENT_UNPAID, 'partial'], true)
+            && ! in_array($this->order->status, ['pending', 'cancelled', 'refunded'], true)
+            && $this->status === Order::STATUS_DELIVERED
+            && $this->shipment?->status === Shipment::STATUS_DELIVERED
+            && $this->shipment->delivered_at !== null
+            && $this->codCollection === null
+            && (float) $this->total >= 0;
+    }
+
     public function trackingEvents(): HasMany
     {
         return $this->hasMany(TrackingEvent::class)->orderBy('created_at')->orderBy('id');

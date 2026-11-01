@@ -394,6 +394,9 @@ class CheckoutService
                 $order->payment_status = 'refund_pending';
                 $order->payment?->update(['status' => 'refund_pending']);
             }
+            if ($order->payment?->method === 'cod') {
+                $order->payment->update(['status' => Payment::STATUS_FAILED]);
+            }
             $order->note = trim(($order->note ? $order->note.' ' : '').'reservation released');
             $order->save();
             $this->fulfillment->synchronizeAll($order, Order::STATUS_CANCELLED);

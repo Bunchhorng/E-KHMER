@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Api\Admin;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentResource;
 use App\Models\Payment;
+use App\Models\ShopOrder;
+use App\Services\CodCollectionService;
 use App\Services\DashboardService;
 use Illuminate\Http\Request;
 
@@ -57,5 +59,13 @@ class AdminPaymentController extends Controller
     public function show(Payment $payment)
     {
         return new PaymentResource($payment->load(['order.user', 'transactions']));
+    }
+
+    public function collectCod(Request $request, Payment $payment, ShopOrder $shopOrder, CodCollectionService $collections)
+    {
+        abort_unless((int) $shopOrder->order_id === (int) $payment->order_id, 404);
+        $collections->collect($shopOrder, $request->user());
+
+        return $this->show($payment->fresh());
     }
 }

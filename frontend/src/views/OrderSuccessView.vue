@@ -6,6 +6,7 @@ import { ordersApi } from '@/api/orders'
 import type { ApiOrder } from '@/api/checkout'
 import { useAuthStore } from '@/stores/auth'
 import StatusTag from '@/components/StatusTag.vue'
+import CustomerPaymentStatus from '@/components/CustomerPaymentStatus.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { formatPrice, formatDate } from '@/utils/format'
 import { openPrintWindow, printBlob } from '@/utils/download'
@@ -16,6 +17,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 const order = ref<Order | null>(null)
+const paymentOrder = ref<ApiOrder | null>(null)
 const loading = ref(true)
 const printingReceipt = ref(false)
 const receiptError = ref('')
@@ -124,6 +126,7 @@ onMounted(async () => {
       : ordersApi.getGuest(orderNumber)
     const { data } = await request
     order.value = mapOrderFromApi(data.data)
+    paymentOrder.value = data.data
   } catch {
     order.value = null
   } finally {
@@ -138,6 +141,7 @@ onMounted(async () => {
   </div>
 
   <div v-else-if="order" class="py-16 text-center">
+    <CustomerPaymentStatus v-if="paymentOrder" class="mx-auto mb-6 max-w-xl text-left" :order="paymentOrder" />
     <div class="mx-auto flex h-20 w-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-600">
       <CheckCircle2 :size="40" />
     </div>
