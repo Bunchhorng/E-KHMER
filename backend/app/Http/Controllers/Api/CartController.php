@@ -13,9 +13,7 @@ use Illuminate\Validation\ValidationException;
 
 class CartController extends Controller
 {
-    public function __construct(protected CartService $carts)
-    {
-    }
+    public function __construct(protected CartService $carts) {}
 
     protected function user(Request $request)
     {
@@ -30,7 +28,12 @@ class CartController extends Controller
     {
         $cart = $this->carts->forUser($this->user($request), $this->sessionId($request));
 
-        return $cart->load(['items.variant.product.images', 'items.variant.inventory', 'items.variant.attributeValues.value.attribute']);
+        return $this->loadItems($cart);
+    }
+
+    private function loadItems(Cart $cart): Cart
+    {
+        return $cart->load(['items' => fn ($query) => $query->with(CartService::ITEM_RELATIONS)]);
     }
 
     protected function sessionId(Request $request): ?string
@@ -56,7 +59,7 @@ class CartController extends Controller
         $cart = $this->carts->forUser($this->user($request), $this->sessionId($request));
         $this->carts->add($cart, (int) $request->product_variant_id, (int) $request->quantity);
 
-        return (new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory', 'items.variant.attributeValues.value.attribute'])))
+        return (new CartResource($this->loadItems($cart)))
             ->response()
             ->setStatusCode(201);
     }
@@ -66,7 +69,7 @@ class CartController extends Controller
         $cart = $this->carts->forUser($this->user($request), $this->sessionId($request));
         $this->carts->update($cart, (int) $cartItem, (int) $request->quantity);
 
-        return new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory', 'items.variant.attributeValues.value.attribute']));
+        return new CartResource($this->loadItems($cart));
     }
 
     public function remove(Request $request, int $cartItem)
@@ -74,7 +77,7 @@ class CartController extends Controller
         $cart = $this->carts->forUser($this->user($request), $this->sessionId($request));
         $this->carts->remove($cart, (int) $cartItem);
 
-        return new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory', 'items.variant.attributeValues.value.attribute']));
+        return new CartResource($this->loadItems($cart));
     }
 
     public function clear(Request $request)
@@ -82,7 +85,7 @@ class CartController extends Controller
         $cart = $this->carts->forUser($this->user($request), $this->sessionId($request));
         $this->carts->clear($cart);
 
-        return new CartResource($cart->load(['items.variant.product.images', 'items.variant.inventory', 'items.variant.attributeValues.value.attribute']));
+        return new CartResource($this->loadItems($cart));
     }
 
     public function totals(Request $request)

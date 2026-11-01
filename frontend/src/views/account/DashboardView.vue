@@ -45,7 +45,7 @@ async function addFromWishlist(product: Product, payload: { variantId?: string }
   if (!payload.variantId) return
   actionError.value = ''
   try {
-    await cart.addItem({ variantId: payload.variantId, quantity: 1 })
+    if (!await cart.addItem({ variantId: payload.variantId, quantity: 1 })) return
     await wishlist.remove(product.id)
   } catch { actionError.value = t('account.ui.action_error') }
 }

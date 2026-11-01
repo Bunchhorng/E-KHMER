@@ -477,7 +477,9 @@ Invalid codes, expired/inactive coupons, exhausted usage, and insufficient eligi
 
 **Guest carts** require header `X-Session-Id`. For guests, hitting cart endpoints without this header returns `422: {"errors": {"session": ["A session identifier is required for guest carts."]}}`.
 
-All cart responses return `CartResource`.
+All cart responses return `CartResource`. Each row includes `available`, `unavailable_reason`, and `available_quantity` (stock minus reservations, never negative). `variant` can be null after variant deletion; `variant.product` can be null after product deletion. Consumers must preserve and safely render these rows.
+
+Availability reasons are `variant_deleted`, `product_deleted`, `product_inactive`, `shop_inactive`, `variant_inactive`, `out_of_stock`, `insufficient_stock`, and `invalid_quantity`. A row is purchasable only when its variant, product, and shop are active and its full requested quantity is available. No row is removed or quantity changed by reading the cart.
 
 ### GET /cart — Current cart
 
@@ -490,6 +492,9 @@ All cart responses return `CartResource`.
       {
         "id": 12,
         "quantity": 2,
+        "available": true,
+        "unavailable_reason": null,
+        "available_quantity": 24,
         "variant": {
           "id": 11, "sku": "ACME-TEE-BL-L", "name": "Blue / L",
           "price": 29.99, "compare_at_price": null, "in_stock": true,
@@ -503,6 +508,14 @@ All cart responses return `CartResource`.
 ```
 > Tax is a flat `10%` of subtotal. `discount_amount` is always `0` in cart (coupons applied at checkout).
 
+`subtotal`, tax, and total exclude unavailable lines. The coupon preview also excludes unavailable lines from eligible spend. `items_count` sums **all stored quantities**, including unavailable lines, so the header badge and drawer remain consistent. A cart containing only unavailable rows is not empty.
+
+Example stale row (removable using `id`, without a product or variant):
+
+```json
+{ "id": 25, "quantity": 2, "available": false, "unavailable_reason": "variant_deleted", "available_quantity": 0, "variant": null }
+```
+
 ### POST /cart — Add item
 
 **Request body** (`CartAddRequest`)
@@ -512,7 +525,7 @@ All cart responses return `CartResource`.
 
 **Validation:** `product_variant_id` required integer exists:product_variants,id; `quantity` integer min:1 max:99 (defaults to 1).
 
-**Behavior** (`CartService::add`): caps quantity by available stock; throws `422` if variant inactive or out of stock. Adding an existing variant merges quantities (capped at available).
+**Behavior** (`CartService::add`): throws `422` if the variant/product/shop is unavailable, out of stock, or the resulting quantity exceeds available stock. Adding an existing variant increases its quantity only if stock permits.
 
 **Response:** `CartResource` (same shape as GET /cart).
 
@@ -523,13 +536,13 @@ All cart responses return `CartResource`.
 { "quantity": 3 }
 ```
 
-**Validation:** `quantity` required integer min:1 max:99. Setting `quantity <= 0` deletes the item. Request caps to available stock.
+**Validation:** `quantity` required integer min:1 max:99. Quantities above available stock return `422` without changing the stored quantity. Use DELETE to remove a row. A customer may explicitly lower an insufficient-stock row to an available quantity; there is no automatic reduction on reads.
 
 **Response:** `CartResource`.
 
 ### DELETE /cart/items/{cartItem} — Remove item
 
-**Response:** `CartResource`.
+**Response:** `CartResource`. Removal is scoped to the current customer's/session's cart item ID and works even when its variant or product no longer resolves.
 
 ### DELETE /cart — Clear cart
 
@@ -547,6 +560,8 @@ All cart responses return `CartResource`.
 ## 5. Checkout (begin / confirm / cancel)
 
 Checkout endpoints resolve the cart and apply an **inventory reservation lock** (~15 min window). Guest checkout also requires `X-Session-Id`.
+
+Unresolved unavailable cart rows reject checkout with `422`, an `errors.cart` summary, and actionable `errors["cart_items.<id>"]` messages. Validation runs before financial records, coupon usage, and stock reservations are created. The frontend blocks checkout until unavailable rows are removed or insufficient quantities are explicitly reduced. Inventory reservation still checks live stock atomically.
 
 ### POST /checkout — Begin checkout (reserve + create pending order)
 

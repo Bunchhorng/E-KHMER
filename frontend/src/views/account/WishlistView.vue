@@ -29,7 +29,7 @@ async function addToCart(product: Product, payload: AddToCartPayload) {
   if (!payload.variantId) return
   actionError.value = ''
   try {
-    await cartStore.addItem({ variantId: payload.variantId, quantity: 1 })
+    if (!await cartStore.addItem({ variantId: payload.variantId, quantity: 1 })) return
     await wishlist.remove(product.id)
   } catch { actionError.value = t('account.ui.action_error') }
 }

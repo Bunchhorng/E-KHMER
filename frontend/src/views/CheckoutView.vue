@@ -2,6 +2,7 @@
 import { ref, computed, reactive, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { isAxiosError } from 'axios'
 import {
   ArrowRight,
   ArrowLeft,
@@ -18,6 +19,7 @@ import { checkoutApi } from '@/api/checkout'
 import { useCartStore } from '@/stores/cart'
 import BaseModal from '@/components/BaseModal.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import CartLoadState from '@/components/CartLoadState.vue'
 import { formatPrice } from '@/utils/format'
 import { extractErrorMessage } from '@/api/errors'
 
@@ -52,7 +54,7 @@ const newAddress = reactive<Omit<Address, 'id' | 'isDefault'>>({
 const shipping = ref<(ShippingMethod & { shopId: number | null })[]>([])
 const loadingShipping = ref(true)
 const shippingSelections = reactive<Record<number, string>>({})
-const shopGroups = computed(() => [...new Map(cartStore.items.map(item => [item.shopId ?? 0, { id: item.shopId ?? 0, name: item.shopName || 'E-KHMER' }])).values()])
+const shopGroups = computed(() => [...new Map(cartStore.availableItems.map(item => [item.shopId ?? 0, { id: item.shopId ?? 0, name: item.shopName || 'E-KHMER' }])).values()])
 function optionsFor(shopId: number) { return shipping.value.filter(method => method.shopId === null || method.shopId === shopId) }
 watch([shipping, shopGroups], () => {
   for (const group of shopGroups.value) {
@@ -149,6 +151,7 @@ async function fetchShipping() {
 }
 
 onMounted(() => {
+  cartStore.fetch()
   fetchAddresses()
   fetchShipping()
 })
@@ -198,7 +201,7 @@ async function saveAddress() {
 }
 
 async function placeOrder() {
-  if (!selectedAddress.value || !selectedShipping.value || placing.value || cartStore.couponValidating) return
+  if (!selectedAddress.value || !selectedShipping.value || placing.value || !cartStore.canCheckout) return
   placing.value = true
   checkoutError.value = ''
   try {
@@ -226,6 +229,7 @@ async function placeOrder() {
     router.push({ name: 'order-success', params: { orderId: data.data.order_number } })
   } catch (error) {
     checkoutError.value = extractErrorMessage(error, 'We could not place your order. Your cart has been kept so you can review it.')
+    if (isAxiosError(error) && error.response?.status === 422) await cartStore.fetch()
   } finally {
     placing.value = false
   }
@@ -234,6 +238,7 @@ async function placeOrder() {
 
 <template>
   <div class="py-8">
+    <CartLoadState />
     <div v-if="cartStore.isEmpty" class="mx-auto max-w-md">
       <EmptyState
         title="Your cart is empty"
@@ -243,7 +248,13 @@ async function placeOrder() {
       />
     </div>
 
-    <template v-else>
+    <div v-else-if="cartStore.unavailableItems.length" class="mx-auto max-w-lg space-y-4 rounded-xl border border-amber-300 p-5">
+      <h1 class="text-xl font-semibold">{{ $t('cart.needs_attention') }}</h1>
+      <p role="alert">{{ $t('cart.checkout_blocked', { count: cartStore.unavailableItems.length }) }}</p>
+      <RouterLink to="/cart" class="btn-primary">{{ $t('checkout.back_to_cart') }}</RouterLink>
+    </div>
+
+    <template v-else-if="cartStore.loaded && cartStore.items.length">
       <h1 class="mb-6 text-2xl font-bold text-ink dark:text-ink sm:text-3xl">{{ $t('nav.checkout') }}</h1>
 
       <div class="mb-8 flex items-center">
@@ -484,7 +495,7 @@ async function placeOrder() {
               </div>
             </div>
 
-            <button type="button" class="btn-primary btn-lg w-full" :disabled="placing || cartStore.couponValidating" @click="placeOrder">
+            <button type="button" class="btn-primary btn-lg w-full" :disabled="placing || !cartStore.canCheckout" @click="placeOrder">
               <Lock class="h-4 w-4" />
               {{ placing ? 'Placing order…' : `Place Order · ${formatPrice(totalWithShipping)}` }}
             </button>

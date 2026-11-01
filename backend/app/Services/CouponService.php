@@ -12,6 +12,8 @@ use Illuminate\Validation\ValidationException;
 
 class CouponService
 {
+    public function __construct(private CartService $carts) {}
+
     public function validate(?User $user, string $code, Cart|Order $source, bool $lockForUpdate = false): Coupon
     {
         $coupon = Coupon::query()
@@ -34,7 +36,7 @@ class CouponService
     public function eligibleSubtotal(Coupon $coupon, Cart|Order $source): float
     {
         $items = $source instanceof Cart
-            ? $source->loadMissing('items.variant.product')->items
+            ? $source->loadMissing(['items.variant.product.shop', 'items.variant.inventory'])->items
             : $source->loadMissing('items')->items;
 
         $cents = 0;
@@ -45,7 +47,7 @@ class CouponService
             }
 
             if ($source instanceof Cart) {
-                if ($item->variant === null) {
+                if (! $this->carts->availability($item)['available']) {
                     continue;
                 }
                 $price = $item->variant->price ?? $item->variant->product?->price ?? 0;

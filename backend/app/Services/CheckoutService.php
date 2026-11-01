@@ -39,14 +39,14 @@ class CheckoutService
         return DB::transaction(function () use ($payload, $user): Order {
             $cart = $payload['cart'] ?? $this->cart->forUser($user, $payload['session_id'] ?? null);
 
-            $cartItems = $cart->items()->with([
-                'variant.product.shop', 'variant.product.images', 'variant.attributeValues.value.attribute',
-            ])->lockForUpdate()->get();
+            $cartItems = $cart->items()->with(CartService::ITEM_RELATIONS)->lockForUpdate()->get();
             $cart->setRelation('items', $cartItems);
 
             if ($cartItems->isEmpty()) {
                 throw ValidationException::withMessages(['message' => 'Your cart is empty']);
             }
+
+            $this->cart->assertPurchasable($cartItems);
 
             $totals = $this->cart->totals($cart, $cartItems);
             $subtotal = round((float) $totals['subtotal'], 2);

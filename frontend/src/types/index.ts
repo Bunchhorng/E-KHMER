@@ -72,6 +72,9 @@ export interface CartVariantSelection {
 }
 
 export interface CartItem {
+  available: boolean
+  unavailableReason: import('@/api/cart').CartUnavailableReason | null
+  availableQuantity: number | null
   shopId?: number | null
   shopName?: string | null
   id: string

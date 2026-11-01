@@ -1,8 +1,10 @@
 import { defineStore } from 'pinia'
+import { isAxiosError } from 'axios'
 import { cartApi, couponsApi } from '@/api'
 import type { ApiCart, ApiCartItem } from '@/api/cart'
 import type { CartItem, Coupon } from '@/types'
 import { extractErrorMessage } from '@/api/errors'
+import i18n from '@/plugins/i18n'
 
 export const TAX_RATE = 0.1
 
@@ -27,23 +29,28 @@ function round2(value: number): number {
 
 function toDisplayItem(api: ApiCartItem): CartItem {
   const variant = api.variant
+  const product = variant?.product
+  const available = Boolean(variant && product) && (api.available ?? variant?.in_stock !== false)
   return {
     id: String(api.id),
-    shopId: variant.product?.shop_id,
-    shopName: variant.product?.shop_name,
-    productId: String(variant.product?.id ?? variant.id),
-    slug: variant.product?.slug ?? '',
-    title: variant.product?.name ?? variant.name,
+    available,
+    unavailableReason: available ? null : api.unavailable_reason ?? (!variant ? 'variant_deleted' : !product ? 'product_deleted' : 'out_of_stock'),
+    availableQuantity: api.available_quantity ?? null,
+    shopId: product?.shop_id,
+    shopName: product?.shop_name,
+    productId: product ? String(product.id) : '',
+    slug: product?.slug ?? '',
+    title: product?.name ?? i18n.global.t('cart.unavailable_item'),
     brand: '',
-    image: variant.product?.cover_image ?? '',
-    unitPrice: variant.price ?? 0,
+    image: product?.cover_image ?? '',
+    unitPrice: variant?.price ?? 0,
     quantity: api.quantity,
-      variant: {
-        variantId: String(variant.id),
+    variant: variant ? {
+      variantId: String(variant.id),
       attributes: variant.attributes ?? [],
       sku: variant.sku
-    },
-    variantName: variant.name
+    } : null,
+    variantName: variant?.name
   }
 }
 
@@ -57,10 +64,16 @@ export const useCartStore = defineStore('cart', {
     couponValidating: false,
     couponRevision: 0,
     loaded: false,
-    loading: false
+    loading: false,
+    loadError: '',
+    mutationError: '',
+    pendingMutations: 0
   }),
 
   getters: {
+    mutating(state): boolean {
+      return state.pendingMutations > 0
+    },
     subtotal(state): number {
       return state.totals.subtotal
     },
@@ -79,7 +92,16 @@ export const useCartStore = defineStore('cart', {
       return this.totals.items_count
     },
     isEmpty(): boolean {
-      return this.items.length === 0
+      return this.loaded && !this.loading && !this.loadError && this.items.length === 0
+    },
+    availableItems(state): CartItem[] {
+      return state.items.filter(item => item.available)
+    },
+    unavailableItems(state): CartItem[] {
+      return state.items.filter(item => !item.available)
+    },
+    canCheckout(): boolean {
+      return this.loaded && !this.loading && !this.loadError && !this.mutating && !this.couponValidating && this.availableItems.length > 0 && this.unavailableItems.length === 0
     }
   },
 
@@ -92,14 +114,15 @@ export const useCartStore = defineStore('cart', {
     async fetch(): Promise<void> {
       if (this.loading) return
       this.loading = true
+      this.loadError = ''
       try {
         const { data } = await cartApi.get()
         await this.applyCart(data.data)
       } catch {
-        /* keep last known state */
+        this.removeCoupon()
+        this.loadError = i18n.global.t('cart.load_error')
       } finally {
         this.loading = false
-        this.loaded = true
       }
     },
 
@@ -108,28 +131,44 @@ export const useCartStore = defineStore('cart', {
       this.removeCoupon()
       this.items = cart.items.map(toDisplayItem)
       this.totals = { ...EMPTY_TOTALS, ...cart.totals }
+      this.loaded = true
+      this.loadError = ''
       if (couponCode && this.items.length > 0) await this.applyCoupon(couponCode)
     },
 
-    async addItem({ variantId, quantity = 1 }: AddToCartInput): Promise<void> {
-      const { data } = await cartApi.addItem(Number(variantId), quantity)
-      await this.applyCart(data.data)
+    async mutateCart(request: () => Promise<{ data: { data: ApiCart } }>, fallback: string, clearCoupon = false): Promise<boolean> {
+      this.pendingMutations++
+      this.mutationError = ''
+      try {
+        const { data } = await request()
+        if (clearCoupon) this.removeCoupon()
+        await this.applyCart(data.data)
+        return true
+      } catch (error) {
+        const message = i18n.global.t(fallback)
+        this.mutationError = isAxiosError(error) && (error.response?.status ?? 0) >= 500
+          ? message
+          : extractErrorMessage(error, message)
+        return false
+      } finally {
+        this.pendingMutations--
+      }
     },
 
-    async updateQuantity(itemId: string | number, quantity: number): Promise<void> {
-      const { data } = await cartApi.updateItem(Number(itemId), quantity)
-      await this.applyCart(data.data)
+    async addItem({ variantId, quantity = 1 }: AddToCartInput): Promise<boolean> {
+      return this.mutateCart(() => cartApi.addItem(Number(variantId), quantity), 'cart.add_error')
     },
 
-    async removeItem(itemId: string | number): Promise<void> {
-      const { data } = await cartApi.removeItem(Number(itemId))
-      await this.applyCart(data.data)
+    async updateQuantity(itemId: string | number, quantity: number): Promise<boolean> {
+      return this.mutateCart(() => cartApi.updateItem(Number(itemId), quantity), 'cart.update_error')
     },
 
-    async clear(): Promise<void> {
-      const { data } = await cartApi.clear()
-      this.removeCoupon()
-      await this.applyCart(data.data)
+    async removeItem(itemId: string | number): Promise<boolean> {
+      return this.mutateCart(() => cartApi.removeItem(Number(itemId)), 'cart.remove_error')
+    },
+
+    async clear(): Promise<boolean> {
+      return this.mutateCart(() => cartApi.clear(), 'cart.clear_error', true)
     },
 
     async applyCoupon(code: string): Promise<boolean> {

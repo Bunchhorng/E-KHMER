@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\CartService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -9,6 +10,7 @@ class CartItemResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $availability = app(CartService::class)->availability($this->resource);
         $variant = $this->whenLoaded('variant', function () {
             $product = $this->variant->relationLoaded('product') ? $this->variant->product : null;
             $coverImage = null;
@@ -22,7 +24,7 @@ class CartItemResource extends JsonResource
                 'id' => $this->variant->id,
                 'sku' => $this->variant->sku,
                 'name' => $this->variant->name,
-                'price' => $this->variant->price !== null ? (float) $this->variant->price : null,
+                'price' => (float) ($this->variant->price ?? $product?->price ?? 0),
                 'compare_at_price' => $this->variant->compare_at_price !== null ? (float) $this->variant->compare_at_price : null,
                 'in_stock' => $this->resolveVariantInStock($this->variant),
                 'attributes' => $this->variant->relationLoaded('attributeValues')
@@ -50,6 +52,7 @@ class CartItemResource extends JsonResource
         return [
             'id' => $this->id,
             'quantity' => (int) $this->quantity,
+            ...$availability,
             'variant' => $variant,
         ];
     }

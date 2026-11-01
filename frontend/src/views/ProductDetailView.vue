@@ -359,10 +359,10 @@ function addToCart() {
   ui.openCartDrawer()
 }
 
-function buyNow() {
+async function buyNow() {
   const p = product.value
   if (!p || !selectedVariant.value?.id) return
-  cart.addItem({ variantId: selectedVariant.value.id, quantity: quantity.value })
+  if (!await cart.addItem({ variantId: selectedVariant.value.id, quantity: quantity.value })) return
   router.push('/checkout')
 }
 

@@ -105,7 +105,7 @@ Configure the backend URL with `VITE_API_URL` in `frontend/.env` (e.g. `VITE_API
 
 | Store | Purpose |
 | --- | --- |
-| `stores/cart.ts` | Cart items, applied coupon, computed subtotal/discount/tax/total; persists to `localStorage` under `ekhmer_cart`. Includes coupon validation logic (percentage/fixed, min-order). |
+| `stores/cart.ts` | Server-backed cart with nullable product/variant relations, explicit availability, and safe normalization. Keeps all stored rows and uses backend purchasable subtotal and coupon discount quotes. Separates loading, load error, empty, and unavailable states; mutations return success/failure with visible feedback. |
 | `stores/wishlist.ts` | Customer wishlist. |
 | `stores/ui.ts` | Shared UI state (drawers, toasts, etc.). |
 
@@ -141,6 +141,8 @@ Configure the backend URL with `VITE_API_URL` in `frontend/.env` (e.g. `VITE_API
 - **AdminShippingMethodsView** — shipping config.
 
 Shared building blocks include `ProductCard`, `CartDrawer`, `StatusTag`, `StarRating`, `BaseModal`, `BasePagination`, and skeleton loaders (`ProductGridSkeleton`, `PdpSkeleton`, `DataTableSkeleton`, `EmptyState`) plus admin `AdminDataTable` and chart components.
+
+`CartLine` renders the same available/unavailable state in the drawer and cart page, with safe image placeholders and removal by cart item ID. Deleted relations use a generic unavailable title because carts do not store historical product snapshots. `CartLoadState` provides loading and retry feedback. The cart page groups available rows and rows needing attention; checkout and drawer checkout links are blocked while unavailable rows remain. Insufficient-stock rows allow explicit quantity reduction. The badge counts all stored quantities, while financial totals exclude unavailable rows. `App.vue` displays mutation failures without discarding the cart. Checkout refreshes the cart and coupon eligibility when opened and after a 422 response.
 
 ## 7. Globalization
 

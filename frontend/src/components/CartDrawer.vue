@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { useRouter } from 'vue-router'
-import { ShoppingBag, Trash2, X } from 'lucide-vue-next'
+import { ShoppingBag, X } from 'lucide-vue-next'
 import { useCartStore } from '@/stores/cart'
 import { useUiStore } from '@/stores/ui'
-import type { CartItem } from '@/types'
 import { formatPrice } from '@/utils/format'
 import EmptyState from './EmptyState.vue'
-import QuantityCounter from './QuantityCounter.vue'
+import CartLine from './CartLine.vue'
+import CartLoadState from './CartLoadState.vue'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -21,17 +21,6 @@ function startShopping(): void {
   router.push('/shop')
 }
 
-function updateItemQuantity(itemId: string, quantity: number): void {
-  cartStore.updateQuantity(itemId, quantity)
-}
-
-function removeItem(itemId: string): void {
-  cartStore.removeItem(itemId)
-}
-
-function variantLabel(item: CartItem): string {
-  return item.variantName ?? item.variant?.sku ?? ''
-}
 </script>
 
 <template>
@@ -56,8 +45,9 @@ function variantLabel(item: CartItem): string {
           </header>
 
           <div class="flex-1 overflow-y-auto p-4">
+            <CartLoadState />
             <EmptyState
-              v-if="cartStore.items.length === 0"
+              v-if="cartStore.isEmpty"
               :title="$t('cart.empty_title')"
               :description="$t('cart.empty_description')"
               :cta-label="$t('actions.start_shopping')"
@@ -68,46 +58,9 @@ function variantLabel(item: CartItem): string {
               </template>
             </EmptyState>
 
-            <ul v-else class="divide-y divide-border-gray dark:divide-border-gray">
-              <li v-for="item in cartStore.items" :key="item.id" class="flex gap-3 py-4">
-                <RouterLink :to="`/product/${item.slug}`" class="shrink-0">
-                  <img
-                    :src="item.image"
-                    :alt="item.title"
-                    loading="lazy"
-                    class="h-20 w-16 rounded-lg object-cover"
-                  />
-                </RouterLink>
-                <div class="min-w-0 flex-1">
-                  <RouterLink
-                    :to="`/product/${item.slug}`"
-                    class="line-clamp-1 text-sm font-semibold text-ink transition-colors hover:text-primary dark:text-ink"
-                  >
-                    {{ item.title }}
-                  </RouterLink>
-                  <p v-if="item.variant" class="mt-0.5 line-clamp-1 text-xs text-gray-500 dark:text-muted">
-                    {{ variantLabel(item) }}
-                  </p>
-                  <div class="mt-2 flex items-center justify-between gap-2">
-                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ formatPrice(item.unitPrice) }}</span>
-                    <QuantityCounter
-                      size="sm"
-                      :model-value="item.quantity"
-                      @update:model-value="(qty) => updateItemQuantity(item.id, qty)"
-                    />
-                    <span class="text-sm font-semibold text-ink dark:text-ink">
-                      {{ formatPrice(item.unitPrice * item.quantity) }}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  class="shrink-0 self-start text-red-500 transition-colors hover:text-red-700 dark:text-red-400 dark:hover:text-red-300"
-                  :aria-label="$t('cart.remove_item')"
-                  @click="removeItem(item.id)"
-                >
-                  <Trash2 :size="15" />
-                </button>
+            <ul v-else-if="cartStore.loaded" class="divide-y divide-border-gray dark:divide-border-gray">
+              <li v-for="item in cartStore.items" :key="item.id">
+                <CartLine :item="item" compact />
               </li>
             </ul>
           </div>
@@ -118,9 +71,11 @@ function variantLabel(item: CartItem): string {
               <span class="text-base font-bold text-ink dark:text-gray-50">{{ formatPrice(cartStore.subtotal) }}</span>
             </div>
             <p class="text-xs text-gray-500 dark:text-muted">{{ $t('cart.shipping_note') }}</p>
-            <RouterLink to="/checkout" class="btn-primary w-full dark:bg-blue-500 dark:hover:bg-blue-600" @click="closeCartDrawer">
+            <RouterLink v-if="cartStore.canCheckout" to="/checkout" class="btn-primary w-full dark:bg-blue-500 dark:hover:bg-blue-600" @click="closeCartDrawer">
               {{ $t('actions.checkout') }}
             </RouterLink>
+            <button v-else type="button" class="btn-primary w-full" disabled>{{ $t('actions.checkout') }}</button>
+            <p v-if="cartStore.unavailableItems.length" role="status" class="text-xs text-amber-800 dark:text-amber-300">{{ $t('cart.checkout_blocked', { count: cartStore.unavailableItems.length }) }}</p>
             <p class="text-center">
               <RouterLink
                 to="/cart"

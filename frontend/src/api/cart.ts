@@ -1,13 +1,18 @@
 import apiClient from './client'
 
+export type CartUnavailableReason = 'variant_deleted' | 'product_deleted' | 'product_inactive' | 'shop_inactive' | 'variant_inactive' | 'out_of_stock' | 'insufficient_stock' | 'invalid_quantity'
+
 export interface ApiCartItem {
   id: number
   quantity: number
+  available: boolean
+  unavailable_reason: CartUnavailableReason | null
+  available_quantity: number
   variant: {
     id: number
     sku: string
     name: string
-    price: number
+    price: number | null
     compare_at_price: number | null
     in_stock: boolean
     attributes: { name: string; value: string }[]
@@ -18,8 +23,8 @@ export interface ApiCartItem {
       cover_image: string | null
       shop_id?: number | null
       shop_name?: string | null
-    }
-  }
+    } | null
+  } | null
 }
 
 export interface ApiCart {
