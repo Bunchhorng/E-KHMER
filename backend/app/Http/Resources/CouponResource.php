@@ -29,6 +29,7 @@ class CouponResource extends JsonResource
             'max_discount_amount' => $this->max_discount_amount !== null ? (float) $this->max_discount_amount : null,
             'valid' => (bool) $this->is_valid,
             'discount_amount' => $discountAmount,
+            'raw_discount' => $this->additional['raw_discount'] ?? null,
             'eligible_subtotal' => $this->additional['eligible_subtotal'] ?? null,
             'message' => $message,
         ];

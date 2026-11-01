@@ -461,6 +461,7 @@ Variants of unpublished products, unpublished variants and soft-deleted rows are
     "max_discount_amount": 20,
     "valid": true,
     "discount_amount": 12,
+    "raw_discount": 12,
     "eligible_subtotal": 120,
     "message": "10% off"
   },
@@ -470,6 +471,8 @@ Variants of unpublished products, unpublished variants and soft-deleted rows are
 }
 ```
 Invalid codes, expired/inactive coupons, exhausted usage, and insufficient eligible spend return `422` with `errors.code`. A wrong-shop-only cart receives `This coupon does not apply to products in your cart.` Previewing does not consume usage. Checkout revalidates under a coupon row lock and records usage inside the order transaction. Clients should display `data.discount_amount` and revalidate after cart changes.
+
+The response also includes top-level `raw_discount` and `quote` (omitted from the abbreviated example above). `quote` uses the complete checkout-quote contract below. Both preview endpoints use the same calculator. Vue uses `/checkout/quote` for coupon application and complete financial totals.
 
 ---
 
@@ -563,6 +566,48 @@ Checkout endpoints resolve the cart and apply an **inventory reservation lock** 
 
 Unresolved unavailable cart rows reject checkout with `422`, an `errors.cart` summary, and actionable `errors["cart_items.<id>"]` messages. Validation runs before financial records, coupon usage, and stock reservations are created. The frontend blocks checkout until unavailable rows are removed or insufficient quantities are explicitly reduced. Inventory reservation still checks live stock atomically.
 
+### POST /checkout/quote — Current financial quote
+
+`CheckoutController@quote` → `CheckoutQuoteResource`. Accepts authenticated customers or guests with `X-Session-Id`. Resolves the caller's persisted cart; prices, stock, shop ownership, coupon rules, tax, and delivery prices are calculated on the server. No orders, coupon redemptions, payments, or inventory reservations are created.
+
+**Request body** (`CheckoutQuoteRequest`; all fields optional)
+
+```json
+{ "coupon_code": "CAP5", "shipping_methods": { "12": 4 } }
+```
+
+`coupon_code`: nullable string, max 50. `shipping_methods`: optional shop-ID-to-method-ID map, max 50 entries; IDs must exist, be active, and be global or belong to the relevant shop. Omit the map to select the cheapest active compatible delivery method for each purchasable shop, breaking equal-price ties by method ID. Unavailable lines do not add delivery fees. Missing delivery options produce `shipping_complete: false` and `can_checkout: false`.
+
+**Response `200`** (example with $100 goods, 10% coupon capped at $5, free delivery)
+
+```json
+{
+  "data": {
+    "currency": "USD",
+    "subtotal": 100,
+    "eligible_subtotal": 100,
+    "raw_discount": 10,
+    "discount_amount": 5,
+    "tax_amount": 9.5,
+    "shipping_amount": 0,
+    "total": 104.5,
+    "coupon": {
+      "id": 1, "shop_id": 12, "code": "CAP5", "type": "percentage", "value": 10,
+      "min_order_amount": null, "max_discount_amount": 5, "valid": true,
+      "raw_discount": 10, "discount_amount": 5, "eligible_subtotal": 100, "message": "10% off"
+    },
+    "shipping_methods": [{ "shop_id": 12, "id": 4, "name": "Standard", "price": 0 }],
+    "shipping_complete": true,
+    "can_checkout": true,
+    "fingerprint": "<64 lowercase hexadecimal characters>"
+  }
+}
+```
+
+Money fields are JSON numbers in USD with values rounded to two decimal places, following order-resource conventions. Format them as currency only in the UI. Calculation order is purchasable subtotal → eligible discount and percentage cap → 10% tax on discounted goods → configured shipping → total. Existing fixed coupons are limited to eligible spend; the percentage cap field does not apply to fixed coupons.
+
+Requote after cart, coupon, or shipping changes. Send the returned delivery IDs and `fingerprint` as `quote_fingerprint` to `/checkout`. Order creation recalculates under its transaction, revalidates the coupon, and rejects an altered quote with `409` and `errors.quote` before any financial records or stock reservation. Refresh the cart/quote and let the customer review the new amount before submitting again. Coupon expiry or exhausted usage returns its specific `422 errors.code` message.
+
 ### POST /checkout — Begin checkout (reserve + create pending order)
 
 `CheckoutController@begin` → `CheckoutService::begin()`. `CheckoutRequest` validation:
@@ -592,7 +637,9 @@ Unresolved unavailable cart rows reject checkout with `422`, an `errors.cart` su
 **Validation rules** (`CheckoutRequest`)
 | Field | Rules |
 | --- | --- |
-| `shipping_method_id` | required integer exists:shipping_methods,id |
+| `shipping_method_id` | required_without:shipping_methods; nullable integer exists:shipping_methods,id |
+| `shipping_methods` | optional shop-ID-to-method-ID map, min 1, max 50; every purchasable shop requires a compatible method |
+| `quote_fingerprint` | optional 64-character lowercase hexadecimal string; the Vue client always supplies the reviewed quote fingerprint |
 | `payment_method` | required string in:card,cod (defaults `card`) |
 | `coupon_code` | nullable string |
 | `email` | nullable email |
@@ -611,10 +658,13 @@ Unresolved unavailable cart rows reject checkout with `422`, an `errors.cart` su
 **Behavior:**
 - Resolves address from `address_id` (must belong to user) or inline `address`.
 - Validates coupon via `CouponService` if provided.
+- Uses the same calculation as `/checkout/quote`. A supplied quote fingerprint must match current prices, quantities, ownership, coupon result, and delivery selection; otherwise returns `409 errors.quote` without creating the order.
 - Reserves stock via `InventoryService::reserveMany()`; on failure → `422 insufficient stock`.
 - Creates `Order` (status `pending`), `OrderItem` rows (price/title/variant snapshot), `Payment` (pending), `Shipment` (pending).
 - Applies coupon usage record if discount > 0.
 - Total = subtotal − discount + tax(10% of discounted subtotal) + shipping.
+
+Legacy clients may omit the fingerprint and use the existing single `shipping_method_id` contract, whose fee is charged once. Financial inputs from clients are ignored in all cases. Legacy clients should adopt the quote/fingerprint contract to detect changes from a previously displayed amount. Idempotent retries return the original persisted order before repricing; the Vue request signature includes the fingerprint.
 
 **Response `200`** — `OrderResource` with `reservation_expires_at` added:
 ```json

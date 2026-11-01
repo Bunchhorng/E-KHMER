@@ -1,12 +1,11 @@
 import { defineStore } from 'pinia'
 import { isAxiosError } from 'axios'
-import { cartApi, couponsApi } from '@/api'
+import { cartApi } from '@/api'
+import { checkoutApi, type CheckoutQuote } from '@/api/checkout'
 import type { ApiCart, ApiCartItem } from '@/api/cart'
 import type { CartItem, Coupon } from '@/types'
 import { extractErrorMessage } from '@/api/errors'
 import i18n from '@/plugins/i18n'
-
-export const TAX_RATE = 0.1
 
 export interface AddToCartInput {
   variantId: string | number
@@ -22,10 +21,6 @@ export interface CartTotals {
 }
 
 const EMPTY_TOTALS: CartTotals = { subtotal: 0, discount_amount: 0, tax_amount: 0, total: 0, items_count: 0 }
-
-function round2(value: number): number {
-  return Math.round((value + Number.EPSILON) * 100) / 100
-}
 
 function toDisplayItem(api: ApiCartItem): CartItem {
   const variant = api.variant
@@ -61,8 +56,13 @@ export const useCartStore = defineStore('cart', {
     appliedCoupon: null as Coupon | null,
     couponError: '',
     couponSuccess: '',
-    couponValidating: false,
-    couponRevision: 0,
+    couponCode: '',
+    quote: null as CheckoutQuote | null,
+    quoteLoading: false,
+    quoteError: '',
+    quoteNotice: '',
+    quoteRevision: 0,
+    shippingSelections: {} as Record<string, number>,
     loaded: false,
     loading: false,
     loadError: '',
@@ -71,22 +71,23 @@ export const useCartStore = defineStore('cart', {
   }),
 
   getters: {
+    couponValidating(state): boolean {
+      return state.quoteLoading && Boolean(state.couponCode)
+    },
     mutating(state): boolean {
       return state.pendingMutations > 0
     },
     subtotal(state): number {
-      return state.totals.subtotal
+      return state.quote?.subtotal ?? 0
     },
     discountAmount(state): number {
-      return state.appliedCoupon?.discountAmount ?? 0
+      return state.quote?.discount_amount ?? 0
     },
     taxAmount(): number {
-      // Checkout taxes the post-discount amount, so keep the cart estimate in
-      // lockstep with the server-side checkout calculation.
-      return round2(Math.max(this.totals.subtotal - this.discountAmount, 0) * TAX_RATE)
+      return this.quote?.tax_amount ?? 0
     },
     totalAmount(): number {
-      return round2(Math.max(this.totals.subtotal - this.discountAmount, 0) + this.taxAmount)
+      return this.quote?.total ?? 0
     },
     totalItemCount(): number {
       return this.totals.items_count
@@ -101,7 +102,7 @@ export const useCartStore = defineStore('cart', {
       return state.items.filter(item => !item.available)
     },
     canCheckout(): boolean {
-      return this.loaded && !this.loading && !this.loadError && !this.mutating && !this.couponValidating && this.availableItems.length > 0 && this.unavailableItems.length === 0
+      return this.loaded && !this.loading && !this.loadError && !this.mutating && !this.quoteLoading && !this.quoteError && Boolean(this.quote?.can_checkout) && this.availableItems.length > 0 && this.unavailableItems.length === 0
     }
   },
 
@@ -115,11 +116,13 @@ export const useCartStore = defineStore('cart', {
       if (this.loading) return
       this.loading = true
       this.loadError = ''
+      this.invalidateQuote()
       try {
         const { data } = await cartApi.get()
         await this.applyCart(data.data)
       } catch {
-        this.removeCoupon()
+        this.invalidateQuote()
+        this.quoteLoading = false
         this.loadError = i18n.global.t('cart.load_error')
       } finally {
         this.loading = false
@@ -127,21 +130,26 @@ export const useCartStore = defineStore('cart', {
     },
 
     async applyCart(cart: ApiCart): Promise<void> {
-      const couponCode = this.appliedCoupon?.code
-      this.removeCoupon()
+      this.invalidateQuote()
       this.items = cart.items.map(toDisplayItem)
       this.totals = { ...EMPTY_TOTALS, ...cart.totals }
       this.loaded = true
       this.loadError = ''
-      if (couponCode && this.items.length > 0) await this.applyCoupon(couponCode)
+      await this.refreshQuote()
     },
 
     async mutateCart(request: () => Promise<{ data: { data: ApiCart } }>, fallback: string, clearCoupon = false): Promise<boolean> {
       this.pendingMutations++
       this.mutationError = ''
+      this.invalidateQuote()
       try {
         const { data } = await request()
-        if (clearCoupon) this.removeCoupon()
+        if (clearCoupon) {
+          this.couponCode = ''
+          this.appliedCoupon = null
+          this.couponError = ''
+          this.couponSuccess = ''
+        }
         await this.applyCart(data.data)
         return true
       } catch (error) {
@@ -149,6 +157,7 @@ export const useCartStore = defineStore('cart', {
         this.mutationError = isAxiosError(error) && (error.response?.status ?? 0) >= 500
           ? message
           : extractErrorMessage(error, message)
+        await this.refreshQuote()
         return false
       } finally {
         this.pendingMutations--
@@ -172,51 +181,84 @@ export const useCartStore = defineStore('cart', {
     },
 
     async applyCoupon(code: string): Promise<boolean> {
-      const normalized = code.trim().toUpperCase()
-      const revision = ++this.couponRevision
+      this.couponCode = code.trim().toUpperCase()
       this.appliedCoupon = null
-      this.couponValidating = true
       this.couponError = ''
       this.couponSuccess = ''
+      return this.refreshQuote()
+    },
+
+    invalidateQuote(): void {
+      this.quoteRevision++
+      this.quote = null
+      this.quoteLoading = true
+      this.quoteError = ''
+    },
+
+    async selectShipping(shopId: number, methodId: number): Promise<void> {
+      this.shippingSelections = { ...this.shippingSelections, [shopId]: methodId }
+      await this.refreshQuote()
+    },
+
+    async refreshQuote(): Promise<boolean> {
+      this.invalidateQuote()
+      const revision = this.quoteRevision
+      if (this.items.length === 0) {
+        this.couponCode = ''
+        this.appliedCoupon = null
+        this.shippingSelections = {}
+        this.quoteLoading = false
+        return true
+      }
+      const code = this.couponCode
 
       try {
-        const { data } = await couponsApi.validate(normalized)
-        if (revision !== this.couponRevision) return false
-        const result = data.data
-
-        if (!result.valid) {
-          this.couponError = result.message || `Coupon "${normalized}" is not valid.`
-          return false
-        }
-
-        this.appliedCoupon = {
-          id: 'coupon-' + normalized,
-          code: result.code,
-          type: result.type,
-          value: result.value,
-          minOrderAmount: result.min_order_amount ?? 0,
-          shopId: result.shop_id,
-          eligibleSubtotal: result.eligible_subtotal,
-          discountAmount: result.discount_amount,
-          description: result.message
-        }
-        this.couponSuccess = result.message || `Coupon ${result.code} applied!`
+        const { data } = await checkoutApi.quote({
+          ...(code ? { coupon_code: code } : {}),
+          ...(Object.keys(this.shippingSelections).length ? { shipping_methods: { ...this.shippingSelections } } : {})
+        })
+        if (revision !== this.quoteRevision) return false
+        this.quote = data.data
+        this.shippingSelections = Object.fromEntries(data.data.shipping_methods.map(method => [String(method.shop_id), method.id]))
+        const result = data.data.coupon
+        this.appliedCoupon = result ? {
+          id: 'coupon-' + result.code, code: result.code, type: result.type, value: result.value,
+          minOrderAmount: result.min_order_amount ?? 0, shopId: result.shop_id,
+          eligibleSubtotal: result.eligible_subtotal, discountAmount: result.discount_amount, description: result.message
+        } : null
+        this.couponSuccess = result?.message ?? ''
         return true
       } catch (error) {
-        if (revision !== this.couponRevision) return false
-        this.couponError = extractErrorMessage(error, `Coupon "${normalized}" is not valid.`)
+        if (revision !== this.quoteRevision) return false
+        if (code && isAxiosError<{ errors?: Record<string, string[]> }>(error) && error.response?.status === 422 && error.response.data.errors?.code) {
+          this.couponError = extractErrorMessage(error, i18n.global.t('cart.coupon_invalid'))
+          this.couponCode = ''
+          this.appliedCoupon = null
+          this.couponSuccess = ''
+          await this.refreshQuote()
+          return false
+        }
+        if (isAxiosError<{ errors?: Record<string, string[]> }>(error) && error.response?.status === 422 && Object.keys(error.response.data.errors ?? {}).some(field => field.startsWith('shipping_methods')) && Object.keys(this.shippingSelections).length) {
+          this.shippingSelections = {}
+          this.quoteNotice = i18n.global.t('cart.delivery_changed')
+          await this.refreshQuote()
+          return false
+        }
+        this.quoteError = isAxiosError(error) && (error.response?.status ?? 0) < 500
+          ? extractErrorMessage(error, i18n.global.t('cart.quote_error'))
+          : i18n.global.t('cart.quote_error')
         return false
       } finally {
-        if (revision === this.couponRevision) this.couponValidating = false
+        if (revision === this.quoteRevision) this.quoteLoading = false
       }
     },
 
-    removeCoupon(): void {
-      this.couponRevision++
-      this.couponValidating = false
+    async removeCoupon(): Promise<void> {
+      this.couponCode = ''
       this.appliedCoupon = null
       this.couponSuccess = ''
       this.couponError = ''
+      await this.refreshQuote()
     },
 
     clearCouponFeedback(): void {

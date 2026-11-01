@@ -1,4 +1,26 @@
 import apiClient from './client'
+import type { CouponValidation } from './coupons'
+
+export interface CheckoutQuote {
+  currency: string
+  subtotal: number
+  eligible_subtotal: number
+  raw_discount: number
+  discount_amount: number
+  tax_amount: number
+  shipping_amount: number
+  total: number
+  coupon: (CouponValidation & { raw_discount: number }) | null
+  shipping_methods: { shop_id: number; id: number; name: string; price: number }[]
+  shipping_complete: boolean
+  can_checkout: boolean
+  fingerprint: string
+}
+
+export interface QuotePayload {
+  coupon_code?: string
+  shipping_methods?: Record<string, number>
+}
 
 export interface CheckoutAddress {
   full_name: string
@@ -16,6 +38,7 @@ export interface CheckoutPayload {
   shipping_methods?: Record<string, number>
   payment_method: string
   coupon_code?: string
+  quote_fingerprint?: string
   email?: string
   note?: string
   address_id?: number
@@ -119,6 +142,9 @@ export interface ApiOrder {
 }
 
 export const checkoutApi = {
+  quote(payload: QuotePayload) {
+    return apiClient.post<{ data: CheckoutQuote }>('/checkout/quote', payload)
+  },
   begin(payload: CheckoutPayload, idempotencyKey?: string) {
     return apiClient.post<{ data: ApiOrder; reservation_expires_at: string }>('/checkout', payload, idempotencyKey ? { headers: { 'Idempotency-Key': idempotencyKey } } : undefined)
   },

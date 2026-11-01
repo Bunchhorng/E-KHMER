@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test'
 import type { ApiCartItem } from '../../src/api/cart'
+import { quoteFixture } from './quote-fixture'
 
 const buyer = { id: 1, name: 'Buyer', email: 'buyer@example.test', role: 'customer', managed_shops: [] }
 function liveItem(id: number, price: number, quantity = 1): ApiCartItem {
@@ -45,6 +46,9 @@ async function setup(page: Page, items = [liveItem(1, 50), deletedItem(), liveIt
       }
       const subtotal = state.items.reduce((sum, item) => sum + (item.available ? (item.variant?.price ?? 0) * item.quantity : 0), 0)
       json = { data: { id: 1, items: state.items, totals: { subtotal, discount_amount: 0, tax_amount: subtotal / 10, total: subtotal * 1.1, items_count: state.items.reduce((sum, item) => sum + item.quantity, 0) } } }
+    } else if (path === '/api/checkout/quote') {
+      const payload = route.request().postDataJSON()
+      json = { data: quoteFixture(state.items, { selections: payload.shipping_methods }).quote }
     } else if (path === '/api/addresses') {
       json = { data: [{ id: 1, full_name: 'Buyer', address_line1: 'Street 1', city: 'PP', state: 'PP', postal_code: '12000', country: 'KH', is_default: true }] }
     } else if (path === '/api/shipping-methods') {
@@ -160,12 +164,13 @@ test('cart load errors show retry instead of empty and retry restores all rows',
 test('checkout refresh invalidates a shop coupon when its eligible item becomes unavailable', async ({ page }) => {
   const state = await setup(page, [liveItem(1, 100), liveItem(3, 200)])
   let quotes = 0
-  await page.route('**/api/coupons/validate', async route => {
+  await page.route('**/api/checkout/quote', async route => {
+    if (!route.request().postDataJSON().coupon_code) return route.fallback()
     quotes++
     if (!state.items.find(item => item.id === 1)?.available) {
       return route.fulfill({ status: 422, json: { message: 'This coupon does not apply to products in your cart.', errors: { code: ['This coupon does not apply to products in your cart.'] } } })
     }
-    await route.fulfill({ json: { data: { code: 'SHOPA20', shop_id: 1, type: 'percentage', value: 20, min_order_amount: 50, max_discount_amount: 15, valid: true, eligible_subtotal: 100, discount_amount: 15, message: '20% off' } } })
+    await route.fulfill({ json: { data: quoteFixture(state.items, { coupon: { code: 'SHOPA20', shop_id: 1, type: 'percentage', value: 20, min_order_amount: 50, max_discount_amount: 15 } }).quote } })
   })
   await page.goto('/cart')
   await page.getByPlaceholder('Coupon Code').fill('SHOPA20')

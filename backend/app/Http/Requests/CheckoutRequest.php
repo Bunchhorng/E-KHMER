@@ -18,6 +18,7 @@ class CheckoutRequest extends FormRequest
             'shipping_methods' => ['sometimes', 'array', 'min:1', 'max:50'],
             'shipping_methods.*' => ['required', 'integer', 'exists:shipping_methods,id'],
             'coupon_code' => ['nullable', 'string'],
+            'quote_fingerprint' => ['sometimes', 'string', 'regex:/^[a-f0-9]{64}$/'],
             'payment_method' => ['required', 'string', 'in:card,cod,bank,gateway,bakong'],
             'email' => ['nullable', 'email'],
             'note' => ['nullable', 'string', 'max:1000'],

@@ -16,6 +16,7 @@ use App\Models\Shipment;
 use App\Models\ShippingMethod;
 use App\Models\User;
 use App\Notifications\OrderPlacedNotification;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -30,6 +31,94 @@ class CheckoutService
         private ShopOrderFulfillmentService $fulfillment,
         private OrderNumberGenerator $orderNumber,
     ) {}
+
+    /** Read-only preview; uses the same calculator as order creation. */
+    public function quote(Cart $cart, array $payload = [], ?User $user = null): array
+    {
+        $items = $this->cart->items($cart);
+        $cart->setRelation('items', $items);
+
+        return $this->calculate($cart, $items, $payload, $user)['quote'];
+    }
+
+    private function calculate(Cart $cart, Collection $items, array $payload, ?User $user, bool $checkout = false): array
+    {
+        $base = $this->cart->totals($cart, $items);
+        $coupon = null;
+        $eligibleSubtotal = 0.0;
+        $rawDiscount = 0.0;
+        $discount = 0.0;
+        if (! empty($payload['coupon_code'])) {
+            $coupon = $this->coupon->validate($user, $payload['coupon_code'], $cart, lockForUpdate: $checkout);
+            $eligibleSubtotal = $this->coupon->eligibleSubtotal($coupon, $cart);
+            $rawDiscount = $this->coupon->rawDiscountFor($coupon, $eligibleSubtotal);
+            $discount = $this->coupon->discountFor($coupon, $eligibleSubtotal);
+        }
+
+        $available = $items->filter(fn ($item) => $this->cart->availability($item)['available']);
+        $groups = $available->groupBy(fn ($item) => $item->variant->product->shop_id ?? 0)->sortKeys();
+        $shippingByShop = [];
+        $shippingMethods = [];
+        $shippingMethod = null;
+        $delivery = [];
+        $shippingComplete = $groups->isNotEmpty();
+
+        if ($checkout && ! is_array($payload['shipping_methods'] ?? null)) {
+            // Preserve the existing single-method API: its fee is charged once.
+            $shippingMethod = ShippingMethod::where('is_active', true)->findOrFail($payload['shipping_method_id']);
+            if ($shippingMethod->shop_id !== null && $available->contains(fn ($item) => (int) $item->variant->product->shop_id !== (int) $shippingMethod->shop_id)) {
+                throw ValidationException::withMessages(['shipping_method_id' => 'This delivery method belongs to a different shop.']);
+            }
+            $shippingCents = (int) round((float) $shippingMethod->price * 100);
+        } else {
+            foreach ($groups as $shopId => $group) {
+                $methodId = $payload['shipping_methods'][$shopId] ?? null;
+                $method = $methodId === null && ! $checkout
+                    ? ShippingMethod::where('is_active', true)->where(fn ($q) => $q->whereNull('shop_id')->orWhere('shop_id', $shopId))->orderBy('price')->orderBy('id')->first()
+                    : ShippingMethod::where('is_active', true)->find($methodId);
+                if ($method === null && $methodId === null && ! $checkout) {
+                    $shippingComplete = false;
+
+                    continue;
+                }
+                if (! $method || ($method->shop_id !== null && (int) $method->shop_id !== (int) $shopId)) {
+                    throw ValidationException::withMessages(['shipping_methods' => 'Choose an available delivery method for every shop.']);
+                }
+                $shippingMethods[$shopId] = $method;
+                $shippingByShop[$shopId] = (float) $method->price;
+                $delivery[] = ['shop_id' => (int) $shopId, 'id' => $method->id, 'name' => $method->name, 'price' => (float) $method->price];
+            }
+            $shippingMethod = reset($shippingMethods) ?: null;
+            $shippingCents = array_sum(array_map(fn ($price) => (int) round($price * 100), $shippingByShop));
+        }
+
+        $subtotalCents = (int) round($base['subtotal'] * 100);
+        $discountCents = (int) round($discount * 100);
+        // Existing policy: 10% of discounted goods; shipping is added after tax.
+        $taxCents = (int) round(($subtotalCents - $discountCents) / 10);
+        $quote = [
+            'currency' => 'USD', 'subtotal' => $subtotalCents / 100,
+            'eligible_subtotal' => $eligibleSubtotal, 'raw_discount' => $rawDiscount,
+            'discount_amount' => $discountCents / 100, 'tax_amount' => $taxCents / 100,
+            'shipping_amount' => $shippingCents / 100,
+            'total' => ($subtotalCents - $discountCents + $taxCents + $shippingCents) / 100,
+            'coupon' => $coupon, 'shipping_methods' => $delivery, 'shipping_complete' => $shippingComplete,
+            'can_checkout' => $shippingComplete && $items->isNotEmpty() && $available->count() === $items->count(),
+        ];
+        $signature = [
+            'cart' => $cart->id,
+            'items' => $items->sortBy('id')->map(fn ($item) => [
+                $item->id, $item->product_variant_id, (int) $item->quantity, $item->variant?->product?->shop_id,
+                (int) round((float) ($item->variant?->price ?? $item->variant?->product?->price ?? 0) * 100),
+            ])->values()->all(),
+            'amounts' => [$subtotalCents, $discountCents, $taxCents, $shippingCents],
+            'coupon' => $coupon === null ? null : [$coupon->id, $coupon->shop_id, $rawDiscount],
+            'delivery' => $delivery,
+        ];
+        $quote['fingerprint'] = hash_hmac('sha256', json_encode($signature, JSON_THROW_ON_ERROR), (string) config('app.key'));
+
+        return compact('quote', 'coupon', 'shippingByShop', 'shippingMethods', 'shippingMethod');
+    }
 
     /**
      * Begin the checkout, reserving stock and snapshotting the order.
@@ -48,50 +137,22 @@ class CheckoutService
 
             $this->cart->assertPurchasable($cartItems);
 
-            $totals = $this->cart->totals($cart, $cartItems);
-            $subtotal = round((float) $totals['subtotal'], 2);
-
-            $discount = 0.0;
-            $couponId = null;
-            $couponCode = null;
-            $coupon = null;
-
-            if (! empty($payload['coupon_code'])) {
-                // Keep the coupon's owner/rules stable through allocation and usage.
-                $coupon = $this->coupon->validate($user, $payload['coupon_code'], $cart, lockForUpdate: true);
-                $discount = $this->coupon->discountFor($coupon, $this->coupon->eligibleSubtotal($coupon, $cart));
-                $couponId = $coupon->id;
-                $couponCode = $coupon->code;
+            $calculation = $this->calculate($cart, $cartItems, $payload, $user, checkout: true);
+            $quote = $calculation['quote'];
+            if (! empty($payload['quote_fingerprint']) && ! hash_equals($quote['fingerprint'], $payload['quote_fingerprint'])) {
+                throw ValidationException::withMessages(['quote' => 'Totals changed. Review the updated total before placing your order.'])->status(409);
             }
-
-            $shippingByShop = [];
-            $shippingMethods = [];
-            if (is_array($payload['shipping_methods'] ?? null)) {
-                foreach ($cartItems->groupBy(fn ($item) => $item->variant?->product?->shop_id ?? 0) as $shopId => $items) {
-                    $methodId = $payload['shipping_methods'][$shopId] ?? null;
-                    $method = ShippingMethod::where('is_active', true)->find($methodId);
-                    if (! $method || ($method->shop_id !== null && (int) $method->shop_id !== (int) $shopId)) {
-                        throw ValidationException::withMessages(['shipping_methods' => 'Choose an available delivery method for every shop.']);
-                    }
-                    $shippingMethods[$shopId] = $method;
-                    $shippingByShop[$shopId] = (float) $method->price;
-                }
-                $shippingMethod = reset($shippingMethods);
-                $shippingAmount = round(array_sum($shippingByShop), 2);
-            } else {
-                $shippingMethod = ShippingMethod::where('is_active', true)->findOrFail($payload['shipping_method_id']);
-                if ($shippingMethod->shop_id !== null && $cartItems->contains(fn ($item) => (int) $item->variant?->product?->shop_id !== (int) $shippingMethod->shop_id)) {
-                    throw ValidationException::withMessages(['shipping_method_id' => 'This delivery method belongs to a different shop.']);
-                }
-                $shippingAmount = round((float) $shippingMethod->price, 2);
-            }
-
-            $taxAmount = round(($subtotal - $discount) * 0.10, 2);
-            $total = round($subtotal - $discount + $taxAmount + $shippingAmount, 2);
-
-            // Re-read cart rows under the checkout transaction. A cart can go
-            // stale after it is displayed: products may be unpublished,
-            // variants disabled, or stock consumed by another checkout.
+            $coupon = $calculation['coupon'];
+            $couponId = $coupon?->id;
+            $couponCode = $coupon?->code;
+            $subtotal = $quote['subtotal'];
+            $discount = $quote['discount_amount'];
+            $taxAmount = $quote['tax_amount'];
+            $shippingAmount = $quote['shipping_amount'];
+            $total = $quote['total'];
+            $shippingByShop = $calculation['shippingByShop'];
+            $shippingMethods = $calculation['shippingMethods'];
+            $shippingMethod = $calculation['shippingMethod'];
 
             if (($payload['payment_method'] ?? '') === 'bakong') {
                 if (! config('ecommerce.bakong_token')) {

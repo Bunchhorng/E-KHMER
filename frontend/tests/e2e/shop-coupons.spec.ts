@@ -1,4 +1,8 @@
 import { expect, test, type Page } from '@playwright/test'
+import { quoteFixture } from './quote-fixture'
+
+const shopCoupon = { code: 'SHOPA20', shop_id: 1, type: 'percentage' as const, value: 20, min_order_amount: 50, max_discount_amount: 15 }
+const delivery = [{ id: 1, name: 'Shop A delivery', shop_id: 1, price: 2 }, { id: 2, name: 'Shop B delivery', shop_id: 2, price: 5 }]
 
 const buyer = { id: 1, name: 'Buyer', email: 'buyer@example.test', role: 'customer', managed_shops: [] }
 const liveItems = [
@@ -22,13 +26,12 @@ async function setup(page: Page) {
       if (route.request().method() === 'DELETE') state.items = state.items.filter(item => item.id !== Number(path.split('/').at(-1)))
       const subtotal = state.items.reduce((sum, item) => sum + item.variant.price * item.quantity, 0)
       json = { data: { id: 1, items: state.items, totals: { subtotal, discount_amount: 0, tax_amount: subtotal / 10, total: subtotal * 1.1, items_count: state.items.length } } }
-    } else if (path === '/api/coupons/validate') {
-      state.couponRequests++
-      state.previewPayloads.push(route.request().postDataJSON())
-      if (!state.items.some(item => item.variant.product.shop_id === 1)) {
-        return route.fulfill({ status: 422, json: { message: 'This coupon does not apply to products in your cart.', errors: { code: ['This coupon does not apply to products in your cart.'] } } })
-      }
-      json = { data: { code: 'SHOPA20', shop_id: 1, type: 'percentage', value: 20, min_order_amount: 50, max_discount_amount: 15, valid: true, eligible_subtotal: 100, discount_amount: 15, message: '20% off' } }
+    } else if (path === '/api/checkout/quote') {
+      const payload = route.request().postDataJSON()
+      if (payload.coupon_code) { state.couponRequests++; state.previewPayloads.push(payload) }
+      const result = quoteFixture(state.items, { coupon: payload.coupon_code ? shopCoupon : undefined, delivery, selections: payload.shipping_methods })
+      if (result.error) return route.fulfill({ status: 422, json: { message: result.error, errors: { code: [result.error] } } })
+      json = { data: result.quote }
     } else if (path === '/api/addresses') {
       json = { data: [{ id: 1, full_name: 'Buyer', address_line1: 'Street 1', city: 'PP', state: 'PP', postal_code: '12000', country: 'KH', is_default: true }] }
     } else if (path === '/api/shipping-methods') {
@@ -51,8 +54,8 @@ test('mixed-shop cart and checkout display the backend discount cap and total', 
   await expect(page.getByText('Shop A item', { exact: true })).toBeVisible()
   await applyCoupon(page)
   await expect(page.locator('main')).toContainText('−$15.00')
-  await expect(page.locator('main')).toContainText('$313.50')
-  expect(state.previewPayloads).toEqual([{ code: 'SHOPA20' }])
+  await expect(page.locator('main')).toContainText('$320.50')
+  expect(state.previewPayloads).toEqual([{ coupon_code: 'SHOPA20', shipping_methods: { 1: 1, 2: 2 } }])
   await page.getByRole('link', { name: 'Proceed to Checkout' }).click()
   await page.getByRole('button', { name: 'Continue to Delivery' }).click()
   await page.getByRole('button', { name: 'Continue to Payment' }).click()
@@ -67,30 +70,34 @@ test('removing the eligible shop revalidates the coupon and shows the server rea
   await applyCoupon(page)
   await page.getByRole('button', { name: 'Remove item', exact: true }).first().click()
   await expect(page.getByText('This coupon does not apply to products in your cart.', { exact: true })).toBeVisible()
-  await expect(page.locator('main')).toContainText('$220.00')
+  await expect(page.locator('main')).toContainText('$225.00')
   await expect(page.getByRole('button', { name: 'Remove coupon', exact: true })).toHaveCount(0)
   expect(state.couponRequests).toBe(2)
 })
 
 test('a delayed coupon response cannot restore a discount after the cart changes', async ({ page }) => {
-  await setup(page)
+  const state = await setup(page)
   let respond: (() => void) | undefined
   const responseGate = new Promise<void>(resolve => { respond = resolve })
-  await page.route('**/api/coupons/validate', async route => {
+  let delayed = false
+  await page.route('**/api/checkout/quote', async route => {
+    if (!route.request().postDataJSON().coupon_code || delayed) return route.fallback()
+    delayed = true
+    const result = quoteFixture(state.items, { coupon: shopCoupon, delivery })
     await responseGate
-    await route.fulfill({ json: { data: { code: 'SHOPA20', shop_id: 1, type: 'percentage', value: 20, min_order_amount: 50, max_discount_amount: 15, valid: true, eligible_subtotal: 100, discount_amount: 15, message: '20% off' } } })
+    await route.fulfill({ json: { data: result.quote } })
   })
   await page.goto('/cart')
   await expect(page.getByText('Shop A item', { exact: true })).toBeVisible()
-  const request = page.waitForRequest('**/api/coupons/validate')
+  const request = page.waitForRequest(request => request.url().endsWith('/api/checkout/quote') && Boolean(request.postDataJSON().coupon_code))
   await page.getByPlaceholder('Coupon code').fill('SHOPA20')
   await page.getByRole('button', { name: 'Apply Coupon', exact: true }).click()
   await request
   await page.getByRole('button', { name: 'Remove item', exact: true }).first().click()
   await expect(page.getByRole('link', { name: 'Shop A item', exact: true })).toHaveCount(0)
-  const response = page.waitForResponse('**/api/coupons/validate')
+  const response = page.waitForResponse(response => response.url().endsWith('/api/checkout/quote') && Boolean(response.request().postDataJSON().coupon_code))
   respond?.()
   await response
   await expect(page.getByRole('button', { name: 'Remove coupon', exact: true })).toHaveCount(0)
-  await expect(page.locator('main')).toContainText('$220.00')
+  await expect(page.locator('main')).toContainText('$225.00')
 })

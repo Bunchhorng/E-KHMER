@@ -105,7 +105,7 @@ Configure the backend URL with `VITE_API_URL` in `frontend/.env` (e.g. `VITE_API
 
 | Store | Purpose |
 | --- | --- |
-| `stores/cart.ts` | Server-backed cart with nullable product/variant relations, explicit availability, and safe normalization. Keeps all stored rows and uses backend purchasable subtotal and coupon discount quotes. Separates loading, load error, empty, and unavailable states; mutations return success/failure with visible feedback. |
+| `stores/cart.ts` | Server-backed cart with nullable relations and availability. Stores a complete `/checkout/quote` response and renders backend subtotal, capped discount, tax, shipping, and total. Invalidates quotes on cart/coupon/shipping changes, ignores outdated responses, and blocks checkout while recalculating or on quote failure. |
 | `stores/wishlist.ts` | Customer wishlist. |
 | `stores/ui.ts` | Shared UI state (drawers, toasts, etc.). |
 
@@ -143,6 +143,10 @@ Configure the backend URL with `VITE_API_URL` in `frontend/.env` (e.g. `VITE_API
 Shared building blocks include `ProductCard`, `CartDrawer`, `StatusTag`, `StarRating`, `BaseModal`, `BasePagination`, and skeleton loaders (`ProductGridSkeleton`, `PdpSkeleton`, `DataTableSkeleton`, `EmptyState`) plus admin `AdminDataTable` and chart components.
 
 `CartLine` renders the same available/unavailable state in the drawer and cart page, with safe image placeholders and removal by cart item ID. Deleted relations use a generic unavailable title because carts do not store historical product snapshots. `CartLoadState` provides loading and retry feedback. The cart page groups available rows and rows needing attention; checkout and drawer checkout links are blocked while unavailable rows remain. Insufficient-stock rows allow explicit quantity reduction. The badge counts all stored quantities, while financial totals exclude unavailable rows. `App.vue` displays mutation failures without discarding the cart. Checkout refreshes the cart and coupon eligibility when opened and after a 422 response.
+
+`QuoteSummary` displays the same backend amounts in the cart, drawer, and checkout. The store has no local tax formula or shipping aggregation. A server quote selects default delivery methods, so the cart total includes those fees; checkout lets the customer change them and requests a new quote. While recalculating, the summary replaces financial rows with an updating status. Failed quotes show retry and block checkout. Coupon intent is stored separately from the last valid quote, preventing a cart update from retaining an old capped discount. The quote revision ignores older responses, including delayed shipping changes.
+
+Checkout sends `quote_fingerprint` with the selected delivery IDs and coupon code; it does not send financial amounts. A 409 quote mismatch refreshes cart/quote, displays the server explanation, and requires another customer submission. The fingerprint is part of the persisted idempotency request signature. Invalid coupons are cleared with their business reason; removed delivery methods trigger a fresh default selection and an explicit fee-review notice. Order confirmation and Bakong screens continue to display persisted server order/payment values.
 
 ## 7. Globalization
 

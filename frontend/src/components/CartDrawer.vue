@@ -3,10 +3,10 @@ import { useRouter } from 'vue-router'
 import { ShoppingBag, X } from 'lucide-vue-next'
 import { useCartStore } from '@/stores/cart'
 import { useUiStore } from '@/stores/ui'
-import { formatPrice } from '@/utils/format'
 import EmptyState from './EmptyState.vue'
 import CartLine from './CartLine.vue'
 import CartLoadState from './CartLoadState.vue'
+import QuoteSummary from './QuoteSummary.vue'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -66,11 +66,8 @@ function startShopping(): void {
           </div>
 
           <footer v-if="cartStore.items.length > 0" class="shrink-0 space-y-3 border-t border-border-gray p-5 dark:border-border-gray">
-            <div class="flex items-center justify-between">
-              <span class="text-sm font-medium text-gray-600 dark:text-muted">{{ $t('cart.subtotal') }}</span>
-              <span class="text-base font-bold text-ink dark:text-gray-50">{{ formatPrice(cartStore.subtotal) }}</span>
-            </div>
-            <p class="text-xs text-gray-500 dark:text-muted">{{ $t('cart.shipping_note') }}</p>
+            <QuoteSummary />
+            <p class="text-xs text-muted">{{ $t('cart.delivery_note') }}</p>
             <RouterLink v-if="cartStore.canCheckout" to="/checkout" class="btn-primary w-full dark:bg-blue-500 dark:hover:bg-blue-600" @click="closeCartDrawer">
               {{ $t('actions.checkout') }}
             </RouterLink>

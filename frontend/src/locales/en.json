@@ -695,6 +695,12 @@
     "review_pending_note": "Thank you! Your review has been submitted and is pending moderation."
   },
   "cart": {
+    "delivery_changed": "Delivery options changed. Review the updated fees before ordering.",
+    "delivery_note": "Delivery can be changed at checkout.",
+    "updating_totals": "Updating totals…",
+    "quote_error": "We couldn't update your totals. Please retry before checking out.",
+    "coupon_invalid": "This coupon is no longer valid.",
+    "delivery_unavailable": "Delivery is unavailable for one or more shops. Review delivery options before checkout.",
     "loading": "Loading your cart…",
     "load_error": "We couldn't load your cart. Please try again.",
     "add_error": "Could not add this item. Please try again.",

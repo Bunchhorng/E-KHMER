@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive, watch, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { isAxiosError } from 'axios'
@@ -20,6 +20,7 @@ import { useCartStore } from '@/stores/cart'
 import BaseModal from '@/components/BaseModal.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import CartLoadState from '@/components/CartLoadState.vue'
+import QuoteSummary from '@/components/QuoteSummary.vue'
 import { formatPrice } from '@/utils/format'
 import { extractErrorMessage } from '@/api/errors'
 
@@ -53,17 +54,15 @@ const newAddress = reactive<Omit<Address, 'id' | 'isDefault'>>({
 
 const shipping = ref<(ShippingMethod & { shopId: number | null })[]>([])
 const loadingShipping = ref(true)
-const shippingSelections = reactive<Record<number, string>>({})
+const shippingSelections = computed(() => cartStore.shippingSelections)
 const shopGroups = computed(() => [...new Map(cartStore.availableItems.map(item => [item.shopId ?? 0, { id: item.shopId ?? 0, name: item.shopName || 'E-KHMER' }])).values()])
 function optionsFor(shopId: number) { return shipping.value.filter(method => method.shopId === null || method.shopId === shopId) }
-watch([shipping, shopGroups], () => {
-  for (const group of shopGroups.value) {
-    const options = optionsFor(group.id)
-    if (!options.some(method => method.id === shippingSelections[group.id])) shippingSelections[group.id] = options[0]?.id ?? ''
-  }
-}, { immediate: true })
-const shippingReady = computed(() => shopGroups.value.length > 0 && shopGroups.value.every(group => optionsFor(group.id).some(method => method.id === shippingSelections[group.id])))
-const selectedShipping = computed(() => shippingReady.value ? { id: shippingSelections[shopGroups.value[0]!.id], name: shopGroups.value.map(group => group.name + ': ' + optionsFor(group.id).find(method => method.id === shippingSelections[group.id])?.name).join(', '), price: shopGroups.value.reduce((sum, group) => sum + (optionsFor(group.id).find(method => method.id === shippingSelections[group.id])?.price ?? 0), 0) } : null)
+const shippingReady = computed(() => Boolean(cartStore.quote?.shipping_complete) && shopGroups.value.length > 0 && shopGroups.value.every(group => optionsFor(group.id).some(method => Number(method.id) === shippingSelections.value[group.id])))
+const selectedShipping = computed(() => shippingReady.value && cartStore.quote ? {
+  id: cartStore.quote.shipping_methods[0]?.id,
+  name: cartStore.quote.shipping_methods.map(method => method.name).join(', '),
+  price: cartStore.quote.shipping_amount
+} : null)
 
 const paymentOptions = [
   { id: 'cod', label: 'Cash on Delivery', desc: 'Pay when your order arrives', icon: Banknote },
@@ -74,7 +73,7 @@ const paymentMethod = ref<PaymentMethod>('cod')
 const placing = ref(false)
 const checkoutError = ref('')
 function requestKey(): string {
-  const signature = JSON.stringify([cartStore.items.map(item => [item.id, item.quantity]), selectedAddress.value, shippingSelections, paymentMethod.value, cartStore.appliedCoupon?.code])
+  const signature = JSON.stringify([cartStore.quote?.fingerprint, selectedAddress.value, shippingSelections.value, paymentMethod.value, cartStore.appliedCoupon?.code])
   try {
     const previous = JSON.parse(sessionStorage.getItem('ekhmer_checkout_attempt') ?? 'null') as { signature: string; key: string } | null
     if (previous?.signature === signature) return previous.key
@@ -87,8 +86,6 @@ function requestKey(): string {
 const selectedAddress = computed(
   () => addresses.value.find((a) => a.id === selectedAddressId.value) ?? addresses.value[0]
 )
-const shippingPrice = computed(() => (step.value > 1 && selectedShipping.value ? selectedShipping.value.price : 0))
-const totalWithShipping = computed(() => cartStore.totalAmount + shippingPrice.value)
 
 const paymentLabel = computed(() => {
   const option = paymentOptions.find((o) => o.id === paymentMethod.value)
@@ -207,9 +204,10 @@ async function placeOrder() {
   try {
     const { data } = await checkoutApi.begin({
       shipping_method_id: Number(selectedShipping.value.id),
-      shipping_methods: Object.fromEntries(shopGroups.value.map(group => [String(group.id), Number(shippingSelections[group.id])])),
+      shipping_methods: { ...cartStore.shippingSelections },
       payment_method: paymentMethod.value,
       coupon_code: cartStore.appliedCoupon?.code,
+      quote_fingerprint: cartStore.quote?.fingerprint,
       address_id: Number(selectedAddress.value.id)
     }, requestKey())
     if (['cancelled', 'refunded'].includes(data.data.status)) {
@@ -229,7 +227,7 @@ async function placeOrder() {
     router.push({ name: 'order-success', params: { orderId: data.data.order_number } })
   } catch (error) {
     checkoutError.value = extractErrorMessage(error, 'We could not place your order. Your cart has been kept so you can review it.')
-    if (isAxiosError(error) && error.response?.status === 422) await cartStore.fetch()
+    if (isAxiosError(error) && [409, 422].includes(error.response?.status ?? 0)) await cartStore.fetch()
   } finally {
     placing.value = false
   }
@@ -364,8 +362,8 @@ async function placeOrder() {
               <fieldset v-for="group in shopGroups" :key="group.id" class="space-y-3 rounded-xl border border-border-gray p-4">
                 <legend class="px-2 font-semibold">{{ group.name }}</legend>
                 <p v-if="!optionsFor(group.id).length" class="text-sm text-red-600">This shop has no available delivery method. Contact support before ordering.</p>
-                <label v-for="method in optionsFor(group.id)" :key="method.id" class="flex cursor-pointer items-center gap-3 rounded-xl border border-border-gray p-4" :class="shippingSelections[group.id] === method.id ? 'border-primary bg-primary/5' : ''">
-                  <input v-model="shippingSelections[group.id]" type="radio" :name="'shipping-' + group.id" :value="method.id" />
+                <label v-for="method in optionsFor(group.id)" :key="method.id" class="flex cursor-pointer items-center gap-3 rounded-xl border border-border-gray p-4" :class="shippingSelections[group.id] === Number(method.id) ? 'border-primary bg-primary/5' : ''">
+                  <input type="radio" :name="'shipping-' + group.id" :value="method.id" :checked="shippingSelections[group.id] === Number(method.id)" @change="cartStore.selectShipping(group.id, Number(method.id))" />
                   <span class="flex-1"><span class="block font-semibold">{{ method.name }}</span><span class="text-xs text-muted">{{ method.description }} · {{ method.etaDays }} days</span></span>
                   <span class="font-semibold">{{ formatPrice(method.price) }}</span>
                 </label>
@@ -377,7 +375,7 @@ async function placeOrder() {
                 <ArrowLeft class="h-4 w-4" />
                 Back
               </button>
-              <button type="button" class="btn-primary" :disabled="!shippingReady" @click="step = 3">
+              <button type="button" class="btn-primary" :disabled="!shippingReady || cartStore.quoteLoading" @click="step = 3">
                 Continue to Payment
                 <ArrowRight class="h-4 w-4" />
               </button>
@@ -497,7 +495,7 @@ async function placeOrder() {
 
             <button type="button" class="btn-primary btn-lg w-full" :disabled="placing || !cartStore.canCheckout" @click="placeOrder">
               <Lock class="h-4 w-4" />
-              {{ placing ? 'Placing order…' : `Place Order · ${formatPrice(totalWithShipping)}` }}
+              {{ placing ? 'Placing order…' : cartStore.quoteLoading ? $t('cart.updating_totals') : cartStore.quote ? `Place Order · ${formatPrice(cartStore.quote.total, cartStore.quote.currency)}` : 'Place Order' }}
             </button>
             <p v-if="checkoutError" class="text-center text-sm text-red-600" role="alert">{{ checkoutError }}</p>
           </template>
@@ -511,35 +509,7 @@ async function placeOrder() {
             </RouterLink>
           </div>
 
-          <div class="space-y-2 text-sm">
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-muted">{{ $t('checkout.subtotal') }}</span>
-              <span class="font-medium text-ink dark:text-ink">{{ formatPrice(cartStore.subtotal) }}</span>
-            </div>
-            <div v-if="cartStore.discountAmount > 0" class="flex justify-between">
-              <span class="text-gray-600 dark:text-muted">{{ $t('checkout.discount') }}</span>
-              <span class="font-medium text-red-500">−{{ formatPrice(cartStore.discountAmount) }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-muted">{{ $t('checkout.tax') }}</span>
-              <span class="font-medium text-ink dark:text-ink">{{ formatPrice(cartStore.taxAmount) }}</span>
-            </div>
-            <div class="flex justify-between">
-              <span class="text-gray-600 dark:text-muted">{{ $t('checkout.shipping') }}</span>
-              <span v-if="step === 1" class="text-gray-400 dark:text-gray-500 dark:text-muted">Calculated later</span>
-              <span v-else-if="shippingPrice === 0" class="font-medium text-emerald-600">Free</span>
-              <span v-else class="font-medium text-ink dark:text-ink">{{ formatPrice(shippingPrice) }}</span>
-            </div>
-          </div>
-
-          <div class="my-4 border-t border-border-gray dark:border-border-gray"></div>
-
-          <div class="flex justify-between">
-            <span class="font-semibold text-ink dark:text-ink">{{ $t('checkout.total') }}</span>
-            <span class="text-xl font-bold text-ink dark:text-ink">
-              {{ step === 1 ? formatPrice(cartStore.totalAmount) : formatPrice(totalWithShipping) }}
-            </span>
-          </div>
+          <QuoteSummary />
 
           <p class="mt-4 text-xs text-gray-500 dark:text-muted">
             {{ cartStore.totalItemCount }} {{ cartStore.totalItemCount === 1 ? 'item' : 'items' }}

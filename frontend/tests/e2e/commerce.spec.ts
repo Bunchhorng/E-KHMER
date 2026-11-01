@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { installBarcodeCamera, type BarcodeCameraWindow } from './barcode-camera'
+import { quoteFixture } from './quote-fixture'
 const shop = { id: 1, name: 'Test Shop', slug: 'test-shop', status: 'active', logo: null, banner: null, code: 'TEST', description: 'Our test catalog', email: 'seller@example.com', phone: '', address_line: '', city: 'Phnom Penh', province: '', postal_code: '', country: 'KH', bakong_account_id: 'seller@bank', bakong_merchant_name: 'Seller', bakong_merchant_city: 'Phnom Penh', rejection_reason: null, products_count: 1, rating_avg: 4.5, rating_count: 2 }
 const user = { id: 1, name: 'Seller', email: 'seller@example.com', role: 'customer', managed_shops: [{ id: 1, name: shop.name, slug: shop.slug, role: 'owner' }] }
 const meta = { current_page: 1, last_page: 1, per_page: 12, total: 1 }
@@ -495,6 +496,10 @@ test('sellers see the order-bound bank refund memo and verify the transfer', asy
 
 test('checkout keeps delivery scoped to each shop and safely retries an expired attempt', async ({ page }) => {
   await setup(page, true)
+  await page.route('**/api/checkout/quote', route => route.fulfill({ json: { data: quoteFixture(
+    [1, 2].map(id => ({ id, quantity: 1, variant: { price: 10, product: { shop_id: id } } })),
+    { delivery: [{ id: 11, shop_id: 1, name: 'First delivery', price: 2 }, { id: 22, shop_id: 2, name: 'Second delivery', price: 5 }] }
+  ).quote } }))
   await page.route('**/api/cart', route => route.fulfill({ json: { data: { id: 1,
     items: [1, 2].map(id => ({ id, quantity: 1, variant: { id, sku: `ITEM-${id}`, name: 'Default', price: 10, attributes: [], product: { id, name: `Item ${id}`, slug: `item-${id}`, cover_image: null, shop_id: id, shop_name: id === 1 ? 'First Seller' : 'Second Seller' } } })),
     totals: { subtotal: 20, tax_amount: 2, discount_amount: 0, total: 22, items_count: 2 } } } }))

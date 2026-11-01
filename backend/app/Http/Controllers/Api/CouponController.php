@@ -4,14 +4,15 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CouponValidateRequest;
+use App\Http\Resources\CheckoutQuoteResource;
 use App\Http\Resources\CouponResource;
 use App\Services\CartService;
-use App\Services\CouponService;
+use App\Services\CheckoutService;
 use Illuminate\Validation\ValidationException;
 
 class CouponController extends Controller
 {
-    public function __construct(protected CouponService $coupons, protected CartService $carts) {}
+    public function __construct(protected CheckoutService $checkout, protected CartService $carts) {}
 
     public function validate(CouponValidateRequest $request)
     {
@@ -20,19 +21,14 @@ class CouponController extends Controller
         if ($user === null && ($sessionId === null || trim($sessionId) === '')) {
             throw ValidationException::withMessages(['session' => ['A session identifier is required for guest carts.']]);
         }
-        $cart = $this->carts->forUser($user, $sessionId)->load('items.variant.product');
-        $coupon = $this->coupons->validate(
-            $user,
-            $request->input('code'),
-            $cart
-        );
-        $eligibleSubtotal = $this->coupons->eligibleSubtotal($coupon, $cart);
+        $cart = $this->carts->forUser($user, $sessionId);
+        $quote = $this->checkout->quote($cart, ['coupon_code' => $request->input('code')], $user);
 
-        return (new CouponResource($coupon))
+        return (new CouponResource($quote['coupon']))
             ->additional([
-                'subtotal' => $this->carts->totals($cart, $cart->items)['subtotal'],
-                'eligible_subtotal' => $eligibleSubtotal,
-                'discount_amount' => $this->coupons->discountFor($coupon, $eligibleSubtotal),
+                'subtotal' => $quote['subtotal'], 'eligible_subtotal' => $quote['eligible_subtotal'],
+                'discount_amount' => $quote['discount_amount'], 'raw_discount' => $quote['raw_discount'],
+                'quote' => (new CheckoutQuoteResource($quote))->resolve($request),
             ]);
     }
 }

@@ -133,10 +133,17 @@ class CouponService
 
     }
 
+    public function rawDiscountFor(Coupon $coupon, float $subtotal): float
+    {
+        return $coupon->type === 'percentage'
+            ? round($subtotal * (float) $coupon->value / 100, 2)
+            : (float) $coupon->value;
+    }
+
     public function discountFor(Coupon $coupon, float $subtotal): float
     {
+        $discount = $this->rawDiscountFor($coupon, $subtotal);
         if ($coupon->type === 'percentage') {
-            $discount = round($subtotal * (float) $coupon->value / 100, 2);
             if ($coupon->max_discount_amount !== null) {
                 $discount = min($discount, (float) $coupon->max_discount_amount);
             }
@@ -144,7 +151,7 @@ class CouponService
             return min($discount, $subtotal);
         }
 
-        return min((float) $coupon->value, $subtotal);
+        return min($discount, $subtotal);
     }
 
     /**

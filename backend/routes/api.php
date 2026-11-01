@@ -155,6 +155,7 @@ Route::prefix('cart')->group(function () {
 });
 
 Route::prefix('checkout')->group(function () {
+    Route::post('quote', [CheckoutController::class, 'quote']);
     Route::get('{orderNumber}/bakong', [CheckoutController::class, 'bakongPayments'])->middleware('throttle:30,1');
     Route::post('{orderNumber}/bakong/verify', [CheckoutController::class, 'verifyBakong'])->middleware('throttle:12,1');
     Route::post('/', [CheckoutController::class, 'begin']);

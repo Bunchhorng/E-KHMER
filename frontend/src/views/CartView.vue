@@ -5,16 +5,13 @@ import { ShoppingBag, Lock, X } from 'lucide-vue-next'
 import { useCartStore } from '@/stores/cart'
 import CartLine from '@/components/CartLine.vue'
 import CartLoadState from '@/components/CartLoadState.vue'
+import QuoteSummary from '@/components/QuoteSummary.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import { formatPrice } from '@/utils/format'
 
 const router = useRouter()
 const cartStore = useCartStore()
 
 const couponInput = ref('')
-
-const subtotal = computed(() => cartStore.subtotal)
-const discount = computed(() => cartStore.discountAmount)
 
 async function applyCoupon() {
   if (!couponInput.value.trim()) return
@@ -68,29 +65,8 @@ const itemGroups = computed(() => [
       </div>
 
       <div class="card h-fit space-y-3 p-6 lg:sticky lg:top-24">
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-600 dark:text-muted">{{ $t('checkout.subtotal') }}</span>
-          <span class="font-medium text-ink dark:text-ink">{{ formatPrice(subtotal) }}</span>
-        </div>
-        <div v-if="discount > 0" class="flex justify-between text-sm">
-          <span class="text-gray-600 dark:text-muted">{{ $t('checkout.discount') }}</span>
-          <span class="font-medium text-red-500">−{{ formatPrice(discount) }}</span>
-        </div>
-        <div v-else class="flex justify-between text-sm">
-          <span class="text-gray-600 dark:text-muted">{{ $t('checkout.discount') }}</span>
-          <span class="text-gray-400 dark:text-gray-500"></span>
-        </div>
-        <div class="flex justify-between text-sm">
-          <span class="text-gray-600 dark:text-muted">{{ $t('checkout.tax') }}</span>
-          <span class="font-medium text-ink dark:text-ink">{{ formatPrice(cartStore.taxAmount) }}</span>
-        </div>
-
-        <div class="border-t border-border-gray !my-2 pt-3 dark:border-border-gray"></div>
-
-        <div class="flex justify-between">
-          <span class="font-semibold text-ink dark:text-ink">{{ $t('checkout.total') }}</span>
-          <span class="text-xl font-bold text-ink dark:text-ink">{{ formatPrice(cartStore.totalAmount) }}</span>
-        </div>
+        <QuoteSummary />
+        <p class="text-xs text-muted">{{ $t('cart.delivery_note') }}</p>
 
         <div class="space-y-2 pt-2">
           <div class="flex gap-2">
@@ -101,7 +77,7 @@ const itemGroups = computed(() => [
               :placeholder="$t('checkout.coupon_code')"
               @keyup.enter="applyCoupon"
             />
-            <button type="button" class="btn-primary btn-sm shrink-0" :disabled="cartStore.couponValidating" @click="applyCoupon">
+            <button type="button" class="btn-primary btn-sm shrink-0" :disabled="cartStore.quoteLoading || cartStore.mutating" @click="applyCoupon">
               {{ $t('checkout.apply_coupon') }}
             </button>
           </div>

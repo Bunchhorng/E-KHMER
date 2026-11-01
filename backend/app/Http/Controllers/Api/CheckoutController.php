@@ -3,7 +3,9 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\CheckoutQuoteRequest;
 use App\Http\Requests\CheckoutRequest;
+use App\Http\Resources\CheckoutQuoteResource;
 use App\Http\Resources\OrderResource;
 use App\Models\CheckoutAttempt;
 use App\Models\Order;
@@ -28,6 +30,17 @@ class CheckoutController extends Controller
         }
 
         return auth('sanctum')->user();
+    }
+
+    public function quote(CheckoutQuoteRequest $request)
+    {
+        $user = $this->user($request);
+        $sessionId = $request->header('X-Session-Id');
+        if ($user === null && ($sessionId === null || trim($sessionId) === '')) {
+            throw ValidationException::withMessages(['session' => 'A session identifier is required for guest checkout.']);
+        }
+
+        return new CheckoutQuoteResource($this->checkout->quote($this->carts->forUser($user, $sessionId), $request->validated(), $user));
     }
 
     public function begin(CheckoutRequest $request)
@@ -87,6 +100,7 @@ class CheckoutController extends Controller
             'shipping_methods' => $request->input('shipping_methods'),
             'payment_method' => (string) $request->payment_method,
             'coupon_code' => $request->coupon_code,
+            'quote_fingerprint' => $request->input('quote_fingerprint'),
             'address' => $address,
             'email' => $request->email ?? $user?->email,
             'customer_name' => $address['full_name'] ?? $user?->name,
