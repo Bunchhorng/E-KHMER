@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, reactive, onMounted } from 'vue'
+import { ref, computed, reactive, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { isAxiosError } from 'axios'
@@ -15,22 +15,42 @@ import {
 import type { Address, ShippingMethod, PaymentMethod } from '@/types'
 import { addressesApi, type ApiAddress } from '@/api/addresses'
 import { shippingApi, type ApiShippingMethod } from '@/api/shipping'
-import { checkoutApi } from '@/api/checkout'
+import { checkoutApi, type CheckoutAddress, type CheckoutPayload } from '@/api/checkout'
 import { useCartStore } from '@/stores/cart'
+import { useAuthStore } from '@/stores/auth'
 import BaseModal from '@/components/BaseModal.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import CartLoadState from '@/components/CartLoadState.vue'
 import QuoteSummary from '@/components/QuoteSummary.vue'
 import { formatPrice } from '@/utils/format'
-import { extractErrorMessage } from '@/api/errors'
+import { extractErrorMessage, extractFieldErrors } from '@/api/errors'
 
 const router = useRouter()
 const { t } = useI18n()
 const cartStore = useCartStore()
+const authStore = useAuthStore()
+const isGuest = computed(() => !authStore.isAuthenticated)
+const guestAddress = reactive<CheckoutAddress>({ full_name: '', phone: '', address_line1: '', address_line2: '', city: '', state: '', postal_code: '', country: 'KH' })
+const guestEmail = ref('')
+const fieldErrors = ref<Record<string, string>>({})
+const guestFields: { key: keyof CheckoutAddress; label: string; autocomplete: string; max: number; required: boolean }[] = [
+  { key: 'full_name', label: 'Full name', autocomplete: 'name', max: 255, required: true },
+  { key: 'phone', label: 'Phone number', autocomplete: 'tel', max: 30, required: true },
+  { key: 'address_line1', label: 'Address line 1', autocomplete: 'shipping address-line1', max: 255, required: true },
+  { key: 'address_line2', label: 'Address line 2 (optional)', autocomplete: 'shipping address-line2', max: 255, required: false },
+  { key: 'city', label: 'City', autocomplete: 'shipping address-level2', max: 100, required: true },
+  { key: 'state', label: 'Province / State', autocomplete: 'shipping address-level1', max: 100, required: true },
+  { key: 'postal_code', label: 'Postal code', autocomplete: 'shipping postal-code', max: 20, required: true },
+  { key: 'country', label: 'Country', autocomplete: 'shipping country', max: 100, required: true },
+]
+const addressError = ref('')
+const addressSaveError = ref('')
+const savingAddress = ref(false)
+const shippingError = ref('')
 
 const step = ref(1)
 const steps = [
-  { id: 1, label: 'Shipping' },
+  { id: 1, label: 'Contact & Shipping' },
   { id: 2, label: 'Delivery' },
   { id: 3, label: 'Payment' },
   { id: 4, label: 'Review' }
@@ -72,19 +92,39 @@ const paymentMethod = ref<PaymentMethod>('cod')
 
 const placing = ref(false)
 const checkoutError = ref('')
-function requestKey(): string {
-  const signature = JSON.stringify([cartStore.quote?.fingerprint, selectedAddress.value, shippingSelections.value, paymentMethod.value, cartStore.appliedCoupon?.code])
+let volatileAttempt: { signature: string; key: string } | null = null
+async function requestKey(payload: CheckoutPayload): Promise<string> {
+  // Persist only a digest, never the customer's contact/address details.
+  const signatureInput = JSON.stringify([authStore.user?.id ?? null, payload])
+  const key = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(24)), byte => byte.toString(16).padStart(2, '0')).join('')
+  // Web Crypto digests require HTTPS (or localhost). Keep retries in memory
+  // when developing over a plain HTTP LAN address.
+  if (!crypto.subtle) {
+    if (volatileAttempt?.signature === signatureInput) return volatileAttempt.key
+    volatileAttempt = { signature: signatureInput, key }
+    return key
+  }
+  const bytes = new TextEncoder().encode(signatureInput)
+  const signature = Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', bytes)), byte => byte.toString(16).padStart(2, '0')).join('')
+  if (volatileAttempt?.signature === signature) return volatileAttempt.key
   try {
     const previous = JSON.parse(sessionStorage.getItem('ekhmer_checkout_attempt') ?? 'null') as { signature: string; key: string } | null
-    if (previous?.signature === signature) return previous.key
+    if (previous?.signature === signature) {
+      volatileAttempt = previous
+      return previous.key
+    }
   } catch { /* A fresh key is safe if session storage is unavailable. */ }
-  const key = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  volatileAttempt = { signature, key }
   try { sessionStorage.setItem('ekhmer_checkout_attempt', JSON.stringify({ signature, key })) } catch { /* Optional persistence. */ }
   return key
 }
 
 const selectedAddress = computed(
-  () => addresses.value.find((a) => a.id === selectedAddressId.value) ?? addresses.value[0]
+  () => isGuest.value ? {
+    id: '', label: 'Shipping', fullName: guestAddress.full_name, phone: guestAddress.phone ?? '',
+    line1: guestAddress.address_line1, line2: guestAddress.address_line2 ?? '', city: guestAddress.city,
+    state: guestAddress.state, postalCode: guestAddress.postal_code, country: guestAddress.country ?? '', isDefault: false
+  } : addresses.value.find((a) => a.id === selectedAddressId.value) ?? addresses.value[0]
 )
 
 const paymentLabel = computed(() => {
@@ -119,7 +159,14 @@ function mapShippingFromApi(s: ApiShippingMethod): ShippingMethod {
 }
 
 async function fetchAddresses() {
+  if (isGuest.value) {
+    addresses.value = []
+    selectedAddressId.value = null
+    loadingAddresses.value = false
+    return
+  }
   loadingAddresses.value = true
+  addressError.value = ''
   try {
     const { data } = await addressesApi.list()
     addresses.value = data.data.map(mapAddressFromApi)
@@ -127,8 +174,9 @@ async function fetchAddresses() {
       const def = addresses.value.find((a) => a.isDefault)
       selectedAddressId.value = def ? def.id : addresses.value[0].id
     }
-  } catch {
+  } catch (error) {
     addresses.value = []
+    addressError.value = extractErrorMessage(error, 'We could not load your saved addresses. Please try again.')
   } finally {
     loadingAddresses.value = false
   }
@@ -136,12 +184,14 @@ async function fetchAddresses() {
 
 async function fetchShipping() {
   loadingShipping.value = true
+  shippingError.value = ''
   try {
     const { data } = await shippingApi.getActive()
     shipping.value = data.data.map(method => ({ ...mapShippingFromApi(method), shopId: method.shop_id ?? null }))
 
-  } catch {
+  } catch (error) {
     shipping.value = []
+    shippingError.value = extractErrorMessage(error, 'We could not load delivery methods. Please try again.')
   } finally {
     loadingShipping.value = false
   }
@@ -152,6 +202,26 @@ onMounted(() => {
   fetchAddresses()
   fetchShipping()
 })
+
+watch(() => authStore.user?.id, () => {
+  step.value = 1
+  fieldErrors.value = {}
+  fetchAddresses()
+  cartStore.fetch()
+})
+
+function continueToDelivery() {
+  fieldErrors.value = {}
+  checkoutError.value = ''
+  if (isGuest.value) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.value.trim()) || guestEmail.value.length > 255) fieldErrors.value.email = 'Please enter a valid email address.'
+    for (const field of guestFields) {
+      if (field.required && !guestAddress[field.key]?.trim()) fieldErrors.value[`address.${field.key}`] = `${field.label} is required.`
+    }
+    if (Object.keys(fieldErrors.value).length) return
+  }
+  if (stepAllowed()) step.value = 2
+}
 
 function stepAllowed(): boolean {
   if (step.value === 1) {
@@ -166,7 +236,9 @@ function stepAllowed(): boolean {
 }
 
 async function saveAddress() {
-  if (!newAddress.fullName.trim() || !newAddress.line1.trim() || !newAddress.city.trim()) return
+  if (isGuest.value || savingAddress.value) return
+  addressSaveError.value = ''
+  savingAddress.value = true
   try {
     const { data } = await addressesApi.create({
       full_name: newAddress.fullName,
@@ -192,8 +264,10 @@ async function saveAddress() {
     newAddress.country = ''
     newAddress.phone = ''
     addressModalOpen.value = false
-  } catch {
-    /* handle silently */
+  } catch (error) {
+    addressSaveError.value = extractErrorMessage(error, 'We could not save this address. Please check the fields and try again.')
+  } finally {
+    savingAddress.value = false
   }
 }
 
@@ -202,14 +276,15 @@ async function placeOrder() {
   placing.value = true
   checkoutError.value = ''
   try {
-    const { data } = await checkoutApi.begin({
+    const payload: CheckoutPayload = {
       shipping_method_id: Number(selectedShipping.value.id),
       shipping_methods: { ...cartStore.shippingSelections },
       payment_method: paymentMethod.value,
       coupon_code: cartStore.appliedCoupon?.code,
       quote_fingerprint: cartStore.quote?.fingerprint,
-      address_id: Number(selectedAddress.value.id)
-    }, requestKey())
+      ...(isGuest.value ? { email: guestEmail.value.trim(), address: { ...guestAddress } } : { address_id: Number(selectedAddress.value.id) })
+    }
+    const { data } = await checkoutApi.begin(payload, await requestKey(payload))
     if (['cancelled', 'refunded'].includes(data.data.status)) {
       try { sessionStorage.removeItem('ekhmer_checkout_attempt') } catch { /* Optional persistence. */ }
       checkoutError.value = t('checkout.expired_attempt')
@@ -227,6 +302,8 @@ async function placeOrder() {
     router.push({ name: 'order-success', params: { orderId: data.data.order_number } })
   } catch (error) {
     checkoutError.value = extractErrorMessage(error, 'We could not place your order. Your cart has been kept so you can review it.')
+    fieldErrors.value = extractFieldErrors(error)
+    if (Object.keys(fieldErrors.value).some(key => key === 'email' || key === 'address' || key === 'address_id' || key.startsWith('address.'))) step.value = 1
     if (isAxiosError(error) && [409, 422].includes(error.response?.status ?? 0)) await cartStore.fetch()
   } finally {
     placing.value = false
@@ -291,7 +368,34 @@ async function placeOrder() {
               <p class="mt-1 text-sm text-gray-500 dark:text-muted">Where should we deliver your order?</p>
             </div>
 
-            <div v-if="loadingAddresses" class="text-sm text-gray-500 dark:text-muted">Loading addresses...</div>
+            <form v-if="isGuest" id="guest-details" class="space-y-5" novalidate @submit.prevent="continueToDelivery">
+              <div class="rounded-xl bg-primary/5 p-4 text-sm">
+                <p>Check out as a guest. No account is required.</p>
+                <p class="mt-2">Already have an account?
+                  <RouterLink :to="{ name: 'login', query: { redirect: '/checkout' } }" class="font-semibold text-primary">Sign in</RouterLink>
+                  or <RouterLink :to="{ name: 'register', query: { redirect: '/checkout' } }" class="font-semibold text-primary">Create Account</RouterLink>
+                </p>
+              </div>
+              <h3 class="font-semibold">Contact information</h3>
+              <div>
+                <label for="guest-email" class="label">Email *</label>
+                <input id="guest-email" v-model.trim="guestEmail" class="input" type="email" autocomplete="email" required maxlength="255" :aria-invalid="Boolean(fieldErrors.email)" :aria-describedby="fieldErrors.email ? 'guest-email-error' : undefined" />
+                <p v-if="fieldErrors.email" id="guest-email-error" class="mt-1 text-sm text-red-600" role="alert">{{ fieldErrors.email }}</p>
+              </div>
+              <div class="grid gap-4 sm:grid-cols-2">
+                <template v-for="field in guestFields" :key="field.key">
+                  <h3 v-if="field.key === 'address_line1'" class="font-semibold sm:col-span-2">Shipping address</h3>
+                  <div :class="field.key.startsWith('address_line') ? 'sm:col-span-2' : ''">
+                    <label :for="`guest-${field.key}`" class="label">{{ field.label }}{{ field.required ? ' *' : '' }}</label>
+                    <input :id="`guest-${field.key}`" v-model.trim="guestAddress[field.key]" class="input" :type="field.key === 'phone' ? 'tel' : 'text'" :autocomplete="field.autocomplete" :required="field.required" :maxlength="field.max" :aria-invalid="Boolean(fieldErrors[`address.${field.key}`])" :aria-describedby="fieldErrors[`address.${field.key}`] ? `guest-${field.key}-error` : undefined" />
+                    <p v-if="fieldErrors[`address.${field.key}`]" :id="`guest-${field.key}-error`" class="mt-1 text-sm text-red-600" role="alert">{{ fieldErrors[`address.${field.key}`] }}</p>
+                  </div>
+                </template>
+              </div>
+              <p v-if="fieldErrors.address" class="text-sm text-red-600" role="alert">{{ fieldErrors.address }}</p>
+            </form>
+
+            <div v-else-if="loadingAddresses" class="text-sm text-gray-500 dark:text-muted">Loading addresses...</div>
 
             <div v-else class="grid gap-4 sm:grid-cols-2">
               <label
@@ -324,6 +428,7 @@ async function placeOrder() {
                     {{ address.city }}, {{ address.state }} {{ address.postalCode }}
                   </p>
                   <p class="mt-1 text-sm text-gray-500 dark:text-muted">{{ address.phone }}</p>
+                  <RouterLink :to="{ name: 'account-address-edit', params: { id: address.id }, query: { redirect: '/checkout' } }" class="mt-2 inline-block text-sm text-primary">Edit address</RouterLink>
                 </div>
               </label>
 
@@ -337,12 +442,17 @@ async function placeOrder() {
               </button>
             </div>
 
+            <div v-if="addressError" role="alert" class="text-sm text-red-600">
+              {{ addressError }} <button type="button" class="underline" @click="fetchAddresses">Retry</button>
+            </div>
+            <p v-if="checkoutError" role="alert" class="text-sm text-red-600">{{ checkoutError }}</p>
+
             <div class="flex justify-end">
               <button
                 type="button"
                 class="btn-primary"
-                :disabled="!stepAllowed()"
-                @click="step = 2"
+                :disabled="!isGuest && !stepAllowed()"
+                @click="continueToDelivery"
               >
                 Continue to Delivery
                 <ArrowRight class="h-4 w-4" />
@@ -357,6 +467,7 @@ async function placeOrder() {
             </div>
 
             <div v-if="loadingShipping" class="text-sm text-gray-500 dark:text-muted">Loading shipping methods...</div>
+            <div v-else-if="shippingError" role="alert" class="text-sm text-red-600">{{ shippingError }} <button type="button" class="underline" @click="fetchShipping">Retry</button></div>
 
             <div v-else class="space-y-6">
               <fieldset v-for="group in shopGroups" :key="group.id" class="space-y-3 rounded-xl border border-border-gray p-4">
@@ -375,7 +486,7 @@ async function placeOrder() {
                 <ArrowLeft class="h-4 w-4" />
                 Back
               </button>
-              <button type="button" class="btn-primary" :disabled="!shippingReady || cartStore.quoteLoading" @click="step = 3">
+              <button type="button" class="btn-primary" :disabled="loadingShipping || !shippingReady || cartStore.quoteLoading" @click="step = 3">
                 Continue to Payment
                 <ArrowRight class="h-4 w-4" />
               </button>
@@ -493,7 +604,8 @@ async function placeOrder() {
               </div>
             </div>
 
-            <button type="button" class="btn-primary btn-lg w-full" :disabled="placing || !cartStore.canCheckout" @click="placeOrder">
+            <p v-if="isGuest" class="text-sm text-muted">Contact: {{ guestEmail }} · {{ guestAddress.phone }}</p>
+            <button type="button" class="btn-primary btn-lg w-full" :disabled="placing || !shippingReady || !cartStore.canCheckout" @click="placeOrder">
               <Lock class="h-4 w-4" />
               {{ placing ? 'Placing order…' : cartStore.quoteLoading ? $t('cart.updating_totals') : cartStore.quote ? `Place Order · ${formatPrice(cartStore.quote.total, cartStore.quote.currency)}` : 'Place Order' }}
             </button>
@@ -519,6 +631,7 @@ async function placeOrder() {
     </template>
 
     <BaseModal
+      v-if="!isGuest"
       v-model="addressModalOpen"
       title="Add New Address"
       @close="addressModalOpen = false"
@@ -565,11 +678,12 @@ async function placeOrder() {
       <button
         type="button"
         class="btn-primary btn-sm mt-4 w-full"
-        :disabled="!newAddress.fullName.trim() || !newAddress.line1.trim() || !newAddress.city.trim()"
+        :disabled="savingAddress"
         @click="saveAddress"
       >
-        Save Address
+        {{ savingAddress ? 'Saving…' : 'Save Address' }}
       </button>
+      <p v-if="addressSaveError" role="alert" class="mt-3 text-sm text-red-600">{{ addressSaveError }}</p>
 
       <template #footer>
         <button type="button" class="btn-secondary w-full" @click="addressModalOpen = false">

@@ -20,6 +20,7 @@ const form = reactive({
   value: '',
   minOrderAmount: '',
   usageLimit: '',
+  perUserLimit: '1',
   expiresAt: '',
   status: 'Active'
 })
@@ -58,6 +59,7 @@ onMounted(async () => {
       form.value = String(coupon.value)
       form.minOrderAmount = coupon.min_order_amount != null ? String(coupon.min_order_amount) : ''
       form.usageLimit = coupon.usage_limit != null ? String(coupon.usage_limit) : ''
+      form.perUserLimit = coupon.per_user_limit === null ? '' : String(coupon.per_user_limit ?? 1)
       form.expiresAt = coupon.expires_at ? coupon.expires_at.slice(0, 10) : ''
       form.status = coupon.is_active ? 'Active' : 'Draft'
     }
@@ -77,6 +79,7 @@ function validate(): boolean {
     errors.code = ''
   }
   errors.value = Number.isFinite(value) && value > 0 ? '' : t('admin.coupons.toast_fill_required')
+  errors.perUserLimit = !form.perUserLimit || (Number.isInteger(Number(form.perUserLimit)) && Number(form.perUserLimit) >= 1) ? '' : 'Enter a positive whole number or leave blank.'
   return Object.values(errors).every((v) => v === '')
 }
 
@@ -92,6 +95,7 @@ async function save() {
     value: Number(form.value),
     min_order_amount: form.minOrderAmount ? Number(form.minOrderAmount) : null,
     usage_limit: form.usageLimit ? Number(form.usageLimit) : null,
+    per_user_limit: form.perUserLimit ? Number(form.perUserLimit) : null,
     expires_at: form.expiresAt || null,
     is_active: form.status === 'Active'
   }
@@ -137,6 +141,12 @@ async function save() {
       <h2 class="mt-2 text-lg font-semibold">{{ $t('admin.products.basic_information') }}</h2>
 
       <div class="mt-5 grid gap-4 sm:grid-cols-2">
+        <div class="sm:col-span-2">
+          <label class="label" for="cp-per-customer">Uses per customer</label>
+          <input id="cp-per-customer" v-model="form.perUserLimit" type="number" min="1" step="1" class="input" />
+          <p class="mt-1 text-sm text-muted">A limit requires sign-in. Leave blank to allow guest checkout without a per-customer limit. Other coupon rules still apply.</p>
+          <p v-if="errors.perUserLimit" role="alert" class="mt-1 text-xs text-red-600">{{ errors.perUserLimit }}</p>
+        </div>
         <div>
           <label class="label" for="cp-code">{{ $t('admin.coupons.code_label') }}</label>
           <input

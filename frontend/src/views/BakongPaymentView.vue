@@ -4,6 +4,7 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 import QRCode from 'qrcode'
 import apiClient from '@/api/client'
 import { useCartStore } from '@/stores/cart'
+import { useAuthStore } from '@/stores/auth'
 import { extractErrorMessage } from '@/api/errors'
 import { formatPrice } from '@/utils/format'
 import { useI18n } from 'vue-i18n'
@@ -11,6 +12,7 @@ import type { ApiOrder } from '@/api/checkout'
 interface ShopPayment { id: number; shop_name: string; amount: number; currency: string; status: string; qr_payload: string | null; expires_at: string; image?: string }
 const { t } = useI18n()
 const route = useRoute(); const router = useRouter(); const cart = useCartStore()
+const auth = useAuthStore()
 const payments = ref<ShopPayment[]>([]); const loading = ref(true); const checking = ref(false); const error = ref('')
 const now = ref(Date.now()); const orderStatus = ref('pending')
 const expired = computed(() => payments.value.some(payment => new Date(payment.expires_at).getTime() <= now.value))
@@ -58,7 +60,7 @@ onBeforeUnmount(() => { generation++; window.clearInterval(clock) })
         <p class="mt-3 text-xs text-muted">{{ t('bakong.expires') }} {{ new Date(payment.expires_at).toLocaleTimeString() }}</p>
       </section>
     </div>
-    <div class="flex flex-wrap gap-3"><button class="btn-primary" :disabled="checking || loading" @click="verify">{{ t(checking ? 'bakong.checking' : 'bakong.verify') }}</button><RouterLink to="/account/orders" class="btn-secondary">{{ t('nav.my_orders') }}</RouterLink><RouterLink to="/support" class="btn-secondary">{{ t('bakong.contact') }}</RouterLink></div>
+    <div class="flex flex-wrap gap-3"><button class="btn-primary" :disabled="checking || loading" @click="verify">{{ t(checking ? 'bakong.checking' : 'bakong.verify') }}</button><RouterLink v-if="auth.isAuthenticated" to="/account/orders" class="btn-secondary">{{ t('nav.my_orders') }}</RouterLink><RouterLink v-else :to="{ name: 'order-tracking', params: { orderId: String(route.params.orderNumber) } }" class="btn-secondary">{{ t('order.track_my_order') }}</RouterLink><RouterLink to="/support" class="btn-secondary">{{ t('bakong.contact') }}</RouterLink></div>
   </div>
 </template>
 

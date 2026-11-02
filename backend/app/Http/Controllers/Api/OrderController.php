@@ -55,7 +55,7 @@ class OrderController extends Controller
 
         $stored = $order->payment?->provider_data['session_id'] ?? null;
 
-        if ($stored !== 'guest_'.md5((string) $sessionId)) {
+        if ($order->user_id !== null || ! hash_equals((string) $stored, 'guest_'.md5((string) $sessionId))) {
             abort(404, 'Order not found.');
         }
 

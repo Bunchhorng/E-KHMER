@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Notifications\Notification;
+use Illuminate\Support\Facades\Notification as NotificationFacade;
 
 #[Fillable(['order_number', 'user_id', 'coupon_id', 'coupon_code', 'status', 'payment_status', 'subtotal', 'discount_amount', 'tax_amount', 'shipping_amount', 'total', 'currency', 'shipping_address', 'billing_address', 'email', 'phone', 'customer_name', 'note', 'placed_at'])]
 class Order extends Model
@@ -53,6 +55,15 @@ class Order extends Model
     public function user()
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function notifyCustomer(Notification $notification): void
+    {
+        if ($this->user_id !== null) {
+            $this->user?->notify($notification);
+        } elseif ($this->email) {
+            NotificationFacade::route('mail', [$this->email => $this->customer_name ?? 'Customer'])->notify($notification);
+        }
     }
 
     public function coupon()

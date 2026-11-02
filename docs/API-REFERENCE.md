@@ -1,5 +1,17 @@
 # API Reference (Live)
 
+## Guest checkout policy — 2026-11-02
+
+Guest checkout is supported through the existing `POST /api/checkout`; there is no separate guest checkout endpoint. Send the same random `X-Session-Id` used for the guest cart and a stable `Idempotency-Key` for retries.
+
+- Guest requests require `email` (valid email, max 255) and an inline `address` containing `full_name`, `phone`, `address_line1`, `city`, `state`, `postal_code`, `country`. `address_line2` is optional. `address_id` is prohibited for guests. Account customers may continue using an owned `address_id` or the existing inline address contract. Guests may use an existing account email without creating, claiming or revealing an account.
+- `GET /api/shipping-methods` and `POST /api/checkout/quote` remain public checkout data. Per-shop selections, coupons and signed quote fingerprints retain their existing contracts. Prices/totals/stock are calculated on the server.
+- Guest COD and configured Bakong/KHQR use the shared reservation, confirmation and payment verification rules. `GET /api/orders/guest/{orderNumber}` and `/api/checkout/{orderNumber}` actions require the original guest session secret; order numbers/IDs alone do not grant access. Authenticated order endpoints retain user ownership.
+- Coupons with a numeric `per_user_limit` require sign-in. Admin coupon create/update accepts `per_user_limit: null` to explicitly remove that account-based limit and allow guests; other coupon restrictions still apply. Coupon responses now include `per_user_limit` so editors preserve the configured policy. Existing coupon limits remain unchanged.
+- Added throttles: checkout creation/confirmation/cancellation and guest lookup 30 requests/minute, quote 120/minute, alongside existing Bakong read/verify limits. Broader owner-based checkout quotas remain F13.
+
+Guest browser tracking and mail links work only with the original browser session; lost sessions use public support with ownership verification. Reviews, saved-address management, account receipts and self-service returns remain authenticated. See [commerce policy](./COMMERCE-COMPLETION.md#f05-guest-checkout-policy-2026-11-02).
+
 ## Super-admin oversight additions — 2026-10-20
 
 - `GET /api/admin/dashboard/overview` now includes `attention` counts (`pending_reviews`, `payment_exceptions`, `open_returns`, `open_support`), a bounded `pending_reviews` moderation list and bounded `payment_exceptions`. These queues intentionally ignore the sales date range. Existing analytics fields remain available for compatibility.

@@ -118,7 +118,7 @@ async function save() {
     } else {
       await addressesApi.create(payload)
     }
-    router.push({ name: 'account-addresses' })
+    router.push(route.query.redirect === '/checkout' ? '/checkout' : { name: 'account-addresses' })
   } catch {
     saveError.value = t('account.ui.save_error')
   } finally {

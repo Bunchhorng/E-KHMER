@@ -144,6 +144,7 @@ Route::prefix('shops')->group(function () {
 });
 
 Route::get('orders/guest/{orderNumber}', [OrderController::class, 'guest'])
+    ->middleware('throttle:30,1')
     ->where('orderNumber', '[A-Za-z0-9-]+');
 
 Route::prefix('cart')->group(function () {
@@ -156,13 +157,15 @@ Route::prefix('cart')->group(function () {
 });
 
 Route::prefix('checkout')->group(function () {
-    Route::post('quote', [CheckoutController::class, 'quote']);
+    Route::post('quote', [CheckoutController::class, 'quote'])->middleware('throttle:120,1');
     Route::get('{orderNumber}/bakong', [CheckoutController::class, 'bakongPayments'])->middleware('throttle:30,1');
     Route::post('{orderNumber}/bakong/verify', [CheckoutController::class, 'verifyBakong'])->middleware('throttle:12,1');
-    Route::post('/', [CheckoutController::class, 'begin']);
+    Route::post('/', [CheckoutController::class, 'begin'])->middleware('throttle:30,1');
     Route::post('{orderNumber}/confirm', [CheckoutController::class, 'confirm'])
+        ->middleware('throttle:30,1')
         ->where('orderNumber', '[A-Za-z0-9-]+');
     Route::post('{orderNumber}/cancel', [CheckoutController::class, 'cancel'])
+        ->middleware('throttle:30,1')
         ->where('orderNumber', '[A-Za-z0-9-]+');
 });
 

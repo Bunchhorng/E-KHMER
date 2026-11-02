@@ -197,10 +197,8 @@ class ShopOrderFulfillmentService
 
     private function notifyShop(ShopOrder $allocation, Order $order, string $status): void
     {
-        if ($order->user_id !== null) {
-            DB::afterCommit(function () use ($allocation, $order, $status): void {
-                $order->user?->notify(new OrderStatusNotification($order, $status, $allocation));
-            });
-        }
+        DB::afterCommit(function () use ($allocation, $order, $status): void {
+            $order->notifyCustomer(new OrderStatusNotification($order, $status, $allocation));
+        });
     }
 }

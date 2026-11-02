@@ -174,11 +174,11 @@ class OrderService
             Order::STATUS_REFUNDED,
         ];
 
-        if ($order->user_id === null || ! in_array($to, $statusesWithNotifications, true)) {
+        if (! in_array($to, $statusesWithNotifications, true)) {
             return;
         }
 
-        $order->user()->first()?->notify(new OrderStatusNotification($order, $to));
+        $order->notifyCustomer(new OrderStatusNotification($order, $to));
     }
 
     /**

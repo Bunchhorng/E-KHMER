@@ -193,6 +193,7 @@ class CheckoutTest extends TestCase
             ->postJson('/api/checkout', [
                 'shipping_method_id' => $this->seedShipping(),
                 'payment_method' => 'card',
+                'email' => 'guest@example.test',
                 'address' => $this->addressPayload(),
             ])->assertStatus(201);
 

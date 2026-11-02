@@ -149,7 +149,7 @@ onMounted(async () => {
     <h1 class="mt-6 text-3xl font-extrabold text-ink">{{ $t('order.confirmed_title') }}</h1>
 
     <p class="mt-3 text-gray-600">
-      {{ $t('order.thank_you', { name: authStore.user?.name ?? 'Customer' }) }}
+      {{ $t('order.thank_you', { name: paymentOrder?.customer_name ?? authStore.user?.name ?? 'Customer' }) }}
     </p>
 
     <div class="mt-8 grid gap-4 text-left sm:grid-cols-3">
@@ -202,7 +202,7 @@ onMounted(async () => {
       <RouterLink :to="`/order/tracking/${order.id}`" class="btn-primary">
         {{ $t('order.track_my_order') }}
       </RouterLink>
-      <button type="button" class="btn-secondary" :disabled="printingReceipt" @click="printReceipt">
+      <button v-if="authStore.isAuthenticated" type="button" class="btn-secondary" :disabled="printingReceipt" @click="printReceipt">
         <Printer v-if="!printingReceipt" class="h-4 w-4" />
         <FileText v-else class="h-4 w-4 animate-pulse" />
         {{ $t('order.receipt') }}
@@ -213,8 +213,9 @@ onMounted(async () => {
     </div>
 
     <p class="mt-6 text-xs text-gray-500">
-      {{ $t('order.email_sent', { email: authStore.user?.email ?? '' }) }}
+      Contact email: {{ paymentOrder?.email }}
     </p>
+    <p v-if="!authStore.isAuthenticated" class="mt-3 text-sm text-muted">Keep your order number and use this browser to track it. If your browser session is lost, <RouterLink to="/support" class="text-primary">contact support</RouterLink>.</p>
     <p v-if="receiptError" class="mt-3 text-xs font-medium text-red-600">{{ receiptError }}</p>
   </div>
 

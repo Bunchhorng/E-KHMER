@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { Eye, EyeOff, LoaderCircle, UserPlus } from 'lucide-vue-next'
 import { useAuthStore } from '@/stores/auth'
@@ -8,6 +8,7 @@ import { extractErrorMessage, extractFieldErrors } from '@/api/errors'
 
 const auth = useAuthStore()
 const router = useRouter()
+const route = useRoute()
 const { t } = useI18n()
 
 const form = reactive({
@@ -54,7 +55,8 @@ async function submit() {
       password: form.password,
       password_confirmation: form.confirm
     })
-    router.push(user?.role === 'super_admin' ? { name: 'admin-dashboard' } : { name: 'account-dashboard' })
+    const redirect = typeof route.query.redirect === 'string' && route.query.redirect.startsWith('/') && !route.query.redirect.startsWith('//') ? route.query.redirect : undefined
+    router.push(redirect ?? (user?.role === 'super_admin' ? { name: 'admin-dashboard' } : { name: 'account-dashboard' }))
   } catch (e) {
     // Surface per-field rejections (duplicate email, weak password) on the input
     // itself and keep a summary message for everything else.
@@ -178,7 +180,7 @@ async function submit() {
 
       <p class="mt-6 text-center text-sm text-gray-500 dark:text-muted">
         {{ $t('auth.have_account') }}
-        <RouterLink to="/auth/login" class="font-medium text-primary hover:text-primary-dark">{{ $t('auth.sign_in') }}</RouterLink>
+        <RouterLink :to="{ name: 'login', query: { redirect: route.query.redirect } }" class="font-medium text-primary hover:text-primary-dark">{{ $t('auth.sign_in') }}</RouterLink>
       </p>
     </div>
   </div>

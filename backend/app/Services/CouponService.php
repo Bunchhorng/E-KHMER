@@ -122,6 +122,12 @@ class CouponService
             ]);
         }
 
+        if ($user === null && $coupon->per_user_limit !== null) {
+            throw ValidationException::withMessages([
+                'code' => ['Sign in to use this coupon. It has a per-customer usage limit.'],
+            ]);
+        }
+
         if ($user !== null && $coupon->per_user_limit !== null) {
             $used = $coupon->usages()->where('user_id', $user->id)->count();
             if ($used >= $coupon->per_user_limit) {

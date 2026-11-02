@@ -45,6 +45,10 @@ class CheckoutController extends Controller
 
     public function begin(CheckoutRequest $request)
     {
+        if ($this->user($request) === null && trim((string) $request->header('X-Session-Id')) === '') {
+            throw ValidationException::withMessages(['session' => 'A session identifier is required for guest checkout.']);
+        }
+
         $key = $request->header('Idempotency-Key');
         if ($key === null) {
             return $this->createOrder($request);
@@ -173,7 +177,7 @@ class CheckoutController extends Controller
         $sessionId = $request->header('X-Session-Id');
         $stored = $order->payment?->provider_data['session_id'] ?? null;
 
-        if ($sessionId === null || $stored !== 'guest_'.md5((string) $sessionId)) {
+        if ($order->user_id !== null || $sessionId === null || ! hash_equals((string) $stored, 'guest_'.md5((string) $sessionId))) {
             abort(404, 'Order not found.');
         }
 
@@ -200,7 +204,7 @@ class CheckoutController extends Controller
             ];
         }
 
-        $address = (array) $request->input('address', []);
+        $address = (array) ($request->validated()['address'] ?? []);
 
         return [
             'full_name' => $address['full_name'] ?? null,

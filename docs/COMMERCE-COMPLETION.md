@@ -4,6 +4,7 @@ Updated: 2026-10-17. This describes implemented functionality and remaining laun
 
 ## Decisions
 
+- Guest checkout: **SUPPORTED**. See the F05 policy below. Customer accounts are optional for checkout.
 - Online payments use Bakong/KHQR. Each seller receives their own payment directly.
 - There is no platform custody, payout wallet, or automatic seller settlement. Existing commission fields are accounting metadata, not an actual bank deduction.
 - Checkout remains USD. KHR requires an explicit business decision, currency-aware amounts, pricing and checkout changes; KHQR encoding alone does not enable a second storefront currency.
@@ -59,6 +60,26 @@ The settings screen has a **View my shop** link so owners do not need to guess t
 Reconciliation currently scans pending records from the last seven days. Operators must investigate older/unmatched transfers with the bank and support; the job is not a substitute for daily bank reconciliation. Monitor token expiry and renew the server credential through NBC's process.
 
 Integration references: [NBC Bakong Open API](https://api-bakong.nbc.gov.kh/Bakong%20Open%20API%20Docs%20v1.0.1.pdf) and [NBC KHQR SDK documentation](https://bakong.nbc.gov.kh/download/KHQR/integration/KHQR%20SDK%20Document.pdf).
+
+## F05 guest checkout policy (2026-11-02)
+
+Guest checkout: **SUPPORTED**.
+
+Inspection confirmed that guest carts, login/registration cart merging, inline order addresses, guest order lookup and session-protected COD/Bakong checkout already exist. Account-only reviews, returns and saved addresses do not require checkout itself to require an account. F05 therefore completes the existing shared `CheckoutService` flow.
+
+Customer flow: Guest → Product → Cart → Checkout → Contact → Address → Delivery per shop → Payment → Review → Order → Confirmation → Track Order in the same browser.
+
+- Guests enter email, recipient/full name, delivery phone and the existing address fields (street, city, province/state, postal code, country; second street line optional). The order and shipments store snapshots; no user or saved-address row is created. An existing account's email is accepted without identifying or linking that account.
+- Signed-in customers retain saved/default address selection, adding and editing addresses. Guest checkout never requests the authenticated address API. Choosing sign-in or registration preserves the existing guest cart merge and returns to checkout with saved addresses.
+- Order ownership remains `user_id = null` plus the existing payment provider's guest-session hash. The browser sends its cryptographically random `X-Session-Id` secret to order lookup, confirmation, cancellation and Bakong endpoints. Order numbers and numeric IDs alone never grant access. Confirmation and tracking display the public order reference. The secret is absent from URLs and API resources.
+- Guest access is tied to the checkout browser. Keeping the order number without that browser session does not grant access. Lost browser sessions use the existing public support form; support must verify ownership before disclosing private order data. F05 does not implement cross-device magic links or automatic account claiming. Signing in later does not claim a previously placed guest order.
+- COD is supported: confirmation/fulfillment stay unpaid until an authorized seller/admin records collection after delivery. Bakong/KHQR is supported with the same session-protected QR/status endpoints and server verification as account checkout. Server token and every shop's recipient configuration are required; unavailable configuration returns a clear instruction to choose COD. Legacy API payment methods retain their existing sandbox/production restrictions.
+- Each shop retains its delivery selection, fee, allocation, coupon scope and payment totals. Financial authority, inventory locking/reservation/expiry, stale-item recovery and owner-scoped idempotency remain shared. Duplicate UI submissions are disabled; the persisted idempotency signature is a digest without contact/address data.
+- Coupons with `per_user_limit` require sign-in, including when a guest uses an existing account email. A coupon explicitly configured with `per_user_limit: null` allows guests without a per-customer limit; all shop, eligibility, minimum spend, date, global usage and discount cap rules still apply. Admin coupon editing exposes this choice. The migration makes that existing nullable API contract persistable and preserves every existing numeric limit/default.
+- Confirmation and shipping/status emails resolve the snapshotted guest email through anonymous mail notifications. Guests receive no database inbox notification. Mail links require the original browser session and explain that constraint. Account receipts remain account-only; the guest confirmation does not offer a receipt action that would force login. The confirmation displays contact email without asserting delivery succeeded.
+- Verified reviews and self-service returns remain account-only. Guests can contact `/support` with their order reference for post-purchase help. An email match never establishes order ownership.
+- Contact details stay in component memory until the order snapshot; they are not persisted in local/session storage. The existing browser session secret is retained for secure guest order access. Checkout/quote/guest-lookup throttles complement existing Bakong limits and idempotency. Broader abuse quotas remain F13.
+- Apply `2026_11_02_000002_allow_coupons_without_per_customer_limits.php` with `docker compose exec app php artisan migrate`. No order/address schema changes are needed. Automated tests use isolated SQLite and mocked bank/browser responses; real SMTP/deliverability remains O16 and live bank acceptance remains an existing launch gate.
 
 ## Launch gates and follow-up
 

@@ -354,10 +354,7 @@ class CheckoutService
                 'description' => trim(($order->payment_status === Order::PAYMENT_PAID ? 'Payment received' : 'Order confirmed').'.'),
             ]);
 
-            if ($order->user_id !== null) {
-                $user = $order->user()->first();
-                $user->notify(new OrderPlacedNotification($order));
-            }
+            $order->notifyCustomer(new OrderPlacedNotification($order));
 
             $cartId = $payment->provider_data['cart_id'] ?? null;
             if (is_numeric($cartId)) {

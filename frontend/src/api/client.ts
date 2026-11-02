@@ -25,7 +25,7 @@ export const UNAUTHORIZED_EVENT = 'auth:unauthorized'
 function getSessionId(): string {
   let sid = localStorage.getItem(SESSION_KEY)
   if (!sid) {
-    sid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    sid = typeof crypto.randomUUID === 'function' ? crypto.randomUUID() : Array.from(crypto.getRandomValues(new Uint8Array(32)), byte => byte.toString(16).padStart(2, '0')).join('')
     localStorage.setItem(SESSION_KEY, sid)
   }
   return sid

@@ -232,7 +232,7 @@ class ShopCouponOwnershipTest extends TestCase
     {
         $this->app['auth']->forgetGuards();
         $product = Product::factory()->withVariant(100, 20)->create(['shop_id' => $this->shopA->id]);
-        $coupon = $this->coupon();
+        $coupon = $this->coupon(['per_user_limit' => null]);
         $this->withHeader('X-Session-Id', 'coupon-guest-owner')
             ->postJson('/api/cart', ['product_variant_id' => $product->variants()->sole()->id, 'quantity' => 1])->assertCreated();
         $this->postJson('/api/coupons/validate', ['code' => $coupon->code])->assertOk()

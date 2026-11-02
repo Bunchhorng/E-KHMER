@@ -107,7 +107,7 @@ async function submit() {
 
       <p class="mt-6 text-center text-sm text-gray-500 dark:text-muted">
         {{ $t('auth.no_account') }}
-        <RouterLink to="/auth/register" class="font-medium text-primary hover:text-primary-dark">{{ $t('auth.create_one') }}</RouterLink>
+        <RouterLink :to="{ name: 'register', query: { redirect: route.query.redirect } }" class="font-medium text-primary hover:text-primary-dark">{{ $t('auth.create_one') }}</RouterLink>
       </p>
     </div>
   </div>

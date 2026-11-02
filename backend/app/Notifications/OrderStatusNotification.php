@@ -9,6 +9,7 @@ use App\Models\Setting;
 use App\Models\ShopOrder;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Notifications\AnonymousNotifiable;
 use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
@@ -31,6 +32,10 @@ class OrderStatusNotification extends Notification implements ShouldQueue
      */
     public function via(object $notifiable): array
     {
+        if ($notifiable instanceof AnonymousNotifiable) {
+            return Setting::boolean('emailOrderNotifications', true) ? ['mail'] : [];
+        }
+
         return Setting::boolean('emailOrderNotifications', true)
             ? ['database', 'mail']
             : ['database'];
@@ -42,9 +47,10 @@ class OrderStatusNotification extends Notification implements ShouldQueue
 
         return (new MailMessage)
             ->subject((string) $data['title'].': #'.$this->order->order_number)
-            ->greeting('Hello '.$notifiable->name.',')
+            ->greeting('Hello '.($this->order->customer_name ?? 'Customer').',')
             ->line((string) $data['message'])
-            ->action('View order', rtrim((string) config('app.frontend_url'), '/').'/account/orders/'.$this->order->order_number);
+            ->line($this->order->user_id === null ? 'Use the browser you checked out with to track this order, or contact support with your order number.' : 'You can manage this order in your account.')
+            ->action('View order', rtrim((string) config('app.frontend_url'), '/').($this->order->user_id === null ? '/order/tracking/' : '/account/orders/').$this->order->order_number);
     }
 
     /**
