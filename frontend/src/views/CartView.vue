@@ -12,6 +12,7 @@ const router = useRouter()
 const cartStore = useCartStore()
 
 const couponInput = ref('')
+async function clearCart() { await cartStore.clear() }
 
 async function applyCoupon() {
   if (!couponInput.value.trim()) return
@@ -52,7 +53,7 @@ const itemGroups = computed(() => [
       <div class="space-y-4">
         <div class="flex items-center justify-between gap-3">
           <p class="text-sm text-muted">{{ $t('cart.item_count', { count: cartStore.totalItemCount }) }}</p>
-          <button type="button" class="text-sm text-red-500 underline" :disabled="cartStore.mutating" @click="cartStore.clear()">{{ $t('cart.clear') }}</button>
+          <button type="button" class="text-sm text-red-500 underline" :disabled="cartStore.mutating" :aria-busy="cartStore.isPending('clear')" @click="clearCart">{{ $t('cart.clear') }}</button>
         </div>
         <template v-for="group in itemGroups" :key="group.title">
           <section v-if="group.items.length" class="card p-4 sm:p-5" :aria-label="$t(group.title)">

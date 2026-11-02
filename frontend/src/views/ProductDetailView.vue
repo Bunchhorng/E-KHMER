@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, reactive, watch, onMounted } from 'vue'
+import { computed, ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import {
   ZoomIn,
@@ -122,6 +122,11 @@ const product = computed(() => (rawProduct.value ? mapToProduct(rawProduct.value
 
 const selectedImage = ref<ProductImage | null>(null)
 const quantity = ref(1)
+const pendingCartAction = ref<'add' | 'buy' | null>(null)
+const cartActionError = ref('')
+const checkoutNavigationFailed = ref(false)
+let active = true
+onBeforeUnmount(() => { active = false })
 const selectedOptions = reactive<Record<string, string>>({})
 const zoomActive = ref(false)
 const zoomX = ref(50)
@@ -352,19 +357,38 @@ function openLightbox() {
   if (mainImage.value) lightboxOpen.value = true
 }
 
-function addToCart() {
-  const p = product.value
-  if (!p || !selectedVariant.value?.id) return
-  cart.addItem({ variantId: selectedVariant.value.id, quantity: quantity.value })
-  ui.openCartDrawer()
+const cartActionPending = computed(() => Boolean(pendingCartAction.value) || cart.isPending(`add:${selectedVariant.value?.id}`))
+
+async function performCartAction(action: 'add' | 'buy'): Promise<void> {
+  if (cartActionPending.value) return
+  cartActionError.value = ''
+  checkoutNavigationFailed.value = false
+  const missing = attributeGroups.value.find(group => !selectedOptions[group.name])
+  if (missing) { cartActionError.value = t('cart.select_option', { name: missing.name }); return }
+  const variant = selectedVariant.value
+  if (!variant || !hasCombination.value) { cartActionError.value = t('product.no_combination'); return }
+  if (!variant.isInStock || stockStatus.value === 'out') { cartActionError.value = t('product.out_of_stock'); return }
+  if (!Number.isInteger(quantity.value) || quantity.value < 1 || quantity.value > 99 || quantity.value > currentStock.value) {
+    cartActionError.value = t('cart.check_quantity'); return
+  }
+  // Snapshot primitives before awaiting; later option/route changes cannot alter it.
+  const payload = { variantId: variant.id, quantity: quantity.value }
+  const origin = route.fullPath
+  pendingCartAction.value = action
+  try {
+    const added = await cart.addItem(payload)
+    if (!active || route.fullPath !== origin) return
+    if (!added) return // The existing global cart banner displays the normalized error.
+    if (action === 'add') { ui.openCartDrawer(); return }
+    try {
+      const failure = await router.push('/checkout')
+      if (failure) checkoutNavigationFailed.value = true
+    } catch { checkoutNavigationFailed.value = true }
+  } finally { pendingCartAction.value = null }
 }
 
-async function buyNow() {
-  const p = product.value
-  if (!p || !selectedVariant.value?.id) return
-  if (!await cart.addItem({ variantId: selectedVariant.value.id, quantity: quantity.value })) return
-  router.push('/checkout')
-}
+async function addToCart() { await performCartAction('add') }
+async function buyNow() { await performCartAction('buy') }
 
 function toggleWishlist() {
   const p = product.value
@@ -502,7 +526,7 @@ const featureList = computed(() => {
                     v-for="v in group.values"
                     :key="v.value"
                     type="button"
-                    :disabled="!optionAvailable(group.name, v.value)"
+                    :disabled="cartActionPending || !optionAvailable(group.name, v.value)"
                     :title="v.value"
                     class="h-9 w-9 rounded-full transition"
                     :class="[
@@ -523,7 +547,7 @@ const featureList = computed(() => {
                     v-for="v in group.values"
                     :key="v.value"
                     type="button"
-                    :disabled="!optionAvailable(group.name, v.value)"
+                    :disabled="cartActionPending || !optionAvailable(group.name, v.value)"
                     class="rounded-lg border px-4 py-2 text-sm transition"
                     :class="[
                       !optionAvailable(group.name, v.value) && 'cursor-not-allowed opacity-40',
@@ -545,24 +569,26 @@ const featureList = computed(() => {
           </div>
 
           <div class="mt-6 flex flex-wrap items-center gap-3">
-            <QuantityCounter v-model="quantity" :max="currentStock" />
+            <QuantityCounter v-model="quantity" :max="currentStock" :disabled="cartActionPending" />
             <button
               class="btn-primary btn-lg flex-1"
-              :disabled="stockStatus === 'out' || !hasCombination"
+              :disabled="cartActionPending || stockStatus === 'out' || !selectedVariant || !hasCombination"
+              :aria-busy="pendingCartAction === 'add'"
               @click="addToCart"
             >
               <ShoppingCart class="h-5 w-5" />
-              {{ $t('actions.add_to_cart') }}
+              {{ pendingCartAction === 'add' ? $t('cart.adding') : $t('actions.add_to_cart') }}
             </button>
           </div>
 
           <div class="mt-3 flex flex-wrap items-center gap-3">
             <button
               class="btn-secondary btn-lg flex-1"
-              :disabled="stockStatus === 'out' || !hasCombination"
+              :disabled="cartActionPending || stockStatus === 'out' || !selectedVariant || !hasCombination"
+              :aria-busy="pendingCartAction === 'buy'"
               @click="buyNow"
             >
-              {{ $t('actions.buy_now') }}
+              {{ pendingCartAction === 'buy' ? $t('cart.preparing') : $t('actions.buy_now') }}
             </button>
             <button
               type="button"
@@ -575,6 +601,12 @@ const featureList = computed(() => {
                 :class="wishlist.isWishlisted(product.id) ? 'fill-red-500 text-red-500' : ''"
               />
             </button>
+          </div>
+
+          <p v-if="cartActionError" role="alert" class="mt-3 text-sm text-red-600 dark:text-red-300">{{ cartActionError }}</p>
+          <div v-if="checkoutNavigationFailed" role="alert" class="mt-3 text-sm text-red-600 dark:text-red-300">
+            {{ $t('cart.checkout_navigation_error') }}
+            <RouterLink to="/cart" class="ml-1 underline">{{ $t('actions.view_cart') }}</RouterLink>
           </div>
 
           <div class="mt-8 grid grid-cols-2 gap-3">

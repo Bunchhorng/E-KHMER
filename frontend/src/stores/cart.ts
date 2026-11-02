@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { isAxiosError } from 'axios'
+import { isAxiosError, isCancel } from 'axios'
 import { cartApi } from '@/api'
 import { checkoutApi, type CheckoutQuote } from '@/api/checkout'
 import type { ApiCart, ApiCartItem } from '@/api/cart'
@@ -21,6 +21,23 @@ export interface CartTotals {
 }
 
 const EMPTY_TOTALS: CartTotals = { subtotal: 0, discount_amount: 0, tax_amount: 0, total: 0, items_count: 0 }
+
+// Cart endpoints return the whole cart. Serialize reads/writes so an older
+// response cannot replace a later mutation; keep each action's pending state.
+// Key by $state: Pinia devtools can give each action a different `this` proxy.
+const cartRequests = new WeakMap<object, Promise<void>>()
+async function inCartOrder<T>(store: object, request: () => Promise<T>): Promise<T> {
+  const previous = cartRequests.get(store) ?? Promise.resolve()
+  let release: () => void = () => {}
+  const current = new Promise<void>(resolve => { release = resolve })
+  cartRequests.set(store, current)
+  await previous
+  try { return await request() }
+  finally {
+    release()
+    if (cartRequests.get(store) === current) cartRequests.delete(store)
+  }
+}
 
 function toDisplayItem(api: ApiCartItem): CartItem {
   const variant = api.variant
@@ -67,7 +84,8 @@ export const useCartStore = defineStore('cart', {
     loading: false,
     loadError: '',
     mutationError: '',
-    pendingMutations: 0
+    pendingMutations: 0,
+    pendingActions: {} as Record<string, boolean>
   }),
 
   getters: {
@@ -77,6 +95,7 @@ export const useCartStore = defineStore('cart', {
     mutating(state): boolean {
       return state.pendingMutations > 0
     },
+    isPending: (state) => (key: string): boolean => Boolean(state.pendingActions[key]),
     subtotal(state): number {
       return state.quote?.subtotal ?? 0
     },
@@ -118,8 +137,10 @@ export const useCartStore = defineStore('cart', {
       this.loadError = ''
       this.invalidateQuote()
       try {
-        const { data } = await cartApi.get()
-        await this.applyCart(data.data)
+        await inCartOrder(this.$state, async () => {
+          const { data } = await cartApi.get()
+          await this.applyCart(data.data)
+        })
       } catch {
         this.invalidateQuote()
         this.quoteLoading = false
@@ -138,46 +159,56 @@ export const useCartStore = defineStore('cart', {
       await this.refreshQuote()
     },
 
-    async mutateCart(request: () => Promise<{ data: { data: ApiCart } }>, fallback: string, clearCoupon = false): Promise<boolean> {
+    async mutateCart(key: string, request: () => Promise<{ data: { data: ApiCart } }>, fallback: string, clearCoupon = false): Promise<boolean> {
+      if (this.isPending(key)) return false
+      this.pendingActions[key] = true
       this.pendingMutations++
-      this.mutationError = ''
-      this.invalidateQuote()
       try {
-        const { data } = await request()
-        if (clearCoupon) {
-          this.couponCode = ''
-          this.appliedCoupon = null
-          this.couponError = ''
-          this.couponSuccess = ''
-        }
-        await this.applyCart(data.data)
-        return true
-      } catch (error) {
-        const message = i18n.global.t(fallback)
-        this.mutationError = isAxiosError(error) && (error.response?.status ?? 0) >= 500
-          ? message
-          : extractErrorMessage(error, message)
-        await this.refreshQuote()
-        return false
+        return await inCartOrder(this.$state, async () => {
+          this.mutationError = ''
+          this.invalidateQuote()
+          try {
+            const { data } = await request()
+            if (clearCoupon) {
+              this.couponCode = ''
+              this.appliedCoupon = null
+              this.couponError = ''
+              this.couponSuccess = ''
+            }
+            await this.applyCart(data.data)
+            return true
+          } catch (error) {
+            if (!isCancel(error)) {
+              const status = isAxiosError(error) ? error.response?.status : undefined
+              const fallbackMessage = i18n.global.t(fallback)
+              this.mutationError = status === 419 || status === 401
+                ? i18n.global.t('cart.session_expired')
+                : status && status >= 500 ? fallbackMessage : extractErrorMessage(error, fallbackMessage)
+            }
+            await this.refreshQuote()
+            return false
+          }
+        })
       } finally {
+        delete this.pendingActions[key]
         this.pendingMutations--
       }
     },
 
     async addItem({ variantId, quantity = 1 }: AddToCartInput): Promise<boolean> {
-      return this.mutateCart(() => cartApi.addItem(Number(variantId), quantity), 'cart.add_error')
+      return this.mutateCart(`add:${variantId}`, () => cartApi.addItem(Number(variantId), quantity), 'cart.add_error')
     },
 
     async updateQuantity(itemId: string | number, quantity: number): Promise<boolean> {
-      return this.mutateCart(() => cartApi.updateItem(Number(itemId), quantity), 'cart.update_error')
+      return this.mutateCart(`update:${itemId}`, () => cartApi.updateItem(Number(itemId), quantity), 'cart.update_error')
     },
 
     async removeItem(itemId: string | number): Promise<boolean> {
-      return this.mutateCart(() => cartApi.removeItem(Number(itemId)), 'cart.remove_error')
+      return this.mutateCart(`remove:${itemId}`, () => cartApi.removeItem(Number(itemId)), 'cart.remove_error')
     },
 
     async clear(): Promise<boolean> {
-      return this.mutateCart(() => cartApi.clear(), 'cart.clear_error', true)
+      return this.mutateCart('clear', () => cartApi.clear(), 'cart.clear_error', true)
     },
 
     async applyCoupon(code: string): Promise<boolean> {

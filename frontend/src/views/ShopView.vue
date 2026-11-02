@@ -14,7 +14,6 @@ import { extractErrorMessage } from '@/api/errors'
 import { formatPrice } from '@/utils/format'
 import type { Product } from '@/types'
 import { mapCatalogProduct } from '@/utils/product'
-import { useCartStore } from '@/stores/cart'
 import { useWishlistStore } from '@/stores/wishlist'
 import { useUiStore } from '@/stores/ui'
 
@@ -34,7 +33,6 @@ interface Filters {
 
 const route = useRoute()
 const router = useRouter()
-const cart = useCartStore()
 const wishlist = useWishlistStore()
 const ui = useUiStore()
 
@@ -65,11 +63,6 @@ const filters = reactive<Filters>({
 })
 
 let applying = false
-
-function handleAdd(payload: { product: Product; variantId?: string }): void {
-  if (!payload.variantId) return
-  cart.addItem({ variantId: payload.variantId, quantity: 1 })
-}
 
 function toArray(v: unknown): string[] {
   if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string')
@@ -437,7 +430,6 @@ function setPage(p: number) {
               v-for="p in products"
               :key="p.id"
               :product="p"
-              @add-to-cart="handleAdd"
               @wishlist-toggle="wishlist.toggle($event)"
             />
           </div>

@@ -7,7 +7,6 @@ import { shopsApi, type PublicShop } from '@/api/shops'
 import type { CatalogProduct, PriceRange } from '@/api/catalog'
 import { extractErrorMessage } from '@/api/errors'
 import { mapCatalogProduct } from '@/utils/product'
-import { useCartStore } from '@/stores/cart'
 import { useWishlistStore } from '@/stores/wishlist'
 import AssetImage from '@/components/AssetImage.vue'
 import BasePagination from '@/components/BasePagination.vue'
@@ -17,7 +16,7 @@ import CatalogPriceFilter from '@/components/CatalogPriceFilter.vue'
 import CatalogRatingFilter from '@/components/CatalogRatingFilter.vue'
 const { t } = useI18n()
 const route = useRoute(); const router = useRouter()
-const cart = useCartStore(); const wishlist = useWishlistStore()
+const wishlist = useWishlistStore()
 const shop = ref<PublicShop | null>(null); const items = ref<CatalogProduct[]>([])
 const products = computed(() => items.value.map(mapCatalogProduct))
 const search = ref(''); const loading = ref(true); const error = ref('')
@@ -76,7 +75,7 @@ onBeforeUnmount(() => request++)
         <button class="btn-outline w-fit" @click="clearFilters">{{ t('shop.clear_filters') }}</button>
       </div>
       <div v-if="loading" class="card h-80 animate-pulse bg-border-gray/20" aria-busy="true"></div>
-      <div v-else-if="products.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4"><ProductCard v-for="product in products" :key="product.id" :product="product" @add-to-cart="$event.variantId && cart.addItem({ variantId: $event.variantId, quantity: 1 })" @wishlist-toggle="wishlist.toggle($event)" /></div>
+      <div v-else-if="products.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4"><ProductCard v-for="product in products" :key="product.id" :product="product" @wishlist-toggle="wishlist.toggle($event)" /></div>
       <EmptyState v-else :title="t('shop.no_match_title')" :description="t('shop.no_match_description')" :cta-label="t('shop.clear_filters')" @cta="clearFilters" />
       <BasePagination :page="meta.current_page" :page-count="meta.last_page" :total-items="meta.total" :page-size="meta.per_page" @update:page="router.push({ query: { ...route.query, page: $event } })" />
     </template>

@@ -52,9 +52,10 @@ apiClient.interceptors.response.use(
 
       window.dispatchEvent(new CustomEvent(UNAUTHORIZED_EVENT))
 
-      // Bounce to login unless we are already on a guest-only auth screen, and
-      // preserve the attempted path so the user lands back where they were.
-      if (!redirecting && typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
+      // Public guest cart failures stay in the current flow for recovery.
+      // Protected requests still return to login with the attempted path.
+      const guestCartRequest = !error.config?.headers?.Authorization && /^\/cart(?:\/|$)/.test(error.config?.url ?? '')
+      if (!guestCartRequest && !redirecting && typeof window !== 'undefined' && !window.location.pathname.startsWith('/auth')) {
         redirecting = true
         const redirect = encodeURIComponent(window.location.pathname + window.location.search)
         window.location.assign(`/auth/login?redirect=${redirect}`)

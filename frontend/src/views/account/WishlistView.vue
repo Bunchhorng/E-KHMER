@@ -4,19 +4,13 @@ import { Heart } from 'lucide-vue-next'
 import EmptyState from '@/components/EmptyState.vue'
 import ProductCard from '@/components/ProductCard.vue'
 import AccountState from '@/components/account/AccountState.vue'
-import { useCartStore } from '@/stores/cart'
 import { useWishlistStore } from '@/stores/wishlist'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { mapCatalogProduct } from '@/utils/product'
 import type { Product } from '@/types'
 
-interface AddToCartPayload {
-  variantId?: string
-}
-
 const router = useRouter()
-const cartStore = useCartStore()
 const wishlist = useWishlistStore()
 const { t } = useI18n()
 const actionError = ref('')
@@ -25,11 +19,9 @@ const count = computed(() => wishlist.count)
 
 const products = computed(() => wishlist.products.map(mapCatalogProduct))
 
-async function addToCart(product: Product, payload: AddToCartPayload) {
-  if (!payload.variantId) return
+async function removeAddedProduct(product: Product) {
   actionError.value = ''
   try {
-    if (!await cartStore.addItem({ variantId: payload.variantId, quantity: 1 })) return
     await wishlist.remove(product.id)
   } catch { actionError.value = t('account.ui.action_error') }
 }
@@ -49,7 +41,7 @@ async function addToCart(product: Product, payload: AddToCartPayload) {
         v-for="p in products"
         :key="p.id"
         :product="p"
-        @add-to-cart="(e) => addToCart(p, e)"
+        @added-to-cart="removeAddedProduct(p)"
         @wishlist-toggle="wishlist.toggle($event)"
       />
     </div>

@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Heart, ShoppingCart } from 'lucide-vue-next'
 import { useWishlistStore } from '@/stores/wishlist'
+import { useCartStore } from '@/stores/cart'
 import type { Product } from '@/types'
 import { formatPrice } from '@/utils/format'
 import { swatchColor } from '@/utils/color'
@@ -16,15 +17,20 @@ const props = withDefaults(
 )
 
 const emit = defineEmits<{
-  (e: 'add-to-cart', payload: { product: Product; variantId?: string }): void
+  (e: 'added-to-cart', payload: { product: Product; variantId: string }): void
   (e: 'wishlist-toggle', productId: string): void
 }>()
 
 const wishlistStore = useWishlistStore()
+const cart = useCartStore()
+const adding = ref(false)
+const added = ref(false)
 
 const isWishlisted = computed(() => wishlistStore.isWishlisted(props.product.id))
 
 const availableVariantId = computed(() => props.product.variants.find((v) => v.isInStock)?.id)
+const mutationKey = computed(() => `add:${availableVariantId.value}`)
+const pending = computed(() => adding.value || cart.isPending(mutationKey.value))
 
 const coverImage = computed(() => props.product.images[0])
 
@@ -37,8 +43,18 @@ const discountPercent = computed(() => {
   return 0
 })
 
-function handleAddToCart(): void {
-  emit('add-to-cart', { product: props.product, variantId: availableVariantId.value })
+async function handleAddToCart(): Promise<void> {
+  const variantId = availableVariantId.value
+  if (!variantId || pending.value) return
+  const product = props.product
+  adding.value = true
+  added.value = false
+  try {
+    if (await cart.addItem({ variantId, quantity: 1 })) {
+      added.value = true
+      emit('added-to-cart', { product, variantId })
+    }
+  } finally { adding.value = false }
 }
 
 function handleWishlistToggle(): void {
@@ -110,12 +126,14 @@ function handleWishlistToggle(): void {
         <button
           type="button"
           class="btn-primary btn-sm w-full dark:bg-blue-500 dark:hover:bg-blue-600"
-          :disabled="!props.product.isInStock"
+          :disabled="!props.product.isInStock || !availableVariantId || pending"
+          :aria-busy="pending"
           @click="handleAddToCart"
         >
           <ShoppingCart :size="15" />
-          {{ props.product.isInStock ? $t('actions.add_to_cart') : $t('product.out_of_stock') }}
+          {{ pending ? $t('cart.adding') : props.product.isInStock ? $t('actions.add_to_cart') : $t('product.out_of_stock') }}
         </button>
+        <p v-if="added" role="status" class="mt-2 text-xs text-emerald-700 dark:text-emerald-300">{{ $t('cart.added') }}</p>
       </div>
     </div>
   </div>

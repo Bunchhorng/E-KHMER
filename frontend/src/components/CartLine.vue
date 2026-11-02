@@ -11,6 +11,9 @@ const props = defineProps<{ item: CartItem; compact?: boolean }>()
 const cart = useCartStore()
 const variantLabel = computed(() => props.item.variantName || props.item.variant?.attributes.map(a => `${a.name}: ${a.value}`).join(', ') || '')
 const canAdjust = computed(() => props.item.available || props.item.unavailableReason === 'insufficient_stock')
+const pending = computed(() => cart.isPending(`update:${props.item.id}`) || cart.isPending(`remove:${props.item.id}`) || cart.isPending('clear'))
+async function updateQuantity(quantity: number) { await cart.updateQuantity(props.item.id, quantity) }
+async function removeItem() { await cart.removeItem(props.item.id) }
 </script>
 
 <template>
@@ -28,12 +31,12 @@ const canAdjust = computed(() => props.item.available || props.item.unavailableR
       </p>
       <div class="mt-2 flex flex-wrap items-center justify-between gap-2">
         <span v-if="item.available" class="text-xs text-muted">{{ formatPrice(item.unitPrice) }}</span>
-        <QuantityCounter v-if="canAdjust" size="sm" :model-value="item.quantity" :max="item.availableQuantity ?? 99" :disabled="cart.mutating" @update:model-value="cart.updateQuantity(item.id, $event)" />
+        <QuantityCounter v-if="canAdjust" size="sm" :model-value="item.quantity" :max="item.availableQuantity ?? 99" :disabled="pending" :aria-busy="pending" @update:model-value="updateQuantity" />
         <span v-else class="text-xs text-muted">{{ $t('cart.quantity', { count: item.quantity }) }}</span>
         <span v-if="item.available" class="text-sm font-semibold text-ink">{{ formatPrice(item.unitPrice * item.quantity) }}</span>
       </div>
     </div>
-    <button type="button" class="btn-icon btn-sm shrink-0 self-start text-red-500" :aria-label="$t('cart.remove_item')" :disabled="cart.mutating" @click="cart.removeItem(item.id)">
+    <button type="button" class="btn-icon btn-sm shrink-0 self-start text-red-500" :aria-label="$t('cart.remove_item')" :disabled="pending" :aria-busy="cart.isPending(`remove:${item.id}`)" @click="removeItem">
       <Trash2 :size="16" />
     </button>
   </div>

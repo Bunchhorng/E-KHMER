@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { ArrowRight, PackageOpen } from 'lucide-vue-next'
-import { useCartStore } from '@/stores/cart'
 import { useWishlistStore } from '@/stores/wishlist'
 import type { Product } from '@/types'
 import EmptyState from './EmptyState.vue'
@@ -16,13 +15,7 @@ withDefaults(
   { subtitle: '', products: () => [], viewAllLink: '/shop' }
 )
 
-const cartStore = useCartStore()
 const wishlistStore = useWishlistStore()
-
-function handleAdd(payload: { product: Product; variantId?: string }): void {
-  if (!payload.variantId) return
-  cartStore.addItem({ variantId: payload.variantId, quantity: 1 })
-}
 
 function handleWishlist(productId: string): void {
   wishlistStore.toggle(productId)
@@ -49,7 +42,6 @@ function handleWishlist(productId: string): void {
         v-for="product in products"
         :key="product.id"
         :product="product"
-        @add-to-cart="handleAdd"
         @wishlist-toggle="handleWishlist"
       />
     </div>

@@ -93,25 +93,27 @@ class CartService
     }
 
     /**
-     * Add a variant to the cart, capping quantity by available stock.
+     * Add a variant to the cart, rejecting quantities above available stock.
      */
     public function add(Cart $cart, int $variantId, int $quantity = 1): Cart
     {
         // The product has to be purchasable too: a variant can stay active while
         // its product is unpublished or owned by a shop that is no longer active.
-        $variant = ProductVariant::where('id', $variantId)
-            ->where('is_active', true)
-            ->whereHas('product', fn ($q) => $q->active())
-            ->first();
-
-        if ($variant === null) {
-            throw ValidationException::withMessages(['message' => 'Variant not found']);
+        $variant = ProductVariant::with('product.shop')->find($variantId);
+        $unavailable = match (true) {
+            $variant === null, ! $variant->is_active => 'This option is no longer available. Please choose another option.',
+            $variant->product === null, ! $variant->product->is_active => 'This product is no longer available.',
+            $variant->product->shop_id !== null && ! $variant->product->shop?->isActive() => 'Products from this shop are temporarily unavailable.',
+            default => null,
+        };
+        if ($unavailable !== null) {
+            throw ValidationException::withMessages(['message' => $unavailable]);
         }
 
         $available = $this->inventory->available($variantId);
 
         if ($available <= 0) {
-            throw ValidationException::withMessages(['message' => 'Variant is out of stock']);
+            throw ValidationException::withMessages(['message' => 'This product is now out of stock.']);
         }
 
         if ($quantity > $available) {

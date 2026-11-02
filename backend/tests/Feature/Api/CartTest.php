@@ -4,6 +4,7 @@ namespace Tests\Feature\Api;
 
 use App\Models\Cart;
 use App\Models\Product;
+use App\Models\ProductVariant;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -86,7 +87,7 @@ class CartTest extends TestCase
         $this->withHeaders(['X-Session-Id' => 'sess-3'])
             ->postJson('/api/cart', ['product_variant_id' => $variantId, 'quantity' => 1])
             ->assertStatus(422)
-            ->assertJsonPath('errors.message.0', 'Variant is out of stock');
+            ->assertJsonPath('errors.message.0', 'This product is now out of stock.');
     }
 
     public function test_missing_variant_is_rejected(): void
@@ -168,7 +169,7 @@ class CartTest extends TestCase
             ->postJson('/api/cart', ['product_variant_id' => $variantId, 'quantity' => 1])
             ->assertCreated();
 
-        \App\Models\ProductVariant::whereKey($variantId)->update(['is_active' => false]);
+        ProductVariant::whereKey($variantId)->update(['is_active' => false]);
 
         $this->withHeaders($headers)
             ->postJson('/api/auth/login', ['email' => $user->email, 'password' => 'password'])
@@ -207,7 +208,7 @@ class CartTest extends TestCase
             ->postJson('/api/cart', ['product_variant_id' => $variantId, 'quantity' => 1])
             ->assertCreated();
 
-        \App\Models\ProductVariant::whereKey($variantId)->update(['is_active' => false]);
+        ProductVariant::whereKey($variantId)->update(['is_active' => false]);
 
         $this->withHeaders(['X-Session-Id' => 'sess-inactive-2'])
             ->postJson('/api/cart', ['product_variant_id' => $variantId, 'quantity' => 1])

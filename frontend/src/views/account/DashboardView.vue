@@ -6,7 +6,6 @@ import { useI18n } from 'vue-i18n'
 import { accountApi } from '@/api/account'
 import { ordersApi, type ApiOrderListItem } from '@/api/orders'
 import { useAuthStore } from '@/stores/auth'
-import { useCartStore } from '@/stores/cart'
 import { useWishlistStore } from '@/stores/wishlist'
 import EmptyState from '@/components/EmptyState.vue'
 import ProductCard from '@/components/ProductCard.vue'
@@ -18,7 +17,6 @@ import type { Product } from '@/types'
 const { t } = useI18n()
 const router = useRouter()
 const auth = useAuthStore()
-const cart = useCartStore()
 const wishlist = useWishlistStore()
 const loading = ref(true)
 const error = ref('')
@@ -41,11 +39,9 @@ async function load() {
   } catch { error.value = t('account.ui.load_error') }
   finally { loading.value = false }
 }
-async function addFromWishlist(product: Product, payload: { variantId?: string }) {
-  if (!payload.variantId) return
+async function removeAddedProduct(product: Product) {
   actionError.value = ''
   try {
-    if (!await cart.addItem({ variantId: payload.variantId, quantity: 1 })) return
     await wishlist.remove(product.id)
   } catch { actionError.value = t('account.ui.action_error') }
 }
@@ -75,7 +71,7 @@ onMounted(load)
       <div class="account-toolbar"><h2 class="text-lg font-semibold">{{ $t('account.your_wishlist') }}</h2><RouterLink to="/account/wishlist" class="btn-ghost btn-sm min-h-10 text-primary">{{ $t('actions.view_all') }}<ArrowUpRight class="h-4 w-4" /></RouterLink></div>
       <p v-if="actionError" role="alert" class="text-sm text-red-500">{{ actionError }}</p>
       <AccountState :loading="wishlist.loading" :error="wishlist.error ? $t('account.ui.load_error') : ''" @retry="wishlist.fetchProducts()">
-        <div v-if="products.length" class="grid grid-cols-2 gap-3 xl:grid-cols-4"><ProductCard v-for="product in products" :key="product.id" :product="product" @add-to-cart="addFromWishlist(product, $event)" @wishlist-toggle="wishlist.toggle($event)" /></div>
+        <div v-if="products.length" class="grid grid-cols-2 gap-3 xl:grid-cols-4"><ProductCard v-for="product in products" :key="product.id" :product="product" @added-to-cart="removeAddedProduct(product)" @wishlist-toggle="wishlist.toggle($event)" /></div>
         <EmptyState v-else :title="$t('account.wishlist_empty_title')" :description="$t('account.wishlist_empty_description')" :cta-label="$t('account.explore_products')" @cta="router.push('/shop')"><template #icon><Heart class="h-7 w-7" /></template></EmptyState>
       </AccountState>
     </section>

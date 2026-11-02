@@ -26,20 +26,13 @@ import {
 import StarRating from '@/components/StarRating.vue'
 import ProductRail from '@/components/ProductRail.vue'
 import ProductCard from '@/components/ProductCard.vue'
-import { useCartStore } from '@/stores/cart'
 import type { Product } from '@/types'
 import { mapCatalogProduct } from '@/utils/product'
 import { useWishlistStore } from '@/stores/wishlist'
 import { catalogApi, brandsApi, categoriesApi, reviewsApi } from '@/api'
 import type { CatalogProduct, ApiBrand, ApiCategory } from '@/api'
 
-const cartStore = useCartStore()
 const wishlistStore = useWishlistStore()
-
-function handleAdd(payload: { product: Product; variantId?: string }): void {
-  if (!payload.variantId) return
-  cartStore.addItem({ variantId: payload.variantId, quantity: 1 })
-}
 
 function handleWishlist(productId: string): void {
   wishlistStore.toggle(productId)
@@ -461,7 +454,6 @@ function subscribe() {
           v-for="product in newArrivals"
           :key="product.id"
           :product="product"
-          @add-to-cart="handleAdd"
           @wishlist-toggle="handleWishlist"
         />
       </div>

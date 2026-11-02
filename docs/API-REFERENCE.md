@@ -1,5 +1,13 @@
 # API Reference (Live)
 
+## Cart mutation results — 2026-11-02 (F08)
+
+The existing cart endpoints and payloads remain unchanged: `POST /api/cart` accepts `product_variant_id` and `quantity` and returns the updated `CartResource` with HTTP 201; quantity updates/removal/clear return the full updated cart with HTTP 200. Guest operations continue using `X-Session-Id`; there is no new Buy Now endpoint or login requirement.
+
+Business failures retain Laravel's 422 validation shape and leave existing quantities intact. Cart additions now distinguish an unavailable option, unpublished/deleted product, suspended/deleted shop and out-of-stock product with actionable messages. Quantity above live stock, including the sum of an existing line and a new add, remains rejected without silently reducing the requested quantity. Successful adds merge the same variant and retain other cart lines. No schema, stock reservation, coupon, quote or payment contract changed.
+
+The frontend retains one `Promise<boolean>` mutation convention: true only after the confirmed cart response is applied; false for failure/cancellation. Existing API error extraction and the global cart alert display validation/business/network failures, safe server fallbacks and session-expiry recovery. A cancelled Axios request does not create a false error alert. Guest cart 401s without an Authorization header do not force login; authenticated/protected request behavior remains unchanged. Cart reads/writes are serialized within the current store and duplicate pending actions are refused. UI effects such as opening the drawer and navigating to checkout await success. See [F08 policy](./COMMERCE-COMPLETION.md#f08-async-cart-mutation-policy-2026-11-02).
+
 ## Canonical color filters — 2026-11-02 (F07)
 
 `GET /api/catalog/products`, `GET /api/catalog/facets` and `GET /api/shops/{slug}/products` accept actual attribute values: `colors[]=Light%20Blue&colors[]=Black`. The existing single-string and comma-separated forms remain supported. Color arrays accept at most 50 string entries, each at most 255 characters; nested/non-string and excessive input returns 422. Unknown values return an empty listing, not an error. No new parameter, slug alias or attribute ID contract was introduced.
