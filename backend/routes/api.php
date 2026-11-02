@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\ShopApplicationController;
 use App\Http\Controllers\Api\ShopController;
 use App\Http\Controllers\Api\SupportController;
 use App\Http\Controllers\Api\WishlistController;
+use App\Http\Middleware\ProtectCheckout;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -160,7 +161,7 @@ Route::prefix('checkout')->group(function () {
     Route::post('quote', [CheckoutController::class, 'quote'])->middleware('throttle:120,1');
     Route::get('{orderNumber}/bakong', [CheckoutController::class, 'bakongPayments'])->middleware('throttle:30,1');
     Route::post('{orderNumber}/bakong/verify', [CheckoutController::class, 'verifyBakong'])->middleware('throttle:12,1');
-    Route::post('/', [CheckoutController::class, 'begin'])->middleware('throttle:30,1');
+    Route::post('/', [CheckoutController::class, 'begin'])->middleware(ProtectCheckout::class);
     Route::post('{orderNumber}/confirm', [CheckoutController::class, 'confirm'])
         ->middleware('throttle:30,1')
         ->where('orderNumber', '[A-Za-z0-9-]+');

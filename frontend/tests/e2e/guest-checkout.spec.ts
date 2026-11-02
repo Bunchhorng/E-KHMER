@@ -25,6 +25,9 @@ async function setup(page: Page, options: { authenticated?: boolean; empty?: boo
     payloads: [] as CheckoutPayload[], keys: [] as (string | undefined)[], sessions: [] as (string | undefined)[],
     order: null as ApiOrder | null, errorFields: null as Record<string, string[]> | null,
     failSave: false, failShipping: false, holdOrder: false,
+    checkoutFailure: null as { status: number; code: string; message: string; retryAfter?: string } | null,
+    reservationExpiresAt: undefined as string | undefined,
+    qrReads: 0,
     releaseOrder: (() => {}) as () => void,
   }
   const deliveries: QuoteDelivery[] = [
@@ -72,6 +75,9 @@ async function setup(page: Page, options: { authenticated?: boolean; empty?: boo
       state.keys.push(route.request().headers()['idempotency-key'])
       state.sessions.push(route.request().headers()['x-session-id'])
       if (state.holdOrder) await new Promise<void>(resolve => { state.releaseOrder = resolve })
+      if (state.checkoutFailure) return route.fulfill({ status: state.checkoutFailure.status,
+        headers: state.checkoutFailure.retryAfter ? { 'Retry-After': state.checkoutFailure.retryAfter } : {},
+        json: { code: state.checkoutFailure.code, message: state.checkoutFailure.message } })
       if (state.errorFields) return route.fulfill({ status: 422, json: { errors: state.errorFields } })
       const current = quote(payload)
       state.order = { ...current, order_number: 'GUEST-ORDER', status: 'pending', payment_status: 'unpaid', coupon_code: payload.coupon_code ?? null,
@@ -79,12 +85,13 @@ async function setup(page: Page, options: { authenticated?: boolean; empty?: boo
         shipping_address: { ...payload.address } as Record<string, string>, billing_address: null, note: null, placed_at: '2026-11-02T00:00:00Z',
         payment: { id: 1, method: payload.payment_method, status: 'pending', amount: current.total, transaction_id: null, paid_at: null }, shipment: null,
         items: state.items.map(row => ({ id: row.id, product_id: row.id, product_variant_id: row.id, product_name: `Item ${row.id}`, variant_label: null, sku: `ITEM-${row.id}`, image_path: null, unit_price: 100, quantity: 1, line_total: 100 })) }
-      json = { data: state.order }
+      json = { data: state.order, reservation_expires_at: state.reservationExpiresAt }
     } else if (path.endsWith('/GUEST-ORDER/confirm')) {
       if (state.order) state.order.status = 'confirmed'
       state.items = []
       json = { data: state.order }
     } else if (path.endsWith('/GUEST-ORDER/bakong')) {
+      state.qrReads++
       json = { data: [{ id: 1, shop_name: 'Shop 1', amount: state.order?.total, currency: 'USD', status: 'pending', qr_payload: 'TEST-KHQR', expires_at: '2099-01-01T00:00:00Z' }] }
     } else if (path.endsWith('/GUEST-ORDER/bakong/verify')) {
       if (state.order) { state.order.status = 'confirmed'; state.order.payment_status = 'paid' }
@@ -110,6 +117,80 @@ async function review(page: Page, bakong = false) {
   if (bakong) await page.getByRole('main').getByText('Bakong / KHQR', { exact: true }).click()
   await page.getByRole('button', { name: 'Review Order', exact: true }).click()
 }
+
+for (const failure of [
+  { status: 429, code: 'CHECKOUT_RATE_LIMIT', message: 'Please wait a moment.', retryAfter: '42', expected: 'Please wait 42 seconds before placing another order. Your cart has been kept.' },
+  { status: 409, code: 'ACTIVE_CHECKOUT_LIMIT', message: 'Existing checkout limit.', expected: 'Please complete or cancel an existing checkout before placing another order. Your cart has been kept.' },
+]) {
+  test(`F13 ${failure.code} preserves the cart, restores the submit button and retries the same key`, async ({ page }) => {
+    const state = await setup(page)
+    await page.goto('/checkout')
+    await fillGuest(page)
+    await review(page)
+    state.checkoutFailure = failure
+    state.holdOrder = true
+    await page.getByRole('button', { name: /Place Order ·/ }).click()
+    await expect(page.getByRole('button', { name: 'Placing order…' })).toBeDisabled()
+    await expect.poll(() => state.payloads.length).toBe(1)
+    state.releaseOrder()
+    await expect(page.getByRole('alert')).toContainText(failure.expected)
+    await expect(page.getByRole('button', { name: /Place Order ·/ })).toBeEnabled()
+    expect(state.items).toHaveLength(2)
+    expect(state.order).toBeNull()
+    state.holdOrder = false
+    state.checkoutFailure = null
+    await page.getByRole('button', { name: /Place Order ·/ }).click()
+    await expect(page).toHaveURL(/\/order\/success\/GUEST-ORDER$/)
+    expect(state.payloads).toHaveLength(2)
+    expect(state.keys[0]).toBe(state.keys[1])
+  })
+}
+
+test('F13 refresh after a blocked attempt does not submit or create a reservation', async ({ page }) => {
+  const state = await setup(page)
+  await page.goto('/checkout')
+  await fillGuest(page)
+  await review(page)
+  state.checkoutFailure = { status: 409, code: 'ACTIVE_CHECKOUT_LIMIT', message: 'Existing checkout limit.' }
+  await page.getByRole('button', { name: /Place Order ·/ }).click()
+  await expect(page.getByRole('alert')).toContainText('complete or cancel an existing checkout')
+  await page.reload()
+  await expect(page.locator('#guest-email')).toBeVisible()
+  expect(state.payloads).toHaveLength(1)
+  expect(state.items).toHaveLength(2)
+  expect(state.order).toBeNull()
+})
+
+test('F13 an expired retry clears its key before the next intentional submission', async ({ page }) => {
+  const state = await setup(page)
+  await page.goto('/checkout')
+  await fillGuest(page)
+  await review(page)
+  state.reservationExpiresAt = '2000-01-01T00:00:00Z'
+  await page.getByRole('button', { name: /Place Order ·/ }).click()
+  await expect(page.getByRole('alert')).toContainText(/expired/i)
+  expect(state.items).toHaveLength(2)
+  state.reservationExpiresAt = undefined
+  await page.getByRole('button', { name: /Place Order ·/ }).click()
+  await expect(page).toHaveURL(/\/order\/success\/GUEST-ORDER$/)
+  expect(state.keys[0]).not.toBe(state.keys[1])
+})
+
+test('F13 reopening and refreshing a pending payment reads its QR without another checkout', async ({ page }) => {
+  const state = await setup(page)
+  await page.goto('/checkout')
+  await fillGuest(page)
+  await review(page, true)
+  await page.getByRole('button', { name: /Place Order ·/ }).click()
+  await expect(page).toHaveURL(/\/checkout\/GUEST-ORDER\/payment$/)
+  await expect(page.locator('main img')).toBeVisible()
+  await page.reload()
+  await expect(page.locator('main img')).toBeVisible()
+  await page.goto('/checkout/GUEST-ORDER/payment')
+  await expect(page.locator('main img')).toBeVisible()
+  expect(state.payloads).toHaveLength(1)
+  expect(state.qrReads).toBe(3)
+})
 
 test('guest browses, adds two shops, applies a capped coupon and completes COD without addresses API', async ({ page }) => {
   const state = await setup(page, { empty: true })

@@ -285,7 +285,9 @@ async function placeOrder() {
       ...(isGuest.value ? { email: guestEmail.value.trim(), address: { ...guestAddress } } : { address_id: Number(selectedAddress.value.id) })
     }
     const { data } = await checkoutApi.begin(payload, await requestKey(payload))
-    if (['cancelled', 'refunded'].includes(data.data.status)) {
+    if (['cancelled', 'refunded'].includes(data.data.status) ||
+      (data.data.status === 'pending' && data.reservation_expires_at && Date.parse(data.reservation_expires_at) <= Date.now())) {
+      volatileAttempt = null
       try { sessionStorage.removeItem('ekhmer_checkout_attempt') } catch { /* Optional persistence. */ }
       checkoutError.value = t('checkout.expired_attempt')
       return

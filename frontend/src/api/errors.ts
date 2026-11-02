@@ -4,6 +4,7 @@ import axios from 'axios'
  * Shape of the validation payload Laravel returns for a 422.
  */
 interface ValidationErrors {
+  code?: string
   message?: string
   errors?: Record<string, string[]>
 }
@@ -25,9 +26,19 @@ export function extractErrorMessage(error: unknown, fallback: string): string {
     if (status === 429) {
       const retryAfter = Number(error.response?.headers?.['retry-after'] ?? 0)
 
+      if (data?.code === 'CHECKOUT_RATE_LIMIT') {
+        return retryAfter > 0
+          ? `Please wait ${retryAfter} seconds before placing another order. Your cart has been kept.`
+          : 'Please wait a moment before placing another order. Your cart has been kept.'
+      }
+
       return retryAfter > 0
         ? `Too many attempts. Please try again in ${retryAfter} seconds.`
         : 'Too many attempts. Please try again later.'
+    }
+
+    if (data?.code === 'ACTIVE_CHECKOUT_LIMIT') {
+      return 'Please complete or cancel an existing checkout before placing another order. Your cart has been kept.'
     }
 
     const fieldError = firstFieldError(data)

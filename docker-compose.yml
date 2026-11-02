@@ -166,6 +166,13 @@ services:
       - frontend
     network_mode: service:frontend
 
+  checkout-test-redis:
+    image: redis:alpine
+    profiles: [test]
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    networks:
+      - ecommerce
+
   restore-db:
     image: mysql:8.0
     profiles: [maintenance]

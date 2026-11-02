@@ -7,10 +7,12 @@ use App\Http\Requests\CheckoutQuoteRequest;
 use App\Http\Requests\CheckoutRequest;
 use App\Http\Resources\CheckoutQuoteResource;
 use App\Http\Resources\OrderResource;
+use App\Models\Cart;
 use App\Models\CheckoutAttempt;
 use App\Models\Order;
 use App\Services\BakongService;
 use App\Services\CartService;
+use App\Services\CheckoutProtection;
 use App\Services\CheckoutService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -56,21 +58,24 @@ class CheckoutController extends Controller
         if (! preg_match('/^[A-Za-z0-9_-]{8,80}$/', $key)) {
             throw ValidationException::withMessages(['idempotency' => 'Invalid checkout request identifier.']);
         }
-        $owner = hash('sha256', $this->user($request) ? 'user:'.$this->user($request)->id : 'guest:'.$request->header('X-Session-Id'));
-        $payload = $request->validated();
-        ksort($payload);
-        $hash = hash('sha256', json_encode($payload, JSON_THROW_ON_ERROR));
+        $owner = CheckoutProtection::ownerKey($this->user($request), $request->header('X-Session-Id'));
+        $hash = CheckoutProtection::payloadHash($request->validated());
+        $cart = $this->carts->forUser($this->user($request), $request->header('X-Session-Id'));
 
-        return DB::transaction(function () use ($request, $key, $owner, $hash) {
-            $attempt = CheckoutAttempt::firstOrCreate(['owner_key' => $owner, 'request_key' => $key], ['payload_hash' => $hash]);
-            $attempt = CheckoutAttempt::whereKey($attempt->id)->lockForUpdate()->firstOrFail();
+        return DB::transaction(function () use ($request, $key, $owner, $hash, $cart) {
+            // Acquire the owner lock before any consistent reads establish a
+            // MySQL snapshot, so replayed order relations are current as well.
+            Cart::whereKey($cart->id)->lockForUpdate()->firstOrFail();
+            $attempt = CheckoutAttempt::query()->lockForUpdate()->firstOrCreate(['owner_key' => $owner, 'request_key' => $key], ['payload_hash' => $hash]);
             if (! hash_equals($attempt->payload_hash, $hash)) {
                 throw ValidationException::withMessages(['idempotency' => 'Checkout details changed. Start a new request.']);
             }
             if ($attempt->order_id) {
-                $order = $this->resolveOwnedOrder($request, Order::findOrFail($attempt->order_id)->order_number);
+                $order = $this->resolveOwnedOrder($request, Order::whereKey($attempt->order_id)->lockForUpdate()->firstOrFail()->order_number);
 
-                return (new OrderResource($order->load(['shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents'])))->response();
+                return (new OrderResource($order->load(['shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents'])))
+                    ->additional(['reservation_expires_at' => $order->placed_at?->copy()->addMinutes((int) config('ecommerce.reservation_minutes', 15))->toISOString()])
+                    ->response();
             }
             $response = $this->createOrder($request);
             if ($response->getStatusCode() === 201) {
@@ -78,7 +83,7 @@ class CheckoutController extends Controller
             }
 
             return $response;
-        });
+        }, 3);
     }
 
     protected function createOrder(CheckoutRequest $request)
@@ -114,7 +119,7 @@ class CheckoutController extends Controller
 
         return (new OrderResource($order))
             ->additional([
-                'reservation_expires_at' => $order->placed_at?->addMinutes((int) config('ecommerce.reservation_minutes', 15))->toISOString(),
+                'reservation_expires_at' => $order->placed_at?->copy()->addMinutes((int) config('ecommerce.reservation_minutes', 15))->toISOString(),
             ])
             ->response()
             ->setStatusCode(201);
@@ -158,7 +163,8 @@ class CheckoutController extends Controller
 
     protected function resolveOwnedOrder(Request $request, string $orderNumber): Order
     {
-        $order = Order::where('order_number', $orderNumber)->first();
+        $order = Order::where('order_number', $orderNumber)
+            ->when(DB::transactionLevel() > 0, fn ($query) => $query->lockForUpdate())->first();
 
         if ($order === null) {
             abort(404, 'Order not found.');

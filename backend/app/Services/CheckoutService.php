@@ -127,6 +127,10 @@ class CheckoutService
     {
         return DB::transaction(function () use ($payload, $user): Order {
             $cart = $payload['cart'] ?? $this->cart->forUser($user, $payload['session_id'] ?? null);
+            // carts.user_id and carts.session_id are unique: serialize all new
+            // checkouts for this owner, even with different/no idempotency keys.
+            $cart = Cart::whereKey($cart->id)->lockForUpdate()->firstOrFail();
+            app(CheckoutProtection::class)->assertCapacity($cart, $user);
 
             $cartItems = $cart->items()->with(CartService::ITEM_RELATIONS)->lockForUpdate()->get();
             $cart->setRelation('items', $cartItems);
@@ -288,7 +292,7 @@ class CheckoutService
             }
 
             return $order->load(['items.shop', 'shopOrders.shop', 'shopOrders.items.shop', 'shopOrders.shipment', 'shopOrders.trackingEvents', 'payment', 'shipments', 'trackingEvents.changedBy']);
-        });
+        }, 3);
     }
 
     /**
@@ -310,6 +314,10 @@ class CheckoutService
             }
 
             $isCashOnDelivery = $payment->method === 'cod';
+
+            if ($order->placed_at->copy()->addMinutes((int) config('ecommerce.reservation_minutes', 15))->lessThanOrEqualTo(now())) {
+                throw ValidationException::withMessages(['payment' => 'This checkout has expired. Start a new checkout.']);
+            }
 
             if ($payment->method === 'bakong' && (! $verifiedBakong || BakongPayment::where('order_id', $order->id)->where('status', '!=', 'paid')->exists() || ! BakongPayment::where('order_id', $order->id)->exists())) {
                 throw ValidationException::withMessages(['payment' => 'Complete and verify every shop payment before confirming this order.']);
@@ -422,7 +430,7 @@ class CheckoutService
 
         $orders = Order::where('status', Order::STATUS_PENDING)
             ->whereIn('payment_status', [Order::PAYMENT_UNPAID, 'partial'])
-            ->where('placed_at', '<', $cutoff)
+            ->where('placed_at', '<=', $cutoff)
             ->get();
 
         foreach ($orders as $order) {

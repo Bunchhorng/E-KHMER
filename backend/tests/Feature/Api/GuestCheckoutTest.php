@@ -90,6 +90,9 @@ class GuestCheckoutTest extends TestCase
 
     public function test_guest_validation_rejects_missing_contact_and_address_before_reserving_stock(): void
     {
+        // This validation matrix intentionally submits more malformed requests
+        // than the production burst budget; limiter behavior has its own tests.
+        config(['ecommerce.checkout.owner_attempts' => 20]);
         $payload = $this->cart();
         foreach (['', 'not-an-email'] as $email) {
             $this->postJson('/api/checkout', array_replace($payload, ['email' => $email]))->assertUnprocessable()->assertJsonValidationErrors('email');

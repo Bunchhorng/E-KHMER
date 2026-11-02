@@ -30,4 +30,12 @@ return [
     |
     */
     'reservation_minutes' => (int) env('ORDER_RESERVATION_MINUTES', 15),
+
+    'checkout' => [
+        'limiter_store' => env('CHECKOUT_LIMITER_STORE', 'redis'),
+        'window_seconds' => (int) env('CHECKOUT_RATE_WINDOW_SECONDS', 60),
+        'owner_attempts' => (int) env('CHECKOUT_OWNER_ATTEMPTS', 8),
+        'ip_attempts' => (int) env('CHECKOUT_IP_ATTEMPTS', 120),
+        'active_limit' => (int) env('CHECKOUT_ACTIVE_LIMIT', 3),
+    ],
 ];
