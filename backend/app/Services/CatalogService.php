@@ -11,6 +11,7 @@ use App\Models\ProductVariant;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class CatalogService
@@ -26,9 +27,23 @@ class CatalogService
      */
     public function filtered(array $filters): LengthAwarePaginator
     {
-        $query = Product::query()
-            ->active()
+        $query = $this->catalogQuery($filters)
             ->with(['brand', 'category', 'images', 'variants.inventory', 'variants.attributeValues.value.attribute']);
+
+        $this->applyPriceRange($query, $filters);
+        $this->withCatalogPrice($query, $filters);
+        $this->applySort($query, (string) ($filters['sort'] ?? 'newest'));
+
+        $perPage = max(1, min((int) ($filters['perPage'] ?? 12), CatalogFilterRequest::MAX_PER_PAGE));
+        $page = max(1, (int) ($filters['page'] ?? 1));
+
+        return $query->paginate($perPage, ['*'], 'page', $page);
+    }
+
+    /** Non-price filters are shared by listings and expandable price metadata. */
+    protected function catalogQuery(array $filters): Builder
+    {
+        $query = Product::query()->active();
 
         if (isset($filters['shop_id'])) {
             $query->where('shop_id', (int) $filters['shop_id']);
@@ -54,11 +69,10 @@ class CatalogService
             $query->whereHas('brand', fn (Builder $q) => $q->where('slug', $slug));
         }
 
-        $this->applyPriceRange($query, $filters);
         $this->applyAttributeFilters($query, $filters);
 
-        if (! empty($filters['rating']) && (int) $filters['rating'] > 0) {
-            $query->where('rating_avg', '>=', (float) $filters['rating']);
+        if (isset($filters['rating']) && $filters['rating'] !== '') {
+            $query->where('rating_count', '>', 0)->where('rating_avg', '>=', (float) $filters['rating']);
         }
 
         if (! empty($filters['stock'])) {
@@ -69,12 +83,63 @@ class CatalogService
             });
         }
 
-        $this->applySort($query, (string) ($filters['sort'] ?? 'newest'));
+        return $query;
+    }
 
-        $perPage = max(1, min((int) ($filters['perPage'] ?? 12), CatalogFilterRequest::MAX_PER_PAGE));
-        $page = max(1, (int) ($filters['page'] ?? 1));
+    /** Only available, active variants contribute public selling-price bounds. */
+    public function priceRange(array $filters = []): array
+    {
+        unset($filters['min'], $filters['max']);
+        $range = $this->purchasableVariants($filters)
+            ->join('products', 'products.id', '=', 'product_variants.product_id')
+            ->whereIn('products.id', $this->catalogQuery($filters)->select('products.id'))
+            // Aggregate in the database instead of hydrating every catalog variant.
+            ->selectRaw('MIN(COALESCE(product_variants.price, products.price)) as min_price, MAX(COALESCE(product_variants.price, products.price)) as max_price')
+            ->first();
 
-        return $query->paginate($perPage, ['*'], 'page', $page);
+        return [
+            'min' => $range?->min_price === null ? null : (float) $range->min_price,
+            'max' => $range?->max_price === null ? null : (float) $range->max_price,
+        ];
+    }
+
+    protected function purchasableVariants(array $filters = []): Builder
+    {
+        return $this->constrainPurchasableVariants(ProductVariant::query(), $filters);
+    }
+
+    protected function constrainPurchasableVariants(Builder $query, array $filters): Builder
+    {
+        $query->where('product_variants.is_active', true)
+            ->whereHas('inventory', fn (Builder $q) => $q->whereColumn('quantity', '>', 'reserved_quantity'));
+        foreach (['color' => 'colors', 'size' => 'sizes'] as $slug => $key) {
+            $values = $this->normaliseList($filters[$key] ?? null);
+            if ($values !== []) {
+                $query->whereHas('attributeValues.value', fn (Builder $q) => $q
+                    ->whereHas('attribute', fn (Builder $a) => $a->where('slug', $slug))
+                    ->whereIn(DB::raw('LOWER(value)'), array_map('mb_strtolower', $values)));
+            }
+        }
+
+        return $query;
+    }
+
+    protected function withCatalogPrice(Builder $query, array $filters = []): void
+    {
+        $variants = $this->purchasableVariants($filters)->whereColumn('product_variants.product_id', 'products.id');
+        $this->variantPriceBounds($variants, $filters);
+        $query->addSelect(['catalog_price' => $variants->selectRaw('MIN(COALESCE(product_variants.price, products.price))')]);
+    }
+
+    protected function variantPriceBounds(Builder $query, array $filters): void
+    {
+        foreach (['min' => '>=', 'max' => '<='] as $key => $operator) {
+            if (isset($filters[$key]) && $filters[$key] !== '') {
+                // Numeric coercion also keeps SQLite's expression affinity from
+                // comparing a numeric selling price to a PDO-bound string.
+                $query->whereRaw("COALESCE(product_variants.price, products.price) {$operator} (? + 0)", [(float) $filters[$key]]);
+            }
+        }
     }
 
     public function findBySlug(string $slug): ?Product
@@ -100,20 +165,22 @@ class CatalogService
     {
         $limit = max(1, min($limit, 24));
 
-        return Product::query()
+        $query = Product::query()
             ->active()
             ->with(['brand', 'category', 'images', 'variants.inventory'])
             ->where('is_featured', true)
             ->orderByDesc('id')
-            ->limit($limit)
-            ->get();
+            ->limit($limit);
+        $this->withCatalogPrice($query);
+
+        return $query->get();
     }
 
     /**
      * Sidebar data for the catalog. Counts only include products a shopper can
      * actually reach, so the facet numbers match the listing totals.
      */
-    public function facets(): array
+    public function facets(array $filters = []): array
     {
         $brands = Brand::query()
             ->where('is_active', true)
@@ -150,8 +217,6 @@ class CatalogService
         $valuesBySlug = $attributes
             ->mapWithKeys(fn (Attribute $attribute) => [$attribute->slug => $this->shapeValues($attribute->values)]);
 
-        $priceRange = Product::query()->active()->selectRaw('MIN(price) as min_price, MAX(price) as max_price')->first();
-
         return [
             'brands' => $brands,
             'categories' => $categories,
@@ -168,10 +233,7 @@ class CatalogService
                 ])
                 ->values()
                 ->all(),
-            'price_range' => [
-                'min' => $priceRange?->min_price,
-                'max' => $priceRange?->max_price,
-            ],
+            'price_range' => $this->priceRange($filters),
             'max_per_page' => CatalogFilterRequest::MAX_PER_PAGE,
         ];
     }
@@ -251,16 +313,24 @@ class CatalogService
 
     protected function applyPriceRange(Builder $query, array $filters): void
     {
-        $min = $filters['min'] ?? null;
-        $max = $filters['max'] ?? null;
-
-        if ($min !== null && $min !== '') {
-            $query->where('price', '>=', (float) $min);
+        if (! isset($filters['min']) && ! isset($filters['max'])) {
+            return;
         }
-
-        if ($max !== null && $max !== '') {
-            $query->where('price', '<=', (float) $max);
-        }
+        $query->where(function (Builder $q) use ($filters) {
+            $q->whereHas('variants', function (Builder $variants) use ($filters) {
+                $this->constrainPurchasableVariants($variants, $filters);
+                $this->variantPriceBounds($variants, $filters);
+            })->orWhere(function (Builder $legacy) use ($filters) {
+                // Preserve imported listings without variants; they cannot affect
+                // purchasable metadata until inventory is configured.
+                $legacy->whereDoesntHave('variants');
+                foreach (['min' => '>=', 'max' => '<='] as $key => $operator) {
+                    if (isset($filters[$key]) && $filters[$key] !== '') {
+                        $legacy->where('products.price', $operator, (float) $filters[$key]);
+                    }
+                }
+            });
+        });
     }
 
     /**
@@ -303,8 +373,8 @@ class CatalogService
         // Every sort gets a deterministic id tiebreaker, otherwise paginated
         // results can repeat or drop rows when the sort column ties.
         match ($sort) {
-            'price-asc' => $query->orderBy('price', 'asc')->orderBy('id', 'asc'),
-            'price-desc' => $query->orderBy('price', 'desc')->orderBy('id', 'asc'),
+            'price-asc' => $query->orderByRaw('COALESCE(catalog_price, products.price) asc')->orderBy('id', 'asc'),
+            'price-desc' => $query->orderByRaw('COALESCE(catalog_price, products.price) desc')->orderBy('id', 'asc'),
             'name-asc' => $query->orderBy('name', 'asc')->orderBy('id', 'asc'),
             'name-desc' => $query->orderBy('name', 'desc')->orderBy('id', 'asc'),
             'rating' => $query->orderBy('rating_avg', 'desc')->orderBy('rating_count', 'desc')->orderBy('id', 'asc'),

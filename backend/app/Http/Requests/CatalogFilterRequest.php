@@ -35,21 +35,32 @@ class CatalogFilterRequest extends FormRequest
 
     public function rules(): array
     {
+        $finite = function (string $attribute, mixed $value, \Closure $fail): void {
+            if (is_numeric($value) && ! is_finite((float) $value)) {
+                $fail('The '.$attribute.' field must be a finite number.');
+            }
+        };
+
         return [
             'q' => ['nullable', 'string', 'max:120'],
             'category' => ['nullable', 'string', 'max:150'],
             'brand' => ['nullable', 'string', 'max:150'],
             'colors' => ['nullable'],
             'sizes' => ['nullable'],
-            'min' => ['nullable', 'numeric', 'min:0'],
-            'max' => ['nullable', 'numeric', 'min:0'],
-            'rating' => ['nullable', 'integer', 'min:1', 'max:5'],
+            'min' => ['nullable', 'numeric', 'min:0', $finite],
+            'max' => ['nullable', 'numeric', 'min:0', $finite, Rule::when($this->filled('min'), ['gte:min'])],
+            'rating' => ['nullable', 'numeric', 'min:1', 'max:5'],
             'stock' => ['nullable', 'boolean'],
             'sort' => ['nullable', 'string', Rule::in(self::SORTS)],
             'page' => ['nullable', 'integer', 'min:1'],
-            'perPage' => ['nullable', 'integer', 'min:1', 'max:' . self::MAX_PER_PAGE],
+            'perPage' => ['nullable', 'integer', 'min:1', 'max:'.self::MAX_PER_PAGE],
             'limit' => ['nullable', 'integer', 'min:1', 'max:24'],
         ];
+    }
+
+    public function messages(): array
+    {
+        return ['max.gte' => 'Maximum price must be greater than or equal to minimum price.'];
     }
 
     /**

@@ -11,9 +11,7 @@ use Illuminate\Http\Request;
 
 class CatalogController extends Controller
 {
-    public function __construct(protected CatalogService $catalog)
-    {
-    }
+    public function __construct(protected CatalogService $catalog) {}
 
     public function index(CatalogFilterRequest $request)
     {
@@ -26,6 +24,7 @@ class CatalogController extends Controller
                 'last_page' => $products->lastPage(),
                 'per_page' => $products->perPage(),
                 'total' => $products->total(),
+                'price_range' => $this->catalog->priceRange($request->filters()),
             ],
         ];
     }
@@ -52,9 +51,9 @@ class CatalogController extends Controller
         return ProductResource::collection($this->catalog->featured($limit));
     }
 
-    public function facets()
+    public function facets(CatalogFilterRequest $request)
     {
-        return ['data' => $this->catalog->facets()];
+        return ['data' => $this->catalog->facets($request->filters())];
     }
 
     /**

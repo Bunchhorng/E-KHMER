@@ -24,7 +24,7 @@ class ProductResource extends JsonResource
                 'logo' => $this->shop->logo,
             ]),
             'short_description' => $this->short_description,
-            'price' => (float) $this->price,
+            'price' => (float) ($this->catalog_price ?? $this->price),
             'compare_at_price' => $this->compare_at_price !== null ? (float) $this->compare_at_price : null,
             'rating_avg' => (float) $this->rating_avg,
             'rating_count' => (int) $this->rating_count,
@@ -33,6 +33,10 @@ class ProductResource extends JsonResource
             'in_stock' => $this->inStock ?? $this->computeInStock(),
             'variants' => $this->whenLoaded('variants', fn () => $this->variants
                 ->filter(fn ($variant) => (bool) $variant->is_active)
+                // The first available variant added from a card must have the
+                // advertised price, including when a price filter selects it.
+                ->sortBy(fn ($variant) => $this->catalog_price !== null && $this->variantInStock($variant)
+                    && (float) ($variant->price ?? $this->price) === (float) $this->catalog_price ? 0 : 1)
                 ->map(fn ($variant) => [
                     'id' => $variant->id,
                     'sku' => $variant->sku,

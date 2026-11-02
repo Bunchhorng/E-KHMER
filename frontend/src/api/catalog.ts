@@ -78,7 +78,13 @@ export interface PaginatedResponse<T> {
     last_page: number
     per_page: number
     total: number
+    price_range?: PriceRange
   }
+}
+
+export interface PriceRange {
+  min: number | null
+  max: number | null
 }
 
 export interface FacetValue {

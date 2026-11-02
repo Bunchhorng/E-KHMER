@@ -1,5 +1,13 @@
 # API Reference (Live)
 
+## Rating and price filters — 2026-11-02
+
+The existing `GET /api/catalog/products`, `GET /api/catalog/facets` and `GET /api/shops/{slug}/products` contracts use `rating`, `min`, `max`; no aliases were added. `rating` accepts numeric values from 1 through 5, including 4.5 and 3.5. It means stored `rating_avg >= threshold` and excludes `rating_count = 0`. Price bounds accept finite nonnegative numbers, including 0 and decimal amounts above the former UI ceiling. `max < min`, malformed values and non-finite values return 422.
+
+Listings add `meta.price_range: { "min": 4, "max": 1299.99 }` alongside existing pagination; facets keep `data.price_range`. Values are numbers, or both null when no purchasable prices exist. The range follows non-price filters and shop scope, ignoring `min`, `max` and pagination so it remains expandable. Public clients cannot override the shop route's ownership scope.
+
+Prices come from active variants with available inventory, using variant selling price or the product selling price when null. One variant must satisfy both bounds; the advertised price, price sort and first available add-to-cart variant agree. Original crossed-out prices and purchase costs do not participate. Legacy listings without variants retain base-price behavior but do not contribute purchasable bounds. See [F06 policy](./COMMERCE-COMPLETION.md#f06-rating-and-price-filter-policy-2026-11-02).
+
 ## Guest checkout policy — 2026-11-02
 
 Guest checkout is supported through the existing `POST /api/checkout`; there is no separate guest checkout endpoint. Send the same random `X-Session-Id` used for the guest cart and a stable `Idempotency-Key` for retries.

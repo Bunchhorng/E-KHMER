@@ -1,13 +1,16 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { SlidersHorizontal, X, SearchX } from 'lucide-vue-next'
 import ProductCard from '@/components/ProductCard.vue'
 import BasePagination from '@/components/BasePagination.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import StarRating from '@/components/StarRating.vue'
+import CatalogPriceFilter from '@/components/CatalogPriceFilter.vue'
+import CatalogRatingFilter from '@/components/CatalogRatingFilter.vue'
 import { catalogApi } from '@/api/catalog'
-import type { Facets } from '@/api/catalog'
+import type { Facets, PriceRange, CatalogFilters } from '@/api/catalog'
+import { extractErrorMessage } from '@/api/errors'
+import { formatPrice } from '@/utils/format'
 import type { Product } from '@/types'
 import { mapCatalogProduct } from '@/utils/product'
 import { swatchColor } from '@/utils/color'
@@ -36,13 +39,16 @@ const wishlist = useWishlistStore()
 const ui = useUiStore()
 
 const pageSize = 12
-const PRICE_MAX = 450
 
 const products = ref<Product[]>([])
 const totalCount = ref(0)
 const pageCount = ref(1)
 const facets = ref<Facets>({ brands: [], categories: [], colors: [], sizes: [] })
 const loading = ref(false)
+const listingError = ref('')
+const facetsError = ref('')
+const priceRange = ref<PriceRange | null>(null)
+let request = 0
 
 const filters = reactive<Filters>({
   q: undefined,
@@ -72,7 +78,7 @@ function toArray(v: unknown): string[] {
 }
 
 function toNum(v: unknown): number | undefined {
-  if (typeof v === 'string' && v !== '' && !Number.isNaN(Number(v))) return Number(v)
+  if (typeof v === 'string' && v !== '' && Number.isFinite(Number(v))) return Number(v)
   return undefined
 }
 
@@ -107,13 +113,15 @@ function pushRoute() {
   if (filters.inStockOnly) query.stock = '1'
   if (filters.sort !== 'featured') query.sort = filters.sort
   if (filters.page > 1) query.page = String(filters.page)
-  router.replace({ query })
+  router.push({ query })
 }
 
 async function fetchProducts() {
+  const current = ++request
   loading.value = true
+  listingError.value = ''
   try {
-    const params: Record<string, unknown> = {
+    const params: CatalogFilters = {
       page: filters.page,
       perPage: pageSize
     }
@@ -129,24 +137,30 @@ async function fetchProducts() {
     if (filters.sort && filters.sort !== 'featured') params.sort = filters.sort
 
     const { data } = await catalogApi.getProducts(params)
+    if (current !== request) return
     products.value = data.data.map(mapCatalogProduct)
     totalCount.value = data.meta.total
     pageCount.value = data.meta.last_page
-  } catch {
+    priceRange.value = data.meta.price_range ?? null
+  } catch (error) {
+    if (current !== request) return
+    listingError.value = extractErrorMessage(error, 'We could not load these products. Please try again.')
     products.value = []
     totalCount.value = 0
     pageCount.value = 1
+    priceRange.value = null
   } finally {
-    loading.value = false
+    if (current === request) loading.value = false
   }
 }
 
 async function fetchFacets() {
+  facetsError.value = ''
   try {
     const { data } = await catalogApi.getFacets()
     facets.value = data.data
-  } catch {
-    facets.value = { brands: [], categories: [], colors: [], sizes: [] }
+  } catch (error) {
+    facetsError.value = extractErrorMessage(error, 'We could not load catalog filters. Please try again.')
   }
 }
 
@@ -177,21 +191,18 @@ watch(filters, () => {
   if (applying) return
   if (sameAsFilters(route.query)) return
   pushRoute()
-  fetchProducts()
 }, { deep: true })
 
 watch(() => route.query, (q) => {
   if (applying) return
-  if (sameAsFilters(q)) return
   applyFromQuery(q)
   fetchProducts()
-})
+}, { immediate: true })
 
 onMounted(() => {
-  applyFromQuery(route.query)
-  fetchProducts()
   fetchFacets()
 })
+onBeforeUnmount(() => request++)
 
 /**
  * The catalog filter matches on the exact attribute value, so the chip carries
@@ -226,6 +237,8 @@ const summaryChips = computed(() => {
     const b = facets.value.brands.find((x) => x.slug === filters.brand)
     chips.push({ key: 'brand', label: b ? b.name : filters.brand })
   }
+  if (filters.rating !== undefined) chips.push({ key: 'rating', label: `Rating: ${filters.rating}+` })
+  if (filters.min !== undefined || filters.max !== undefined) chips.push({ key: 'price', label: `Price: ${formatPrice(filters.min ?? priceRange.value?.min ?? 0)} – ${filters.max !== undefined ? formatPrice(filters.max) : 'Any'}` })
   return chips
 })
 
@@ -239,6 +252,8 @@ function removeChip(key: string) {
   if (key === 'q') filters.q = undefined
   if (key === 'category') filters.category = undefined
   if (key === 'brand') filters.brand = undefined
+  if (key === 'rating') filters.rating = undefined
+  if (key === 'price') { filters.min = undefined; filters.max = undefined }
 }
 
 function toggleColor(value: string) {
@@ -255,20 +270,10 @@ function toggleSize(size: string) {
   else filters.sizes.push(size)
 }
 
-function setMin(value: number) {
+function setPrice(value: { min?: number; max?: number }) {
   filters.page = 1
-  filters.min = value
-  if (filters.max !== undefined && filters.min !== undefined && filters.min > filters.max) {
-    filters.max = filters.min
-  }
-}
-
-function setMax(value: number) {
-  filters.page = 1
-  filters.max = value
-  if (filters.min !== undefined && filters.max !== undefined && filters.max < filters.min) {
-    filters.min = filters.max
-  }
+  filters.min = value.min
+  filters.max = value.max
 }
 
 function setRating(value: number | undefined) {
@@ -292,20 +297,7 @@ function setInStock(value: boolean) {
 }
 
 function resetFilters() {
-  applying = true
-  filters.q = undefined
-  filters.category = undefined
-  filters.brand = undefined
-  filters.colors = []
-  filters.sizes = []
-  filters.min = undefined
-  filters.max = undefined
-  filters.rating = undefined
-  filters.inStockOnly = false
-  filters.sort = 'featured'
-  filters.page = 1
-  applying = false
-  router.replace({ query: {} })
+  router.push({ query: {} })
 }
 
 function clearAll() {
@@ -375,6 +367,7 @@ function setPage(p: number) {
     <div class="mt-6 lg:grid lg:grid-cols-[260px_1fr] lg:gap-8">
       <aside class="hidden lg:block">
         <div class="card space-y-6 p-5">
+          <p v-if="facetsError" role="alert" class="text-sm text-red-600">{{ facetsError }} <button class="underline" @click="fetchFacets">Retry filters</button></p>
           <div>
             <div class="label">{{ $t('shop.category') }}</div>
             <div class="space-y-2">
@@ -413,43 +406,8 @@ function setPage(p: number) {
             </div>
           </div>
 
-          <div>
-            <div class="label">{{ $t('shop.price_range') }}</div>
-            <div class="px-1">
-              <input type="range" min="0" :max="PRICE_MAX" step="5" :value="filters.min ?? 0" class="w-full accent-primary" @input="setMin(Number(($event.target as HTMLInputElement).value))" />
-              <input type="range" min="0" :max="PRICE_MAX" step="5" :value="filters.max ?? PRICE_MAX" class="w-full accent-primary" @input="setMax(Number(($event.target as HTMLInputElement).value))" />
-            </div>
-            <div class="mt-2 flex items-center justify-between text-xs font-medium text-gray-600">
-              <span class="chip">${{ filters.min ?? 0 }}</span>
-              <span>–</span>
-              <span class="chip">${{ filters.max ?? PRICE_MAX }}</span>
-            </div>
-          </div>
-
-          <div>
-            <div class="label">{{ $t('shop.rating') }}</div>
-            <div class="space-y-2">
-              <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
-                <input type="radio" name="rating" :checked="filters.rating === 4.5" class="h-4 w-4 accent-primary" @change="setRating(filters.rating === 4.5 ? undefined : 4.5)" />
-                <StarRating :value="4.5" size="sm" />
-                <span class="text-xs text-gray-400 dark:text-gray-500">{{ $t('shop.up') }}</span>
-              </label>
-              <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
-                <input type="radio" name="rating" :checked="filters.rating === 4.0" class="h-4 w-4 accent-primary" @change="setRating(filters.rating === 4.0 ? undefined : 4.0)" />
-                <StarRating :value="4.0" size="sm" />
-                <span class="text-xs text-gray-400 dark:text-gray-500">{{ $t('shop.up') }}</span>
-              </label>
-              <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
-                <input type="radio" name="rating" :checked="filters.rating === 3.5" class="h-4 w-4 accent-primary" @change="setRating(filters.rating === 3.5 ? undefined : 3.5)" />
-                <StarRating :value="3.5" size="sm" />
-                <span class="text-xs text-gray-400 dark:text-gray-500">{{ $t('shop.up') }}</span>
-              </label>
-              <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
-                <input type="radio" name="rating" :checked="filters.rating === undefined" class="h-4 w-4 accent-primary" @change="setRating(undefined)" />
-                  <span>{{ $t('shop.any') }}</span>
-              </label>
-            </div>
-          </div>
+          <CatalogPriceFilter id-prefix="catalog-desktop" :range="priceRange" :min="filters.min" :max="filters.max" :loading="loading" @change="setPrice" @retry="fetchProducts" />
+          <CatalogRatingFilter name="rating" :value="filters.rating" @change="setRating" />
 
           <div>
             <div class="label">{{ $t('shop.color') }}</div>
@@ -495,6 +453,11 @@ function setPage(p: number) {
       <div class="mt-6 lg:mt-0">
         <div v-if="loading" class="flex items-center justify-center py-20">
           <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+        </div>
+        <div v-else-if="listingError" role="alert" class="card space-y-3 p-5 text-sm text-red-600">
+          <p>{{ listingError }}</p>
+          <button class="btn-secondary" @click="fetchProducts">Retry products</button>
+          <button class="btn-outline ml-2" @click="clearAll">{{ $t('shop.clear_filters') }}</button>
         </div>
         <template v-else>
           <div v-if="products.length" class="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
@@ -545,6 +508,7 @@ function setPage(p: number) {
           </div>
 
           <div class="space-y-6">
+            <p v-if="facetsError" role="alert" class="text-sm text-red-600">{{ facetsError }} <button class="underline" @click="fetchFacets">Retry filters</button></p>
             <div>
               <div class="label">{{ $t('shop.category') }}</div>
               <div class="space-y-2">
@@ -571,38 +535,8 @@ function setPage(p: number) {
               </div>
             </div>
 
-            <div>
-              <div class="label">{{ $t('shop.price_range') }}</div>
-              <input type="range" min="0" :max="PRICE_MAX" step="5" :value="filters.min ?? 0" class="w-full accent-primary" @input="setMin(Number(($event.target as HTMLInputElement).value))" />
-              <input type="range" min="0" :max="PRICE_MAX" step="5" :value="filters.max ?? PRICE_MAX" class="w-full accent-primary" @input="setMax(Number(($event.target as HTMLInputElement).value))" />
-            <div class="mt-2 flex items-center justify-between text-xs font-medium text-gray-600 dark:text-muted">
-                <span class="chip">${{ filters.min ?? 0 }}</span>
-                <span>–</span>
-                <span class="chip">${{ filters.max ?? PRICE_MAX }}</span>
-              </div>
-            </div>
-
-            <div>
-              <div class="label">{{ $t('shop.rating') }}</div>
-              <div class="space-y-2">
-                <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
-                  <input type="radio" name="m-rating" :checked="filters.rating === 4.5" class="h-4 w-4 accent-primary" @change="setRating(filters.rating === 4.5 ? undefined : 4.5)" />
-                  <StarRating :value="4.5" size="sm" /> <span class="text-xs text-gray-400 dark:text-gray-500">{{ $t('shop.up') }}</span>
-                </label>
-                <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
-                  <input type="radio" name="m-rating" :checked="filters.rating === 4.0" class="h-4 w-4 accent-primary" @change="setRating(filters.rating === 4.0 ? undefined : 4.0)" />
-                  <StarRating :value="4.0" size="sm" /> <span class="text-xs text-gray-400 dark:text-gray-500">{{ $t('shop.up') }}</span>
-                </label>
-                <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
-                  <input type="radio" name="m-rating" :checked="filters.rating === 3.5" class="h-4 w-4 accent-primary" @change="setRating(filters.rating === 3.5 ? undefined : 3.5)" />
-                  <StarRating :value="3.5" size="sm" /> <span class="text-xs text-gray-400 dark:text-gray-500">{{ $t('shop.up') }}</span>
-                </label>
-                <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
-                  <input type="radio" name="m-rating" :checked="filters.rating === undefined" class="h-4 w-4 accent-primary" @change="setRating(undefined)" />
-                  <span>{{ $t('shop.any') }}</span>
-                </label>
-              </div>
-            </div>
+            <CatalogPriceFilter id-prefix="catalog-mobile" :range="priceRange" :min="filters.min" :max="filters.max" :loading="loading" @change="setPrice" @retry="fetchProducts" />
+            <CatalogRatingFilter name="m-rating" :value="filters.rating" @change="setRating" />
 
             <div>
               <div class="label">{{ $t('shop.color') }}</div>
