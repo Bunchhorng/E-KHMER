@@ -7,13 +7,13 @@ import BasePagination from '@/components/BasePagination.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import CatalogPriceFilter from '@/components/CatalogPriceFilter.vue'
 import CatalogRatingFilter from '@/components/CatalogRatingFilter.vue'
+import CatalogColorFilter from '@/components/CatalogColorFilter.vue'
 import { catalogApi } from '@/api/catalog'
 import type { Facets, PriceRange, CatalogFilters } from '@/api/catalog'
 import { extractErrorMessage } from '@/api/errors'
 import { formatPrice } from '@/utils/format'
 import type { Product } from '@/types'
 import { mapCatalogProduct } from '@/utils/product'
-import { swatchColor } from '@/utils/color'
 import { useCartStore } from '@/stores/cart'
 import { useWishlistStore } from '@/stores/wishlist'
 import { useUiStore } from '@/stores/ui'
@@ -204,22 +204,6 @@ onMounted(() => {
 })
 onBeforeUnmount(() => request++)
 
-/**
- * The catalog filter matches on the exact attribute value, so the chip carries
- * `value` for the query string and `swatch` only for rendering. Previously the
- * slug was used for both, which meant `Light Blue` was sent as `light-blue`
- * (matching nothing) and painted as an invalid CSS colour.
- */
-const colorOptions = computed(() =>
-  facets.value.colors.map((c) => ({
-    slug: c.slug,
-    value: c.value ?? c.name,
-    name: c.name,
-    count: c.count,
-    swatch: swatchColor(c.swatch_color, c.name)
-  }))
-)
-
 const activeCategoryName = computed(() => {
   if (!filters.category) return ''
   const c = facets.value.categories.find((x) => x.slug === filters.category)
@@ -238,6 +222,7 @@ const summaryChips = computed(() => {
     chips.push({ key: 'brand', label: b ? b.name : filters.brand })
   }
   if (filters.rating !== undefined) chips.push({ key: 'rating', label: `Rating: ${filters.rating}+` })
+  filters.colors.forEach(value => chips.push({ key: `color:${value}`, label: value }))
   if (filters.min !== undefined || filters.max !== undefined) chips.push({ key: 'price', label: `Price: ${formatPrice(filters.min ?? priceRange.value?.min ?? 0)} – ${filters.max !== undefined ? formatPrice(filters.max) : 'Any'}` })
   return chips
 })
@@ -254,6 +239,7 @@ function removeChip(key: string) {
   if (key === 'brand') filters.brand = undefined
   if (key === 'rating') filters.rating = undefined
   if (key === 'price') { filters.min = undefined; filters.max = undefined }
+  if (key.startsWith('color:')) filters.colors = filters.colors.filter(value => value !== key.slice('color:'.length))
 }
 
 function toggleColor(value: string) {
@@ -350,7 +336,7 @@ function setPage(p: number) {
             class="chip"
           >
             {{ chip.label }}
-            <button class="ml-1 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200" @click="removeChip(chip.key)">
+            <button :aria-label="`Remove ${chip.label} filter`" class="ml-1 text-gray-400 dark:text-gray-500 hover:text-gray-700 dark:hover:text-gray-200" @click="removeChip(chip.key)">
               <X class="h-3 w-3" />
             </button>
           </span>
@@ -409,21 +395,7 @@ function setPage(p: number) {
           <CatalogPriceFilter id-prefix="catalog-desktop" :range="priceRange" :min="filters.min" :max="filters.max" :loading="loading" @change="setPrice" @retry="fetchProducts" />
           <CatalogRatingFilter name="rating" :value="filters.rating" @change="setRating" />
 
-          <div>
-            <div class="label">{{ $t('shop.color') }}</div>
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="c in colorOptions"
-                :key="c.slug"
-                type="button"
-                class="h-8 w-8 rounded-full border-2 transition"
-                :class="filters.colors.includes(c.value) ? 'border-primary ring-2 ring-primary/30' : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'"
-                :style="{ backgroundColor: c.swatch }"
-                :title="c.name"
-                @click="toggleColor(c.value)"
-              ></button>
-            </div>
-          </div>
+          <CatalogColorFilter :options="facets.colors" :selected="filters.colors" @toggle="toggleColor" />
 
           <div>
             <div class="label">{{ $t('shop.size') }}</div>
@@ -499,10 +471,10 @@ function setPage(p: number) {
         class="fixed inset-0 z-50 lg:hidden"
       >
         <div class="absolute inset-0 bg-black/50" @click="ui.closeMobileFilters()"></div>
-        <div class="absolute inset-y-0 right-0 w-80 max-w-[85vw] overflow-y-auto bg-white p-5 shadow-2xl dark:bg-surface">
+        <div role="dialog" :aria-label="$t('shop.filter')" aria-modal="true" class="absolute inset-y-0 right-0 w-80 max-w-[85vw] overflow-y-auto bg-white p-5 shadow-2xl dark:bg-surface">
           <div class="mb-4 flex items-center justify-between">
             <h3 class="text-lg font-bold text-ink dark:text-ink">{{ $t('shop.filter') }}</h3>
-            <button class="btn-icon" @click="ui.closeMobileFilters()">
+            <button :aria-label="$t('actions.close')" class="btn-icon" @click="ui.closeMobileFilters()">
               <X class="h-5 w-5" />
             </button>
           </div>
@@ -538,12 +510,7 @@ function setPage(p: number) {
             <CatalogPriceFilter id-prefix="catalog-mobile" :range="priceRange" :min="filters.min" :max="filters.max" :loading="loading" @change="setPrice" @retry="fetchProducts" />
             <CatalogRatingFilter name="m-rating" :value="filters.rating" @change="setRating" />
 
-            <div>
-              <div class="label">{{ $t('shop.color') }}</div>
-              <div class="flex flex-wrap gap-2">
-                <button v-for="c in colorOptions" :key="c.slug" type="button" class="h-8 w-8 rounded-full border-2 transition" :class="filters.colors.includes(c.slug) ? 'border-primary ring-2 ring-primary/30' : 'border-gray-300 dark:border-gray-600' " :style="{ backgroundColor: c.slug }" :title="c.name" @click="toggleColor(c.slug)"></button>
-              </div>
-            </div>
+            <CatalogColorFilter :options="facets.colors" :selected="filters.colors" @toggle="toggleColor" />
 
             <div>
               <div class="label">{{ $t('shop.size') }}</div>

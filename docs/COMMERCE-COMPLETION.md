@@ -1,6 +1,6 @@
 # Commerce completion and operating guide
 
-Updated: 2026-10-17. This describes implemented functionality and remaining launch gates; it is not a declaration that production has been deployed.
+Updated: 2026-11-02. This describes implemented functionality and remaining launch gates; it is not a declaration that production has been deployed.
 
 ## Decisions
 
@@ -90,7 +90,18 @@ Customer flow: Guest → Product → Cart → Checkout → Contact → Address �
 - Bounds follow current search, category (including descendants), brand, rating, attributes and shop, but exclude current price bounds and pagination. Customers can therefore widen a price window again. Category/brand/attribute facet counts keep their existing semantics; F06 scopes price metadata without redesigning all facet counts.
 - Desktop and mobile share rating/price controls; public shop pages reuse them with shop-scoped metadata. Decimal number inputs and sliders stay synchronized. Inputs debounce for 250 ms and commit on change/blur; invalid bounds stay visible without swapping values. Explicit URL/input prices may extend beyond catalog bounds. Clear filters restores actual metadata bounds. URL history, refresh, filter composition and page reset are preserved. Latest-response guards protect products and metadata; stale acknowledgements cannot overwrite the next price edit. Loading, empty results, metadata failures and product failures have distinct states with retry.
 - MySQL EXPLAIN confirmed use of the existing `(product_id, is_active)` variant index, inventory variant/shop index and shop primary key; the aggregate also uses an existing product visibility index. The small development listing uses a product scan/filesort for derived-price ordering. No new index or schema migration is justified by that plan. A regression test checks that listing query count stays constant as the number of products grows; production-scale timing remains a staging exercise.
-- F07's mobile color value/slug mismatch is intentionally unchanged. F06 forwards the current values and does not modify that mobile color control.
+- F06 originally preserved the mobile color control; F07 corrects its value/slug mismatch as documented below.
+
+## F07 canonical color filter policy (2026-11-02)
+
+- Desktop and the mobile filter sheet share `CatalogColorFilter` and one `filters.colors: string[]`. The component maps the actual API facet `{ slug, value, name, swatch_color, count }` to `{ slug, value, name, swatch, count }`. `value` is the actual attribute value, with `name` retained as the existing compatibility fallback. The slug is metadata, never the selected or submitted value. Both layouts submit `Light Blue`, not `light-blue`.
+- Each option displays its name and API-provided valid CSS swatch. Missing/invalid swatches use the existing common-name palette or neutral `#cbd5e1`; the visible label keeps custom colors such as Patterned selectable. Selection, deselection, active chips and chip removal all use the canonical value.
+- Page URLs retain `colors=Light+Blue&colors=Black`; product API calls use `colors[]=Light+Blue&colors[]=Black`. Refresh, browser history and responsive layout changes restore the same selection. Color changes reset pagination and preserve category, brand, search, sizes, rating, price, stock and sorting. Clear all removes the URL state and selections.
+- The existing mobile sheet applies each change immediately. Apply, Close and backdrop dismissal close the sheet and retain the already-applied selection; there is no staged draft or Cancel action. F07 preserves that behavior and shares it with the desktop control.
+- Catalog matching remains server-side and explicitly case-insensitive with lowercase comparison, rather than depending on MySQL collation. Multi-word names and punctuation stay intact; slugs are not translated. Multiple colors remain OR within the color attribute, with existing AND composition across attributes and other filters. Unknown values return zero results. Pagination, variant/stock eligibility and F06 price metadata retain their existing rules.
+- API validation now bounds colors to at most 50 string entries of at most 255 characters, rejecting malformed nested/non-string values with 422. Existing single-string and CSV inputs are normalized before validation for compatibility. There are no route, schema, index or matching-semantics changes.
+- Public shop pages have no existing color picker. They now forward canonical color/size URL arrays to the existing shop-scoped products API and preserve them through other filter edits. Backend and browser tests cover that path; no new shop picker is introduced.
+- See [F07 verification report](./F07-MOBILE-COLOR-FILTERS-REPORT.md) for desktop/mobile coverage and F01–F06 regression results. F08 async cart mutations and Buy Now errors have not been started.
 
 ## Launch gates and follow-up
 

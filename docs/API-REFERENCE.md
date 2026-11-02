@@ -1,5 +1,15 @@
 # API Reference (Live)
 
+## Canonical color filters — 2026-11-02 (F07)
+
+`GET /api/catalog/products`, `GET /api/catalog/facets` and `GET /api/shops/{slug}/products` accept actual attribute values: `colors[]=Light%20Blue&colors[]=Black`. The existing single-string and comma-separated forms remain supported. Color arrays accept at most 50 string entries, each at most 255 characters; nested/non-string and excessive input returns 422. Unknown values return an empty listing, not an error. No new parameter, slug alias or attribute ID contract was introduced.
+
+Matching explicitly compares lowercase actual attribute values, independently of database collation. It preserves spaces and punctuation: `lIgHt bLuE` matches `Light Blue`; `light-blue` does not. Multiple colors remain OR; colors compose with other attributes, category, brand, rating, price, stock and shop scope using the existing AND rules. Filtering and pagination remain on the server.
+
+The real color facet shape is `{ "slug": "light-blue", "value": "Light Blue", "name": "Light Blue", "swatch_color": "#ADD8E6", "count": 1 }`. Desktop and mobile filter with `value` (legacy fallback: `name`), display `name`, and preview a valid `swatch_color`. Slugs never become selected values. Missing/invalid swatches use the existing name palette or neutral fallback while retaining a visible label.
+
+Vue page URLs preserve the existing repeated-key form, `/shop?colors=Light+Blue&colors=Black`; API requests serialize arrays with `colors[]`. Public shop pages forward the same URL values, including through rating/price/sort changes. They have no existing color picker; F07 does not add one. See [F07 policy](./COMMERCE-COMPLETION.md#f07-canonical-color-filter-policy-2026-11-02).
+
 ## Rating and price filters — 2026-11-02
 
 The existing `GET /api/catalog/products`, `GET /api/catalog/facets` and `GET /api/shops/{slug}/products` contracts use `rating`, `min`, `max`; no aliases were added. `rating` accepts numeric values from 1 through 5, including 4.5 and 3.5. It means stored `rating_avg >= threshold` and excludes `rating_count = 0`. Price bounds accept finite nonnegative numbers, including 0 and decimal amounts above the former UI ceiling. `max < min`, malformed values and non-finite values return 422.

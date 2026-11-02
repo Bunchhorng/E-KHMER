@@ -26,6 +26,10 @@ const priceRange = ref<PriceRange | null>(null)
 const rating = computed(() => typeof route.query.rating === 'string' ? Number(route.query.rating) : undefined)
 const minimum = computed(() => typeof route.query.min === 'string' ? Number(route.query.min) : undefined)
 const maximum = computed(() => typeof route.query.max === 'string' ? Number(route.query.max) : undefined)
+function queryValues(value: unknown): string[] | undefined {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === 'string')
+  return typeof value === 'string' && value ? [value] : undefined
+}
 let request = 0
 async function load() {
   const current = ++request; loading.value = true; error.value = ''; search.value = String(route.query.q ?? '')
@@ -37,6 +41,8 @@ async function load() {
       rating: typeof route.query.rating === 'string' ? route.query.rating : undefined,
       category: typeof route.query.category === 'string' ? route.query.category : undefined,
       brand: typeof route.query.brand === 'string' ? route.query.brand : undefined,
+      colors: queryValues(route.query.colors),
+      sizes: queryValues(route.query.sizes),
       page: Number(route.query.page) || 1
     })])
     if (current !== request) return

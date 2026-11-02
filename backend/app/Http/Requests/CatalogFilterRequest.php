@@ -45,7 +45,8 @@ class CatalogFilterRequest extends FormRequest
             'q' => ['nullable', 'string', 'max:120'],
             'category' => ['nullable', 'string', 'max:150'],
             'brand' => ['nullable', 'string', 'max:150'],
-            'colors' => ['nullable'],
+            'colors' => ['nullable', 'array', 'max:50'],
+            'colors.*' => ['string', 'max:255'],
             'sizes' => ['nullable'],
             'min' => ['nullable', 'numeric', 'min:0', $finite],
             'max' => ['nullable', 'numeric', 'min:0', $finite, Rule::when($this->filled('min'), ['gte:min'])],
@@ -61,6 +62,18 @@ class CatalogFilterRequest extends FormRequest
     public function messages(): array
     {
         return ['max.gte' => 'Maximum price must be greater than or equal to minimum price.'];
+    }
+
+    protected function prepareForValidation(): void
+    {
+        // Preserve the existing single-value/comma-separated contract alongside
+        // colors[]. Values retain their spelling; slugs are not substituted.
+        if (is_string($this->input('colors'))) {
+            $this->merge(['colors' => array_values(array_filter(
+                array_map('trim', explode(',', $this->input('colors'))),
+                fn (string $value) => $value !== '',
+            ))]);
+        }
     }
 
     /**

@@ -10,6 +10,6 @@ export interface PublicShop {
 export const shopsApi = {
   list(params: { q?: string; page?: number } = {}) { return apiClient.get<PaginatedResponse<PublicShop>>('/shops', { params }) },
   get(slug: string) { return apiClient.get<{ data: PublicShop }>(`/shops/${encodeURIComponent(slug)}`) },
-  products(slug: string, params: Record<string, string | number | undefined>) { return apiClient.get<PaginatedResponse<CatalogProduct>>(`/shops/${encodeURIComponent(slug)}/products`, { params }) }
+  products(slug: string, params: Record<string, string | number | string[] | undefined>) { return apiClient.get<PaginatedResponse<CatalogProduct>>(`/shops/${encodeURIComponent(slug)}/products`, { params }) }
 }
 
