@@ -2,8 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\ProductDescriptionSanitizer;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
@@ -15,6 +17,14 @@ class Product extends Model
     use SoftDeletes;
 
     protected $hidden = ['cost_price'];
+
+    protected function description(): Attribute
+    {
+        return Attribute::make(
+            get: fn (?string $value) => app(ProductDescriptionSanitizer::class)->sanitize($value),
+            set: fn (?string $value) => app(ProductDescriptionSanitizer::class)->forStorage($value),
+        );
+    }
 
     protected function casts(): array
     {

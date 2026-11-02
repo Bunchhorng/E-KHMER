@@ -25,6 +25,7 @@ use App\Policies\ReviewPolicy;
 use App\Policies\ShippingMethodPolicy;
 use App\Policies\ShopPolicy;
 use App\Services\Analytics\BusinessForecastService;
+use App\Services\ProductDescriptionSanitizer;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
@@ -37,7 +38,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(ProductDescriptionSanitizer::class);
     }
 
     /**

@@ -15,6 +15,8 @@ import SellerProductVariants from '@/components/seller/SellerProductVariants.vue
 import SellerBarcodeField from '@/components/seller/SellerBarcodeField.vue'
 import AssetImage from '@/components/AssetImage.vue'
 import RichTextEditor from '@/components/RichTextEditor.vue'
+import ProductDescription from '@/components/ProductDescription.vue'
+import { productDescriptionText } from '@/utils/productDescription'
 import type { ApiShippingMethod } from '@/api/shipping'
 import { formatPrice } from '@/utils/format'
 const route = useRoute()
@@ -44,6 +46,7 @@ const brands = ref<ApiBrand[]>([])
 const photos = ref<ProductPhoto[]>([])
 const photoError = computed(() => Object.entries(fields.value).find(([key]) => key === 'images' || key.startsWith('images.') || key === 'image_files' || key.startsWith('image_files.'))?.[1])
 const form = reactive({ name: '', sku: '', barcode: '', cost_price: null as number | null, category_id: 0, brand_id: 0, short_description: '', description: '', price: 0, compare_at_price: null as number | null, weight: null as number | null, initial_stock: 0, is_active: true })
+const descriptionText = computed(() => productDescriptionText(form.description))
 const baseline = ref('')
 const saved = ref(false)
 function snapshot() { return JSON.stringify({ form, photos: photos.value.map(photo => photo.url), variants: variants.value, multiVariant: multiVariant.value }) }
@@ -64,7 +67,7 @@ const previewPrice = computed(() => {
 })
 const checklist = computed(() => [
   { key: 'photos', section: 'seller-product-photos', done: photos.value.length ? 1 : 0, total: 1 },
-  { key: 'details', section: 'seller-product-details', done: [!!form.name.trim(), !!form.category_id, !!form.short_description.trim(), !!form.description.replace(/<[^>]*>/g, '').trim()].filter(Boolean).length, total: 4 },
+  { key: 'details', section: 'seller-product-details', done: [!!form.name.trim(), !!form.category_id, !!form.short_description.trim(), !!descriptionText.value].filter(Boolean).length, total: 4 },
   { key: 'pricing', section: 'seller-product-pricing', done: [multiVariant.value ? variants.value.length > 0 && variants.value.every(variant => hasNonNegativeNumber(variant.price)) : (isEdit || touched.price) && hasNonNegativeNumber(form.price), hasNonNegativeNumber(form.cost_price), multiVariant.value ? variants.value.length > 0 && variants.value.every(variant => Number.isInteger(Number(variant.quantity)) && Number(variant.quantity) >= variant.reserved_quantity) : (isEdit || touched.stock) && hasNonNegativeNumber(form.initial_stock) && Number.isInteger(Number(form.initial_stock)) && Number(form.initial_stock) >= (variants.value[0]?.reserved_quantity ?? 0)].filter(Boolean).length, total: 3 },
   { key: 'shipping', section: 'seller-product-shipping', done: [(isEdit || touched.weight) && hasNonNegativeNumber(form.weight), activeShipping.value.length > 0].filter(Boolean).length, total: 2 }
 ])
@@ -212,6 +215,7 @@ onMounted(() => { void load(); void loadShipping() })
           <header class="form-section-heading"><span class="form-section-icon"><ExternalLink :size="23" :stroke-width="1.8" /></span><div><h2 id="product-preview-title">{{ t('seller.product_preview') }}</h2><p>{{ t('seller.product_preview_help') }}</p></div></header>
           <div class="preview-card overflow-hidden rounded-xl border border-border-gray">
             <div class="preview-product flex items-start gap-3"><AssetImage v-if="photos[0]" :src="photos[0].url" :alt="form.name || t('seller.name')" class="preview-image rounded-lg border border-border-gray bg-canvas" /><span v-else class="preview-image flex items-center justify-center rounded-lg bg-canvas text-muted/60" aria-hidden="true"><ShoppingBag :size="42" :stroke-width="1.5" /></span><div class="min-w-0 flex-1"><h3 class="preview-name font-semibold">{{ form.name.trim() || t('seller.name') }}</h3><p class="preview-price font-bold tabular-nums">{{ formatPrice(previewPrice) }}</p><p v-if="form.short_description.trim()" class="preview-description text-muted">{{ form.short_description }}</p><div v-else class="preview-lines" aria-hidden="true"><span></span><span></span></div><div class="preview-rating flex items-center gap-0.5 text-muted/70" :aria-label="t('seller.preview_rating', { rating: rating.average, count: rating.count })"><Star v-for="star in 5" :key="star" :size="13" :fill="star <= Math.round(rating.average) ? 'currentColor' : 'none'" aria-hidden="true" /><span class="ml-1">({{ rating.count }})</span></div></div></div>
+            <ProductDescription :content="form.description" class="border-t border-border-gray p-3 text-sm" />
             <p class="preview-note flex items-start gap-2 border-t border-border-gray bg-primary/[0.04]"><Info :size="15" class="mt-0.5 shrink-0 text-primary" /><span>{{ t('seller.preview_note') }}</span></p>
           </div>
         </section>

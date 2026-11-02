@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\ProductDescriptionSanitizer;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -29,7 +30,11 @@ class AdminProductRequest extends FormRequest
             // over-long value raised a truncation error and surfaced as a 500.
             'short_description' => ['nullable', 'string', 'max:255'],
             // products.description is a text column (65 535 bytes).
-            'description' => ['nullable', 'string', 'max:60000'],
+            'description' => ['nullable', 'string', 'max:60000', function (string $attribute, mixed $value, \Closure $fail): void {
+                if (is_string($value) && strlen($value) > ProductDescriptionSanitizer::MAX_INPUT_BYTES) {
+                    $fail('The description must not exceed 60000 UTF-8 bytes.');
+                }
+            }],
             'price' => ['nullable', 'numeric', 'min:0', 'max:99999999.99'],
             'cost_price' => ['nullable', 'numeric', 'decimal:0,2', 'min:0', 'max:99999999.99'],
             'barcode' => ['nullable', 'string', 'max:255', 'regex:/^[\x20-\x7E]+$/'],

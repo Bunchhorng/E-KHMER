@@ -2,29 +2,21 @@
 import { nextTick, onMounted, ref, watch } from 'vue'
 import { Bold, Italic, List, ListOrdered, Quote, Redo2, Underline, Undo2 } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
+import { sanitizeProductDescription } from '@/utils/productDescription'
+import '@/styles/productDescription.css'
 
 const props = withDefaults(defineProps<{ modelValue: string; placeholder?: string; label?: string; disabled?: boolean }>(), { placeholder: 'Write a detailed description...', label: '', disabled: false })
 const emit = defineEmits<{ 'update:modelValue': [value: string] }>()
 const { t } = useI18n()
 const editor = ref<HTMLDivElement | null>(null)
 
-function safeFormatting(value: string) {
-  const document = new DOMParser().parseFromString(value, 'text/html')
-  const allowed = new Set(['P', 'DIV', 'BR', 'SPAN', 'B', 'STRONG', 'I', 'EM', 'U', 'UL', 'OL', 'LI', 'BLOCKQUOTE', 'H1', 'H2', 'H3', 'H4', 'A'])
-  for (const element of document.body.querySelectorAll('*')) {
-    if (['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'SVG', 'MATH', 'TEMPLATE', 'LINK', 'META', 'BASE', 'IMG'].includes(element.tagName)) { element.remove(); continue }
-    if (!allowed.has(element.tagName)) { element.replaceWith(...element.childNodes); continue }
-    const href = element.tagName === 'A' ? element.getAttribute('href') : null
-    for (const attribute of [...element.attributes]) element.removeAttribute(attribute.name)
-    if (href && /^(https?:\/\/|mailto:|\/(?!\/)|#)/i.test(href.trim())) element.setAttribute('href', href.trim())
-  }
-  return document.body.innerHTML
-}
-
 function syncFromModel() {
-  if (editor.value && editor.value.innerHTML !== props.modelValue) editor.value.innerHTML = safeFormatting(props.modelValue)
+  if (editor.value) {
+    const safe = sanitizeProductDescription(props.modelValue)
+    if (editor.value.innerHTML !== safe) editor.value.innerHTML = safe
+  }
 }
-function update() { emit('update:modelValue', safeFormatting(editor.value?.innerHTML ?? '')) }
+function update() { emit('update:modelValue', sanitizeProductDescription(editor.value?.innerHTML ?? '')) }
 function run(command: string, value?: string) {
   if (props.disabled) return
   editor.value?.focus()
@@ -53,6 +45,6 @@ onMounted(syncFromModel)
       <button type="button" class="btn-icon h-7 w-7" :title="t('seller.editor_undo')" :aria-label="t('seller.editor_undo')" :disabled="disabled" @mousedown.prevent @click="run('undo')"><Undo2 class="h-3.5 w-3.5" /></button>
       <button type="button" class="btn-icon h-7 w-7" :title="t('seller.editor_redo')" :aria-label="t('seller.editor_redo')" :disabled="disabled" @mousedown.prevent @click="run('redo')"><Redo2 class="h-3.5 w-3.5" /></button>
     </div>
-    <div ref="editor" :contenteditable="!disabled" role="textbox" :aria-label="label || t('seller.description')" :aria-disabled="disabled" aria-multiline="true" class="min-h-32 px-3 py-2 text-sm text-ink outline-none empty:before:pointer-events-none empty:before:text-gray-400 empty:before:content-[attr(data-placeholder)]" :data-placeholder="placeholder" @input="update" @paste="pastePlainText"></div>
+    <div ref="editor" :contenteditable="!disabled" role="textbox" :aria-label="label || t('seller.description')" :aria-disabled="disabled" aria-multiline="true" class="product-description min-h-32 px-3 py-2 text-sm text-ink outline-none empty:before:pointer-events-none empty:before:text-gray-400 empty:before:content-[attr(data-placeholder)]" :data-placeholder="placeholder" @input="update" @paste="pastePlainText"></div>
   </div>
 </template>

@@ -43,6 +43,7 @@ export interface CatalogProduct {
 
 export interface ProductDetail extends CatalogProduct {
   shop?: { id: number; name: string; slug: string; code: string; logo: string | null } | null
+  /** Allowlisted HTML fragment; legacy records are sanitized by the API too. */
   description: string | null
   sku: string
   weight: number | null

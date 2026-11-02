@@ -14,6 +14,8 @@ import {
   Loader2
 } from 'lucide-vue-next'
 import StarRating from '@/components/StarRating.vue'
+import ProductDescription from '@/components/ProductDescription.vue'
+import { productDescriptionText } from '@/utils/productDescription'
 import QuantityCounter from '@/components/QuantityCounter.vue'
 import BaseBadge from '@/components/BaseBadge.vue'
 import StatusTag from '@/components/StatusTag.vue'
@@ -423,7 +425,7 @@ function bucketPercent(count: number): number {
 const featureList = computed(() => {
   const p = product.value
   if (!p) return []
-  return p.description
+  return productDescriptionText(p.description)
     .split('.')
     .map((s) => s.trim())
     .filter(Boolean)
@@ -658,9 +660,9 @@ const featureList = computed(() => {
       </div>
 
       <div class="py-8">
-        <div v-if="activeTab === 'description'">
-          <p class="text-gray-600 dark:text-muted leading-relaxed">{{ product.description }}</p>
-          <div class="mt-6">
+        <div v-if="activeTab === 'description'" class="min-w-0 [overflow-wrap:anywhere]">
+          <ProductDescription :content="product.description" />
+          <div v-if="featureList.length" class="mt-6">
             <h3 class="text-lg font-bold text-ink dark:text-ink">{{ $t('product.key_features') }}</h3>
             <ul class="mt-3 space-y-2">
               <li v-for="(f, i) in featureList" :key="i" class="flex items-start gap-2 text-sm text-gray-600 dark:text-muted">

@@ -1,5 +1,13 @@
 # API Reference (Live)
 
+## Product description HTML — 2026-11-02 (F09)
+
+The existing `description` field is nullable **sanitized HTML fragment** text on product detail APIs, including seller/admin edit responses. Legacy plain text is a text-only HTML fragment; HTML entities are serialized safely and decoded by the browser when rendered. No `description_raw` or alternate format fields were added. Search behavior and plain `short_description`/SEO fields retain their existing contracts.
+
+One `ProductDescriptionSanitizer` policy applies through the Product model on assignment/storage and reads, including legacy rows. The policy allows `p`, `div`, `span`, `br`, `strong`, `b`, `em`, `i`, `u`, `ul`, `ol`, `li`, `h1`, `h2`, `h3`, `h4`, `blockquote`, `a`. Only anchors retain input `href` and `title`; `rel="noopener noreferrer"` is forced. Targets are stripped, so links open in the current tab. URL schemes are HTTP, HTTPS and mailto; safe relative/fragment links remain supported. Scripts, SVG/MathML, iframe/object/embed, forms/controls, media/images and their active attributes are removed. Inline styles, arbitrary classes, IDs, data attributes and event handlers are not retained.
+
+New seller/admin requests retain `nullable|string|max:60000` and additionally limit UTF-8 input to 60,000 bytes. Sanitized output must fit the existing 65,535-byte TEXT column; entity expansion beyond capacity returns a description validation error (422), without silently truncating content. Existing descriptions are sanitized on response without bulk database rewriting. Shop ownership/authorization and all endpoint/payload names remain unchanged. See [F09 policy](./COMMERCE-COMPLETION.md#f09-product-description-policy-2026-11-02).
+
 ## Cart mutation results — 2026-11-02 (F08)
 
 The existing cart endpoints and payloads remain unchanged: `POST /api/cart` accepts `product_variant_id` and `quantity` and returns the updated `CartResource` with HTTP 201; quantity updates/removal/clear return the full updated cart with HTTP 200. Guest operations continue using `X-Session-Id`; there is no new Buy Now endpoint or login requirement.

@@ -14,6 +14,7 @@ class ProductDetailResource extends JsonResource
             'slug' => $this->slug,
             'name' => $this->name,
             'short_description' => $this->short_description,
+            // Product's shared attribute sanitizes new writes and legacy reads.
             'description' => $this->description,
             'sku' => $this->sku,
             'barcode' => $this->barcode,
