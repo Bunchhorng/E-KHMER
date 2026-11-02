@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\AdminCouponRequest;
 use App\Http\Resources\CouponResource;
 use App\Models\Coupon;
+use App\Services\CouponService;
 use Illuminate\Http\Request;
 
 class AdminCouponController extends Controller
@@ -35,16 +36,23 @@ class AdminCouponController extends Controller
         ];
     }
 
-    public function store(AdminCouponRequest $request)
+    public function show(Coupon $coupon)
+    {
+        $this->authorize('view', $coupon);
+
+        return new CouponResource($coupon);
+    }
+
+    public function store(AdminCouponRequest $request, CouponService $coupons)
     {
         $this->authorize('create', Coupon::class, $request->validated());
 
-        $coupon = Coupon::create($request->validated());
+        $coupon = $coupons->create($request->validated());
 
         return (new CouponResource($coupon))->response()->setStatusCode(201);
     }
 
-    public function update(AdminCouponRequest $request, Coupon $coupon)
+    public function update(AdminCouponRequest $request, Coupon $coupon, CouponService $coupons)
     {
         $this->authorize('update', $coupon);
 
@@ -52,7 +60,7 @@ class AdminCouponController extends Controller
             $this->authorize('changeShop', $coupon, $request->input('shop_id') === null ? null : (int) $request->input('shop_id'));
         }
 
-        $coupon->update($request->validated());
+        $coupon = $coupons->update($coupon, $request->validated());
 
         return new CouponResource($coupon);
     }

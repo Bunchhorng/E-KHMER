@@ -5,11 +5,23 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 #[Fillable(['shop_id', 'code', 'type', 'value', 'min_order_amount', 'max_discount_amount', 'usage_limit', 'per_user_limit', 'used_count', 'starts_at', 'expires_at', 'is_active'])]
 class Coupon extends Model
 {
     use HasFactory;
+
+    public static function normalizeCode(string $code): string
+    {
+        return Str::upper(trim($code));
+    }
+
+    public static function duplicateCodeMessage(): string
+    {
+        return __('validation.unique', ['attribute' => 'coupon code']);
+    }
+
     protected function casts(): array
     {
         return [
@@ -45,7 +57,7 @@ class Coupon extends Model
     {
         return $this->is_active
             && ($this->expires_at === null || $this->expires_at->isFuture())
-            && ($this->starts_at === null || !$this->starts_at->isFuture())
+            && ($this->starts_at === null || ! $this->starts_at->isFuture())
             && ($this->usage_limit === null || $this->used_count < $this->usage_limit);
     }
 }

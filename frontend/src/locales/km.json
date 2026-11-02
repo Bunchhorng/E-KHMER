@@ -1623,6 +1623,7 @@
       "type_fixed_option": "ចំនួនថេរ",
       "value_label": "តម្លៃ",
       "min_order_label": "ការបញ្ជាទិញអប្បបរមា",
+      "max_discount_label": "ការបញ្ចុះតម្លៃអតិបរមា",
       "usage_limit_label": "កំណត់ការប្រើប្រាស់",
       "expires_label": "ផុតកំណត់",
       "save_coupon": "រក្សាទុកប័ណ្ណ",

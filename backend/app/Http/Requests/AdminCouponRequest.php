@@ -2,8 +2,8 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Coupon;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AdminCouponRequest extends FormRequest
@@ -15,9 +15,15 @@ class AdminCouponRequest extends FormRequest
 
     public function rules(): array
     {
+        $uniqueCode = Rule::unique('coupons', 'code');
+        $coupon = $this->route('coupon');
+        if ($coupon instanceof Coupon) {
+            $uniqueCode->ignore($coupon);
+        }
+
         return [
             'shop_id' => ['nullable', 'integer', 'exists:shops,id'],
-            'code' => ['required', 'string', 'max:50'],
+            'code' => ['bail', 'required', 'string', 'max:50', $uniqueCode],
             'type' => ['required', 'in:percentage,fixed'],
             'value' => [
                 'required',
@@ -35,10 +41,15 @@ class AdminCouponRequest extends FormRequest
         ];
     }
 
+    public function messages(): array
+    {
+        return ['code.unique' => Coupon::duplicateCodeMessage()];
+    }
+
     protected function prepareForValidation(): void
     {
-        if ($this->filled('code')) {
-            $this->merge(['code' => Str::upper(trim($this->input('code')))]);
+        if (is_string($this->input('code'))) {
+            $this->merge(['code' => Coupon::normalizeCode($this->input('code'))]);
         }
     }
 }

@@ -1623,6 +1623,7 @@
       "type_fixed_option": "Fixed amount",
       "value_label": "Value",
       "min_order_label": "Minimum order",
+      "max_discount_label": "Maximum discount",
       "usage_limit_label": "Usage limit",
       "expires_label": "Expires",
       "save_coupon": "Save Coupon",

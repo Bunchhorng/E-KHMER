@@ -173,6 +173,7 @@ export interface AdminOrderItem {
 
 export interface AdminCoupon {
   id: number
+  shop_id: number | null
   code: string
   type: 'percentage' | 'fixed'
   value: number
@@ -473,6 +474,10 @@ export const adminApi = {
 
   createCoupon(payload: Record<string, unknown>) {
     return apiClient.post<{ data: AdminCoupon }>('/admin/coupons', payload)
+  },
+
+  getCoupon(id: number) {
+    return apiClient.get<{ data: AdminCoupon }>(`/admin/coupons/${id}`)
   },
 
   updateCoupon(id: number, payload: Record<string, unknown>) {

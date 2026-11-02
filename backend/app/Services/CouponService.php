@@ -7,6 +7,7 @@ use App\Models\Coupon;
 use App\Models\CouponUsage;
 use App\Models\Order;
 use App\Models\User;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -14,10 +15,35 @@ class CouponService
 {
     public function __construct(private CartService $carts) {}
 
+    /** The request checks availability; the unique index arbitrates races. */
+    public function create(array $attributes): Coupon
+    {
+        $attributes['code'] = Coupon::normalizeCode($attributes['code']);
+        try {
+            return Coupon::create($attributes);
+        } catch (UniqueConstraintViolationException $exception) {
+            throw ValidationException::withMessages(['code' => [Coupon::duplicateCodeMessage()]]);
+        }
+    }
+
+    public function update(Coupon $coupon, array $attributes): Coupon
+    {
+        if (array_key_exists('code', $attributes)) {
+            $attributes['code'] = Coupon::normalizeCode($attributes['code']);
+        }
+        try {
+            $coupon->update($attributes);
+        } catch (UniqueConstraintViolationException $exception) {
+            throw ValidationException::withMessages(['code' => [Coupon::duplicateCodeMessage()]]);
+        }
+
+        return $coupon;
+    }
+
     public function validate(?User $user, string $code, Cart|Order $source, bool $lockForUpdate = false): Coupon
     {
         $coupon = Coupon::query()
-            ->whereRaw('UPPER(code) = ?', [mb_strtoupper(trim($code))])
+            ->whereRaw('UPPER(code) = ?', [Coupon::normalizeCode($code)])
             ->when($lockForUpdate, fn ($query) => $query->lockForUpdate())
             ->first();
 

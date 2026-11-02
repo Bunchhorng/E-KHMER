@@ -278,6 +278,7 @@ Route::prefix('admin')
 
         Route::get('coupons', [AdminCouponController::class, 'index']);
         Route::post('coupons', [AdminCouponController::class, 'store']);
+        Route::get('coupons/{coupon}', [AdminCouponController::class, 'show']);
         Route::put('coupons/{coupon}', [AdminCouponController::class, 'update']);
         Route::delete('coupons/{coupon}', [AdminCouponController::class, 'destroy']);
 
