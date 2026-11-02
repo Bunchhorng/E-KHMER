@@ -120,6 +120,8 @@ class ReviewTest extends TestCase
             ->assertOk();
 
         $this->assertSame('rejected', Review::findOrFail($review->id)->status);
+        $this->assertSame(0, (int) $product->fresh()->rating_count);
+        $this->assertSame(0.0, (float) $product->fresh()->rating_avg);
     }
 
     public function test_reviews_of_an_unpublished_product_are_not_readable(): void

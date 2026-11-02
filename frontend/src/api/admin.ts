@@ -195,7 +195,7 @@ export interface AdminReview {
   helpful_count: number
   created_at: string
   user: { id: number; name: string }
-  product: { id: number; name: string; slug: string }
+  product: { id: number; name: string; slug: string } | null
 }
 
 export interface AdminSettings {

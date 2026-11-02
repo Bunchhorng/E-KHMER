@@ -1,5 +1,15 @@
 # API Reference (Live)
 
+## Review aggregate lifecycle — 2026-11-02 (F10)
+
+Product payloads retain `rating_avg` and `rating_count`: the two-decimal average and count of **approved** reviews only. With no approved reviews both fields are zero. Pending/rejected reviews are excluded; reviews are hard deleted and have no restore endpoint. Catalog rating thresholds and rating/popularity sorting read these same persisted fields. Product, catalog and public-shop responses do not cache rating payloads.
+
+Existing customer create/update/delete and admin approve/reject/delete endpoints now use one transactional review service. Writers lock the affected product, reload/lock the review, apply the action and recompute its aggregate before committing. Customer edits of approved reviews return them to pending as before. Ownership, delivered-purchase verification, duplicate-review validation and super-admin middleware/policies are unchanged. Unexpected failures return HTTP 503 with `Could not update this review. Please try again.` and roll back the review, aggregate and database notification writes. Standard 401/403/404/422 errors retain their existing behavior.
+
+The admin UI supports rejection of published reviews, rejected status/reapproval, and truthful individual/bulk failure feedback. Its existing bulk selection still sends individual authorized API requests; each request commits its own aggregate. A loaded review's `product` can be null when its product has been archived; public product visibility is unchanged.
+
+Operators can inspect existing data with `docker compose exec -T app php artisan reviews:recalculate-ratings --dry-run`, optionally adding `--product=123`. Omit `--dry-run` to repair incorrect aggregates. The command scans in batches, includes archived products, locks/recomputes one product at a time, and writes only mismatches. It is not scheduled or automatically run in write mode. See [F10 report](./F10-REVIEW-AGGREGATES-REPORT.md).
+
 ## Product description HTML — 2026-11-02 (F09)
 
 The existing `description` field is nullable **sanitized HTML fragment** text on product detail APIs, including seller/admin edit responses. Legacy plain text is a text-only HTML fragment; HTML entities are serialized safely and decoded by the browser when rendered. No `description_raw` or alternate format fields were added. Search behavior and plain `short_description`/SEO fields retain their existing contracts.

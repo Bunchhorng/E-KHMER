@@ -1438,6 +1438,9 @@
         "approved_count": "Approved {count} reviews",
         "deleted_count": "Deleted {count} reviews",
         "deleted_review": "Review deleted",
+        "load_error": "Could not load reviews",
+        "approve_error": "Could not approve review",
+        "reject_error": "Could not reject review",
         "delete_error": "Could not delete review"
       }
     },

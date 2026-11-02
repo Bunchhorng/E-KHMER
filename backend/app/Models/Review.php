@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 #[Fillable(['user_id', 'product_id', 'order_id', 'shop_id', 'rating', 'title', 'body', 'status', 'verified', 'helpful_count', 'is_featured'])]
@@ -20,6 +21,11 @@ class Review extends Model
             'verified' => 'boolean',
             'is_featured' => 'boolean',
         ];
+    }
+
+    public function scopeApproved(Builder $query): Builder
+    {
+        return $query->where('status', self::STATUS_APPROVED);
     }
 
     public function user()

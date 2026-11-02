@@ -24,7 +24,7 @@ class ReviewResource extends JsonResource
                 'id' => $this->user->id,
                 'name' => $this->user->name,
             ]),
-            'product' => $this->whenLoaded('product', fn () => [
+            'product' => $this->whenLoaded('product', fn () => $this->product === null ? null : [
                 'id' => $this->product->id,
                 'name' => $this->product->name,
                 'slug' => $this->product->slug,

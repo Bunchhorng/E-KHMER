@@ -11,7 +11,7 @@ export interface ApiReview {
   created_at: string
   is_featured: boolean
   user: { id: number; name: string }
-  product?: { id: number; name: string; slug: string }
+  product?: { id: number; name: string; slug: string } | null
 }
 
 export const reviewsApi = {

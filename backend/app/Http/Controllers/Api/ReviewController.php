@@ -13,9 +13,7 @@ use Illuminate\Http\Request;
 
 class ReviewController extends Controller
 {
-    public function __construct(protected ReviewService $reviews)
-    {
-    }
+    public function __construct(protected ReviewService $reviews) {}
 
     public function index(Request $request, int $product)
     {
@@ -25,7 +23,7 @@ class ReviewController extends Controller
 
         $reviews = Review::with(['user'])
             ->where('product_id', $product)
-            ->where('status', Review::STATUS_APPROVED)
+            ->approved()
             ->orderByDesc('created_at')
             ->get();
 

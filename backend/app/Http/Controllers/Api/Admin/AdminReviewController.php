@@ -10,9 +10,7 @@ use Illuminate\Http\Request;
 
 class AdminReviewController extends Controller
 {
-    public function __construct(protected ReviewService $reviews)
-    {
-    }
+    public function __construct(protected ReviewService $reviews) {}
 
     public function index(Request $request)
     {
@@ -69,7 +67,7 @@ class AdminReviewController extends Controller
     {
         $this->authorize('delete', $review);
 
-        $review->delete();
+        $this->reviews->deleteByAdmin($review);
 
         return response()->json(['data' => ['message' => 'Review deleted successfully.']]);
     }
