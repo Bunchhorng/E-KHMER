@@ -3,8 +3,8 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
-use App\Models\Inventory;
 use App\Models\Setting;
+use App\Services\InventoryService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -36,7 +36,7 @@ class SettingsController extends Controller
         return $this->response($this->loadAll());
     }
 
-    public function update(Request $request)
+    public function update(Request $request, InventoryService $inventoryService)
     {
         $data = $request->validate([
             'storeName' => ['sometimes', 'string', 'max:120'],
@@ -60,7 +60,7 @@ class SettingsController extends Controller
         // rows as well, so changing it has an immediate, visible effect on low
         // stock badges and notifications rather than only future variants.
         if (array_key_exists('lowStockThreshold', $data)) {
-            Inventory::query()->update(['low_stock_threshold' => (int) $data['lowStockThreshold']]);
+            $inventoryService->updateLowStockThreshold((int) $data['lowStockThreshold']);
         }
 
         return $this->response($this->loadAll());

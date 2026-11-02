@@ -104,6 +104,7 @@ class AccountController extends Controller
                 'type' => $this->friendlyType($n->type),
                 'title' => $n->data['title'] ?? null,
                 'message' => $n->data['message'] ?? null,
+                'url' => $n->data['url'] ?? null,
                 'read_at' => $n->read_at?->toISOString(),
                 'created_at' => $n->created_at?->toISOString(),
             ])->values(),
@@ -115,6 +116,7 @@ class AccountController extends Controller
         return match (true) {
             str_contains($notificationClass, 'Order') => 'order',
             str_contains($notificationClass, 'Promo') => 'promo',
+            str_contains($notificationClass, 'LowStock') => 'inventory',
             default => 'system',
         };
     }

@@ -11,6 +11,13 @@ class Inventory extends Model
 {
     use HasFactory;
 
+    protected function casts(): array
+    {
+        return [
+            'low_stock_notified_at' => 'datetime',
+        ];
+    }
+
     protected static function booted(): void
     {
         static::creating(function (self $inventory): void {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { Bell, Check, Package, ShieldCheck } from 'lucide-vue-next'
+import { Bell, Check, Package, ShieldCheck, Warehouse } from 'lucide-vue-next'
+import { RouterLink } from 'vue-router'
 import { accountApi, type ApiNotification } from '@/api/account'
 import { formatDateTime } from '@/utils/format'
 import { computed, inject, onMounted, ref } from 'vue'
@@ -17,7 +18,11 @@ const busy = ref(false)
 const unreadOnly = ref(false)
 const unreadCount = computed(() => notifications.value.filter(n => !n.read_at).length)
 const visible = computed(() => unreadOnly.value ? notifications.value.filter(n => !n.read_at) : notifications.value)
-function icon(type: string) { return type === 'order' ? Package : type === 'promo' ? Bell : ShieldCheck }
+function icon(type: string) { return type === 'order' ? Package : type === 'promo' ? Bell : type === 'inventory' ? Warehouse : ShieldCheck }
+function inventoryUrl(notification: ApiNotification): string | null {
+  const url = notification.url
+  return notification.type === 'inventory' && url && (url === '/admin/inventory' || /^\/seller\/shops\/\d+\/inventory$/.test(url)) ? url : null
+}
 async function load() {
   loading.value = true; error.value = ''
   try { notifications.value = (await accountApi.getNotifications()).data.data; updateBadge(unreadCount.value) }
@@ -51,11 +56,14 @@ onMounted(load)
     <p v-if="actionError" role="alert" class="text-sm text-red-500">{{ actionError }}</p>
     <AccountState :loading="loading" :error="error" @retry="load">
       <div v-if="visible.length" class="card divide-y divide-border-gray overflow-hidden">
-        <button v-for="notification in visible" :key="notification.id" type="button" :disabled="busy || !!notification.read_at" class="flex w-full items-start gap-3 p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:gap-4 sm:p-5" :class="notification.read_at ? 'bg-surface' : 'bg-primary/5 hover:bg-primary/10'" @click="markRead(notification)">
-          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><component :is="icon(notification.type)" class="h-5 w-5" /></span>
-          <span class="min-w-0 flex-1"><span class="block break-words text-sm" :class="notification.read_at ? 'font-medium text-muted' : 'font-semibold text-ink'">{{ notification.title }}</span><span class="mt-1 block break-words text-sm leading-relaxed text-muted">{{ notification.message }}</span><span class="mt-2 block text-xs text-muted">{{ formatDateTime(notification.created_at) }}</span></span>
-          <span v-if="!notification.read_at" class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" :aria-label="$t('account.ui.unread')"></span>
-        </button>
+        <div v-for="notification in visible" :key="notification.id">
+          <button type="button" :disabled="busy || !!notification.read_at" class="flex w-full items-start gap-3 p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary sm:gap-4 sm:p-5" :class="notification.read_at ? 'bg-surface' : 'bg-primary/5 hover:bg-primary/10'" @click="markRead(notification)">
+            <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary"><component :is="icon(notification.type)" class="h-5 w-5" /></span>
+            <span class="min-w-0 flex-1"><span class="block break-words text-sm" :class="notification.read_at ? 'font-medium text-muted' : 'font-semibold text-ink'">{{ notification.title }}</span><span class="mt-1 block break-words text-sm leading-relaxed text-muted">{{ notification.message }}</span><span class="mt-2 block text-xs text-muted">{{ formatDateTime(notification.created_at) }}</span></span>
+            <span v-if="!notification.read_at" class="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" :aria-label="$t('account.ui.unread')"></span>
+          </button>
+          <RouterLink v-if="inventoryUrl(notification)" :to="inventoryUrl(notification)!" class="mb-4 ml-4 inline-flex min-h-10 items-center px-3 text-sm font-medium text-primary sm:ml-5">{{ $t('seller.stock') }}</RouterLink>
+        </div>
       </div>
       <EmptyState v-else :title="$t('account.all_caught_up')" :description="$t('account.ui.notifications_empty_help')"><template #icon><Bell class="h-7 w-7" /></template></EmptyState>
     </AccountState>

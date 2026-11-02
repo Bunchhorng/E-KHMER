@@ -565,7 +565,7 @@ class AdminProductController extends Controller
                 'image_id' => $variantData['image_id'] ?? null,
             ]);
 
-            Inventory::create([
+            $inventory = Inventory::create([
                 'product_variant_id' => $variant->id,
                 'shop_id' => $product->shop_id,
                 'quantity' => max((int) ($variantData['quantity'] ?? 0), 0),
@@ -573,6 +573,7 @@ class AdminProductController extends Controller
             ]);
 
             $this->attachAttributes($variant, $variantData['attributes'] ?? []);
+            $this->inventoryService->checkLowStock($inventory);
         }
     }
 
@@ -647,20 +648,6 @@ class AdminProductController extends Controller
                     'is_default' => count($variants) === 1,
                     'image_id' => array_key_exists('image_id', $variantData) ? $variantData['image_id'] : $variant->image_id,
                 ]);
-
-                if (array_key_exists('quantity', $variantData)) {
-                    $newQuantity = max((int) $variantData['quantity'], 0);
-                    $currentQuantity = (int) Inventory::where('product_variant_id', $variant->id)->lockForUpdate()->value('quantity');
-
-                    if ($newQuantity !== $currentQuantity) {
-                        $this->inventoryService->adjust($variant->id, $newQuantity, $userId);
-                    } else {
-                        Inventory::updateOrCreate(
-                            ['product_variant_id' => $variant->id],
-                            ['quantity' => $newQuantity, 'shop_id' => $product->shop_id],
-                        );
-                    }
-                }
             }
 
             $referencedIds[] = $variant->id;
@@ -668,6 +655,25 @@ class AdminProductController extends Controller
             if (array_key_exists('attributes', $variantData)) {
                 VariantAttributeValue::where('product_variant_id', $variant->id)->delete();
                 $this->attachAttributes($variant, $variantData['attributes'] ?? []);
+            }
+
+            if ($existing->contains('id', $variant->id) && array_key_exists('quantity', $variantData)) {
+                $newQuantity = max((int) $variantData['quantity'], 0);
+                $currentQuantity = (int) Inventory::where('product_variant_id', $variant->id)->lockForUpdate()->value('quantity');
+
+                if ($newQuantity !== $currentQuantity) {
+                    $this->inventoryService->adjust($variant->id, $newQuantity, $userId);
+                } else {
+                    Inventory::updateOrCreate(
+                        ['product_variant_id' => $variant->id],
+                        ['quantity' => $newQuantity, 'shop_id' => $product->shop_id],
+                    );
+                }
+            }
+
+            $inventory = $variant->inventory()->first();
+            if ($inventory !== null) {
+                $this->inventoryService->checkLowStock($inventory);
             }
         }
 

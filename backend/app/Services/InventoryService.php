@@ -140,6 +140,7 @@ class InventoryService
             $inventory->save();
 
             $this->log($inventory, 'release', $released, (int) $inventory->quantity - (int) $inventory->reserved_quantity, 'VARIANT:'.$variantId, 'Reservation released');
+            $this->checkLowStock($inventory);
         });
     }
 
@@ -295,33 +296,72 @@ class InventoryService
     }
 
     /**
-     * Notify admins once when a variant dips to or below its low-stock
-     * threshold, and clear the flag again when stock is restored above it.
+     * One business event per available-stock episode (including zero stock).
+     * The marker records detection, independently of channel delivery. Always
+     * reload under a row lock, including when called outside a stock mutation.
      */
     public function checkLowStock(Inventory $inventory): void
     {
-        $inventory->refresh();
-
-        if ($inventory->is_low_stock && $inventory->low_stock_notified_at === null) {
-            $inventory->forceFill(['low_stock_notified_at' => now()])->save();
-
-            $admins = User::query()->where('role', User::ROLE_SUPER_ADMIN)->get();
-
-            if ($admins->isEmpty()) {
+        DB::transaction(function () use ($inventory): void {
+            $current = Inventory::whereKey($inventory->id)->lockForUpdate()->first();
+            if ($current === null) {
                 return;
             }
 
-            $variant = $inventory->variant()->with(['product', 'attributeValues.value.attribute'])->first();
+            if (! $current->is_low_stock) {
+                if ($current->low_stock_notified_at !== null) {
+                    $current->forceFill(['low_stock_notified_at' => null])->save();
+                }
 
-            Notification::send($admins, new LowStockNotification(
-                $inventory,
-                $variant?->product?->name ?? 'Product',
-                $variant !== null ? $this->variantLabel($variant) : '',
-                $inventory->available_quantity,
+                return;
+            }
+
+            if ($current->low_stock_notified_at !== null) {
+                return;
+            }
+
+            $variant = $current->variant()->with(['product.shop', 'attributeValues.value.attribute'])->first();
+            $product = $variant?->product;
+            if ($product === null || ! $variant->is_active || ! $product->is_active
+                || ($product->shop_id !== null && ! $product->shop?->isActive())) {
+                return;
+            }
+
+            $current->setRelation('variant', $variant);
+            $current->forceFill(['low_stock_notified_at' => now()])->save();
+
+            // One query deduplicates users who are both a manager and admin.
+            // managedShops enforces active shop/membership and owner/manager roles.
+            $recipients = User::query()->where('role', User::ROLE_SUPER_ADMIN)
+                ->when($product->shop_id !== null, fn ($query) => $query->orWhereHas(
+                    'managedShops', fn ($shops) => $shops->whereKey($product->shop_id)
+                ))->get();
+
+            Notification::send($recipients, new LowStockNotification(
+                $current,
+                $product->name,
+                $this->variantLabel($variant),
+                $current->available_quantity,
             ));
-        } elseif (! $inventory->is_low_stock && $inventory->low_stock_notified_at !== null) {
-            $inventory->forceFill(['low_stock_notified_at' => null])->save();
-        }
+        });
+    }
+
+    /** Reevaluate the platform threshold without holding a catalog-wide lock. */
+    public function updateLowStockThreshold(int $threshold): void
+    {
+        Inventory::query()->select('id')->chunkById(100, function ($inventories) use ($threshold): void {
+            foreach ($inventories as $inventory) {
+                DB::transaction(function () use ($inventory, $threshold): void {
+                    $current = Inventory::whereKey($inventory->id)->lockForUpdate()->first();
+                    if ($current === null) {
+                        return;
+                    }
+
+                    $current->update(['low_stock_threshold' => $threshold]);
+                    $this->checkLowStock($current);
+                });
+            }
+        });
     }
 
     private function variantLabel(ProductVariant $variant): string
