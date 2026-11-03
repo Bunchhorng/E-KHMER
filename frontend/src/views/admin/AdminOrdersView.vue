@@ -6,6 +6,7 @@ import AdminDataTable from '@/components/admin/AdminDataTable.vue'
 import type { TableColumn, TableRow } from '@/types'
 import { adminApi } from '@/api/admin'
 import type { AdminOrderItem } from '@/api/admin'
+import { extractDownloadErrorMessage } from '@/api/errors'
 import { downloadResponse } from '@/utils/download'
 
 const { t } = useI18n()
@@ -111,8 +112,8 @@ async function onBulkAction(payload: { action: string; ids: string[] }) {
       const res = await adminApi.getOrdersCsv()
       downloadResponse(res, 'orders.csv')
       showToast(t('admin.orders.toast.exported_csv', { count: payload.ids.length }))
-    } catch {
-      showToast(t('admin.orders.toast.action_failed'))
+    } catch (error) {
+      showToast(await extractDownloadErrorMessage(error, t('admin.orders.toast.action_failed')))
     }
   } else if (payload.action === 'delivered') {
     let ok = 0
@@ -131,8 +132,8 @@ async function onBulkAction(payload: { action: string; ids: string[] }) {
       const res = await adminApi.getOrdersPdf()
       downloadResponse(res, 'orders.pdf')
       showToast(t('admin.orders.toast.printing_labels', { count: payload.ids.length }))
-    } catch {
-      showToast(t('admin.orders.toast.action_failed'))
+    } catch (error) {
+      showToast(await extractDownloadErrorMessage(error, t('admin.orders.toast.action_failed')))
     }
   }
 }

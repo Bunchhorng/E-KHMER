@@ -4,6 +4,7 @@ import { FileText, FileSpreadsheet, RefreshCw, DollarSign, ShoppingCart, Users, 
 import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/api/admin'
 import type { AdminDashboard } from '@/api/admin'
+import { extractDownloadErrorMessage } from '@/api/errors'
 import SalesCategoryChart from '@/components/admin/charts/SalesCategoryChart.vue'
 import { downloadResponse } from '@/utils/download'
 import { formatCompactNumber, formatPrice } from '@/utils/format'
@@ -112,8 +113,8 @@ async function exportFile(type: 'orders' | 'products' | 'payments', format: 'csv
     }
     downloadResponse(response, `${type}-${new Date().toISOString().slice(0, 10)}.${format === 'pdf' ? 'pdf' : 'csv'}`)
     showToast(t('admin.reports.toast_exported', { type: t(`admin.reports.type_${type}`) }))
-  } catch {
-    showToast(t('admin.reports.toast_error'))
+  } catch (error) {
+    showToast(await extractDownloadErrorMessage(error, t('admin.reports.toast_error')))
   } finally {
     downloading.value = ''
   }

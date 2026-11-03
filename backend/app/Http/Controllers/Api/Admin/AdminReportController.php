@@ -3,41 +3,40 @@
 namespace App\Http\Controllers\Api\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AdminReportFilterRequest;
 use App\Models\Inventory;
 use App\Models\Order;
+use App\Models\OrderItem;
 use App\Models\Payment;
 use App\Services\Analytics\FinancialMetricService;
 use Barryvdh\DomPDF\Facade\Pdf;
-use Illuminate\Http\Request;
-use Illuminate\Support\Carbon;
+use Illuminate\Validation\ValidationException;
 
 class AdminReportController extends Controller
 {
-    protected function applyFilters(Request $request, $query)
+    private const PDF_ROW_LIMIT = 1000;
+
+    // Product sales use F15's canonical allocation calculation, which must
+    // aggregate product keys before a CSV row can be written. Cap the source
+    // rows so that aggregation has an explicit, reviewable memory bound.
+    private const PRODUCT_CSV_SOURCE_ROW_LIMIT = 10000;
+
+    protected function applyFilters(AdminReportFilterRequest $request, $query)
     {
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('status', $request->status);
         }
 
-        if ($request->filled('from')) {
-            $query->where('placed_at', '>=', Carbon::parse($request->from)->startOfDay());
-        }
-
-        if ($request->filled('to')) {
-            $query->where('placed_at', '<=', Carbon::parse($request->to)->endOfDay());
-        }
+        $query->when($request->from(), fn ($query, $from) => $query->where('placed_at', '>=', $from))
+            ->when($request->to(), fn ($query, $to) => $query->where('placed_at', '<=', $to));
 
         return $query;
     }
 
-    public function summary(Request $request, FinancialMetricService $financial)
+    public function summary(AdminReportFilterRequest $request, FinancialMetricService $financial)
     {
-        $request->validate([
-            'from' => ['nullable', 'date_format:Y-m-d'],
-            'to' => ['nullable', 'date_format:Y-m-d', ...($request->filled('from') ? ['after_or_equal:from'] : [])],
-        ]);
-        $from = $request->filled('from') ? Carbon::parse($request->from)->startOfDay() : null;
-        $to = $request->filled('to') ? Carbon::parse($request->to)->endOfDay() : null;
+        $from = $request->from();
+        $to = $request->to();
 
         $metrics = $financial->report($from, $to);
 
@@ -96,11 +95,10 @@ class AdminReportController extends Controller
         ];
     }
 
-    public function ordersCsv(Request $request)
+    public function ordersCsv(AdminReportFilterRequest $request)
     {
-        $query = $this->applyFilters($request, Order::query()->orderByDesc('placed_at'));
-
-        $orders = $query->get();
+        $query = $this->applyFilters($request, Order::query())
+            ->select(['id', 'order_number', 'placed_at', 'customer_name', 'email', 'status', 'payment_status', 'subtotal', 'discount_amount', 'tax_amount', 'shipping_amount', 'total', 'coupon_code']);
 
         $headers = [
             'order_number', 'placed_at', 'customer_name', 'email', 'status',
@@ -108,16 +106,16 @@ class AdminReportController extends Controller
             'shipping_amount', 'total', 'coupon_code',
         ];
 
-        return response()->streamDownload(function () use ($orders, $headers) {
+        return response()->streamDownload(function () use ($query, $headers) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, $headers);
 
-            foreach ($orders as $order) {
+            foreach ($query->lazyById(500) as $order) {
                 fputcsv($handle, [
-                    $order->order_number,
+                    $this->csvCell($order->order_number),
                     $order->placed_at?->toDateTimeString(),
-                    $order->customer_name,
-                    $order->email,
+                    $this->csvCell($order->customer_name),
+                    $this->csvCell($order->email),
                     $order->status,
                     $order->payment_status,
                     (string) $order->subtotal,
@@ -125,7 +123,7 @@ class AdminReportController extends Controller
                     (string) $order->tax_amount,
                     (string) $order->shipping_amount,
                     (string) $order->total,
-                    $order->coupon_code,
+                    $this->csvCell($order->coupon_code),
                 ]);
             }
 
@@ -135,9 +133,14 @@ class AdminReportController extends Controller
         ]);
     }
 
-    public function ordersPdf(Request $request)
+    public function ordersPdf(AdminReportFilterRequest $request)
     {
-        $query = $this->applyFilters($request, Order::query()->orderByDesc('placed_at'));
+        $query = $this->applyFilters($request, Order::query())->orderByDesc('placed_at');
+        if ((clone $query)->count() > self::PDF_ROW_LIMIT) {
+            throw ValidationException::withMessages([
+                'export' => 'This PDF would contain more than '.self::PDF_ROW_LIMIT.' rows. Narrow the date range or use CSV.',
+            ]);
+        }
 
         $orders = $query->get();
 
@@ -149,10 +152,21 @@ class AdminReportController extends Controller
         return $pdf->download('orders-'.now()->format('Y-m-d').'.pdf');
     }
 
-    public function productsCsv(Request $request, FinancialMetricService $financial)
+    public function productsCsv(AdminReportFilterRequest $request, FinancialMetricService $financial)
     {
-        $from = $request->filled('from') ? Carbon::parse($request->from)->startOfDay() : null;
-        $to = $request->filled('to') ? Carbon::parse($request->to)->endOfDay() : null;
+        $from = $request->from();
+        $to = $request->to();
+        $sourceRowCount = OrderItem::query()
+            ->join('orders', 'orders.id', '=', 'order_items.order_id')
+            ->when($from, fn ($query) => $query->where('orders.placed_at', '>=', $from))
+            ->when($to, fn ($query) => $query->where('orders.placed_at', '<=', $to))
+            ->count();
+
+        if ($sourceRowCount > self::PRODUCT_CSV_SOURCE_ROW_LIMIT) {
+            throw ValidationException::withMessages([
+                'export' => 'This product report would aggregate more than '.self::PRODUCT_CSV_SOURCE_ROW_LIMIT.' source rows. Narrow the date range before exporting.',
+            ]);
+        }
 
         $rows = collect($financial->report($from, $to)['products'])
             ->sortByDesc('units_sold')
@@ -167,7 +181,7 @@ class AdminReportController extends Controller
             foreach ($rows as $row) {
                 fputcsv($handle, [
                     $row['product_id'],
-                    $row['product_name'],
+                    $this->csvCell($row['product_name']),
                     (string) $row['units_sold'],
                     number_format($row['revenue'] / 100, 2, '.', ''),
                 ]);
@@ -179,41 +193,33 @@ class AdminReportController extends Controller
         ]);
     }
 
-    public function paymentsCsv(Request $request)
+    public function paymentsCsv(AdminReportFilterRequest $request)
     {
         $query = Payment::query()
             ->join('orders', 'orders.id', '=', 'payments.order_id')
-            ->select('payments.*', 'orders.order_number')
-            ->orderByDesc('payments.created_at');
+            ->select('payments.*', 'orders.order_number');
 
         if ($request->filled('status') && $request->status !== 'all') {
             $query->where('payments.status', $request->status);
         }
 
-        if ($request->filled('from')) {
-            $query->where('payments.created_at', '>=', Carbon::parse($request->from)->startOfDay());
-        }
-
-        if ($request->filled('to')) {
-            $query->where('payments.created_at', '<=', Carbon::parse($request->to)->endOfDay());
-        }
-
-        $payments = $query->get();
+        $query->when($request->from(), fn ($query, $from) => $query->where('orders.placed_at', '>=', $from))
+            ->when($request->to(), fn ($query, $to) => $query->where('orders.placed_at', '<=', $to));
 
         $headers = ['id', 'order_number', 'method', 'status', 'amount', 'transaction_id', 'paid_at'];
 
-        return response()->streamDownload(function () use ($payments, $headers) {
+        return response()->streamDownload(function () use ($query, $headers) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, $headers);
 
-            foreach ($payments as $payment) {
+            foreach ($query->lazyById(500, 'payments.id') as $payment) {
                 fputcsv($handle, [
                     $payment->id,
-                    $payment->order_number,
-                    $payment->method,
+                    $this->csvCell($payment->order_number),
+                    $this->csvCell($payment->method),
                     $payment->status,
                     (string) $payment->amount,
-                    $payment->transaction_id,
+                    $this->csvCell($payment->transaction_id),
                     $payment->paid_at?->toDateTimeString(),
                 ]);
             }
@@ -222,5 +228,14 @@ class AdminReportController extends Controller
         }, 'payments-'.now()->format('Y-m-d').'.csv', [
             'Content-Type' => 'text/csv',
         ]);
+    }
+
+    private function csvCell(mixed $value): mixed
+    {
+        if (! is_string($value)) {
+            return $value;
+        }
+
+        return preg_match('/^[=+@-]/', ltrim($value)) === 1 ? "'".$value : $value;
     }
 }

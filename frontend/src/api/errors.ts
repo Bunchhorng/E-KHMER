@@ -64,6 +64,24 @@ export function extractErrorMessage(error: unknown, fallback: string): string {
 }
 
 /**
+ * Export endpoints deliberately use Blob responses. Axios therefore returns a
+ * Laravel 422 payload as a Blob too; decode it so the report screen can show
+ * the actionable validation message instead of a generic download failure.
+ */
+export async function extractDownloadErrorMessage(error: unknown, fallback: string): Promise<string> {
+  if (!axios.isAxiosError(error) || !(error.response?.data instanceof Blob)) {
+    return extractErrorMessage(error, fallback)
+  }
+
+  try {
+    const data = JSON.parse(await error.response.data.text()) as ValidationErrors
+    return firstFieldError(data) ?? data.message ?? fallback
+  } catch {
+    return fallback
+  }
+}
+
+/**
  * Pick the first message the API attached to a specific input, preferring the
  * credential fields so a duplicate-email rejection lands on the email input.
  */
