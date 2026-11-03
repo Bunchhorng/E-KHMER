@@ -32,6 +32,7 @@ const searchTerm = ref("");
 const mobileOpen = ref(false);
 const userMenuOpen = ref(false);
 const userMenuRef = ref<HTMLElement | null>(null);
+let previousBodyOverflow = ''
 
 const accountLinks = computed<Array<{ labelKey: string; to: RouteLocationRaw }>>(() => [
   ...(auth.isAdmin ? [{ labelKey: 'marketplace.platform_admin', to: { name: 'admin-dashboard' } }] : []),
@@ -76,7 +77,19 @@ watch(userMenuOpen, (open) => {
   else document.removeEventListener("click", onClickOutside);
 });
 
-onBeforeUnmount(() => document.removeEventListener("click", onClickOutside));
+watch(mobileOpen, (open) => {
+  if (open) {
+    previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = previousBodyOverflow
+  }
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener("click", onClickOutside)
+  if (mobileOpen.value) document.body.style.overflow = previousBodyOverflow
+});
 
 async function signOut(): Promise<void> {
   closeUserMenu();
@@ -218,6 +231,12 @@ async function signOut(): Promise<void> {
           </div>
         </div>
       </div>
+      <div class="border-t border-border-gray md:hidden">
+        <form class="container-app relative py-2" role="search" @submit.prevent="submitSearch">
+          <Search class="pointer-events-none absolute left-7 top-1/2 -translate-y-1/2 text-gray-400" :size="18" />
+          <input v-model="searchTerm" type="search" class="input w-full pl-10 pr-4" :placeholder="$t('header.search_placeholder')" />
+        </form>
+      </div>
     </div>
   </header>
 
@@ -226,7 +245,7 @@ async function signOut(): Promise<void> {
       <div v-if="mobileOpen" class="fixed inset-0 z-50">
         <div class="fixed inset-0 bg-black/40" @click="closeMobile"></div>
         <aside
-          class="panel fixed inset-y-0 left-0 z-50 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl dark:bg-surface"
+          class="panel fixed inset-y-0 left-0 z-50 flex h-[100dvh] w-72 max-w-[85vw] flex-col bg-surface pb-[env(safe-area-inset-bottom)] shadow-xl"
         >
           <div
             class="flex items-center justify-between border-b border-border-gray px-4 py-4 dark:border-border-gray"

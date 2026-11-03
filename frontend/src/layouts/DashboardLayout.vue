@@ -139,25 +139,11 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .dashboard-workspace {
-  --color-ink: 17 24 39;
-  --color-muted: 107 114 128;
-  --color-canvas: 249 250 251;
-  --color-surface: 255 255 255;
-  --color-border: 229 231 235;
-  --color-primary: 37 99 235;
   --dashboard-sidebar-width: 288px;
   --dashboard-header-height: 80px;
   min-height: 100vh;
   color: rgb(var(--color-ink));
   background: rgb(var(--color-canvas));
-}
-:global(html.dark .dashboard-workspace) {
-  --color-ink: 240 245 255;
-  --color-muted: 157 173 199;
-  --color-canvas: 11 18 32;
-  --color-surface: 23 34 53;
-  --color-border: 43 57 80;
-  --color-primary: 96 153 255;
 }
 .dashboard-skip { position: fixed; left: 16px; top: 16px; z-index: 60; border-radius: 10px; background: rgb(var(--color-surface)); }
 .dashboard-skip:focus { padding: 12px; }

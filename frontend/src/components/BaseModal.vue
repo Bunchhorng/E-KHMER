@@ -72,14 +72,14 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKeydown); if (pr
   <Teleport to="body">
     <div v-if="modelValue" class="fixed inset-0 z-50 overflow-y-auto">
       <div class="fixed inset-0 animate-fade-in bg-black/40" @click="handleBackdropClick"></div>
-      <div class="relative flex min-h-full items-center justify-center p-4">
+      <div class="relative flex min-h-[100dvh] items-center justify-center p-3 sm:p-4">
         <div
           ref="dialog"
           role="dialog"
           aria-modal="true"
           :aria-labelledby="titleId"
           tabindex="-1"
-          class="relative mx-4 my-8 flex max-h-[85vh] w-full flex-col rounded-xl bg-white shadow-popover dark:bg-surface"
+          class="relative my-4 flex max-h-[calc(100dvh-1.5rem)] w-full flex-col rounded-2xl bg-surface shadow-popover sm:my-8 sm:max-h-[85vh]"
           :class="sizeClasses[size]"
         >
           <header class="flex shrink-0 items-center justify-between border-b border-border-gray px-6 py-4">

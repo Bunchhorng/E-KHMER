@@ -23,12 +23,12 @@ function setValue(value: number): void {
 <template>
   <div
     class="inline-flex items-center rounded-lg border border-border-gray"
-    :class="size === 'sm' ? 'h-8' : 'h-10'"
+    :class="size === 'sm' ? 'h-9' : 'h-11'"
   >
     <button
       type="button"
       class="flex h-full items-center justify-center text-gray-500 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-      :class="size === 'sm' ? 'px-2' : 'px-3'"
+      :class="size === 'sm' ? 'min-w-9 px-2' : 'min-w-11 px-3'"
       :disabled="disabled || modelValue <= min"
       aria-label="Decrease quantity"
       @click="setValue(modelValue - 1)"
@@ -44,7 +44,7 @@ function setValue(value: number): void {
     <button
       type="button"
       class="flex h-full items-center justify-center text-gray-500 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-      :class="size === 'sm' ? 'px-2' : 'px-3'"
+      :class="size === 'sm' ? 'min-w-9 px-2' : 'min-w-11 px-3'"
       :disabled="disabled || modelValue >= max"
       aria-label="Increase quantity"
       @click="setValue(modelValue + 1)"

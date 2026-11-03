@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ShoppingBag, X } from 'lucide-vue-next'
 import { useCartStore } from '@/stores/cart'
@@ -11,6 +12,20 @@ import QuoteSummary from './QuoteSummary.vue'
 const router = useRouter()
 const cartStore = useCartStore()
 const uiStore = useUiStore()
+let previousBodyOverflow = ''
+
+watch(() => uiStore.cartDrawerOpen, (open) => {
+  if (open) {
+    previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = previousBodyOverflow
+  }
+})
+
+onBeforeUnmount(() => {
+  if (uiStore.cartDrawerOpen) document.body.style.overflow = previousBodyOverflow
+})
 
 function closeCartDrawer(): void {
   uiStore.closeCartDrawer()
@@ -28,7 +43,7 @@ function startShopping(): void {
     <Transition name="drawer">
       <div v-if="uiStore.cartDrawerOpen" class="fixed inset-0 z-50">
         <div class="fixed inset-0 bg-black/40" @click="closeCartDrawer"></div>
-        <aside class="panel fixed inset-y-0 right-0 z-50 flex w-full max-w-sm flex-col bg-white shadow-xl dark:bg-surface">
+        <aside class="panel fixed inset-y-0 right-0 z-50 flex h-[100dvh] w-full max-w-sm flex-col bg-surface pb-[env(safe-area-inset-bottom)] shadow-xl">
           <header class="flex shrink-0 items-center justify-between border-b border-border-gray px-5 py-4 dark:border-border-gray">
             <h2 class="flex items-center gap-2 text-lg font-semibold text-ink dark:text-ink">
               {{ $t('cart.your_cart') }}

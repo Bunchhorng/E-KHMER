@@ -37,7 +37,7 @@ function handleWishlist(productId: string): void {
         <ArrowRight :size="16" />
       </RouterLink>
     </div>
-    <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+    <div class="grid grid-cols-2 gap-3 max-[359px]:grid-cols-1 sm:gap-4 sm:grid-cols-3 lg:grid-cols-6">
       <ProductCard
         v-for="product in products"
         :key="product.id"

@@ -63,6 +63,7 @@ const filters = reactive<Filters>({
 })
 
 let applying = false
+let previousBodyOverflow = ''
 
 function toArray(v: unknown): string[] {
   if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string')
@@ -195,7 +196,21 @@ watch(() => route.query, (q) => {
 onMounted(() => {
   fetchFacets()
 })
-onBeforeUnmount(() => request++)
+watch(() => ui.mobileFiltersOpen, (open) => {
+  if (open) {
+    previousBodyOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+  } else {
+    document.body.style.overflow = previousBodyOverflow
+  }
+})
+onBeforeUnmount(() => {
+  request++
+  if (ui.mobileFiltersOpen) {
+    ui.closeMobileFilters()
+    document.body.style.overflow = previousBodyOverflow
+  }
+})
 
 const activeCategoryName = computed(() => {
   if (!filters.category) return ''
@@ -425,7 +440,7 @@ function setPage(p: number) {
           <button class="btn-outline ml-2" @click="clearAll">{{ $t('shop.clear_filters') }}</button>
         </div>
         <template v-else>
-          <div v-if="products.length" class="grid grid-cols-2 gap-5 md:grid-cols-3 xl:grid-cols-4">
+          <div v-if="products.length" class="grid grid-cols-2 gap-3 max-[359px]:grid-cols-1 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
             <ProductCard
               v-for="p in products"
               :key="p.id"
@@ -463,14 +478,15 @@ function setPage(p: number) {
         class="fixed inset-0 z-50 lg:hidden"
       >
         <div class="absolute inset-0 bg-black/50" @click="ui.closeMobileFilters()"></div>
-        <div role="dialog" :aria-label="$t('shop.filter')" aria-modal="true" class="absolute inset-y-0 right-0 w-80 max-w-[85vw] overflow-y-auto bg-white p-5 shadow-2xl dark:bg-surface">
-          <div class="mb-4 flex items-center justify-between">
+        <div role="dialog" :aria-label="$t('shop.filter')" aria-modal="true" class="absolute inset-y-0 right-0 flex h-[100dvh] w-80 max-w-[88vw] flex-col bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl">
+          <div class="flex shrink-0 items-center justify-between border-b border-border-gray px-5 py-4">
             <h3 class="text-lg font-bold text-ink dark:text-ink">{{ $t('shop.filter') }}</h3>
             <button :aria-label="$t('actions.close')" class="btn-icon" @click="ui.closeMobileFilters()">
               <X class="h-5 w-5" />
             </button>
           </div>
 
+          <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5">
           <div class="space-y-6">
             <p v-if="facetsError" role="alert" class="text-sm text-red-600">{{ facetsError }} <button class="underline" @click="fetchFacets">Retry filters</button></p>
             <div>
@@ -516,10 +532,11 @@ function setPage(p: number) {
               {{ $t('shop.in_stock_only') }}
             </label>
 
-            <div class="flex gap-2">
-              <button class="btn-outline flex-1" @click="clearAll">{{ $t('shop.clear_all') }}</button>
-              <button class="btn-primary flex-1 lg:hidden" @click="ui.closeMobileFilters()">{{ $t('actions.apply') }}</button>
-            </div>
+          </div>
+          </div>
+          <div class="flex shrink-0 gap-2 border-t border-border-gray bg-surface p-4">
+            <button class="btn-outline flex-1" @click="clearAll">{{ $t('shop.clear_all') }}</button>
+            <button class="btn-primary flex-1" @click="ui.closeMobileFilters()">{{ $t('actions.apply') }}</button>
           </div>
         </div>
       </div>

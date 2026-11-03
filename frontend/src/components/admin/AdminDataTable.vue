@@ -6,9 +6,9 @@ import BaseBadge from '@/components/BaseBadge.vue'
 import BasePagination from '@/components/BasePagination.vue'
 import DataTableSkeleton from '@/components/DataTableSkeleton.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import AppImage from '@/components/AppImage.vue'
 import type { TableColumn, TableRow } from '@/types'
 import { formatPrice, formatDate } from '@/utils/format'
-import eKhmerLogo from '@/assets/E-KHMER-LOGO.jpg'
 
 interface Props {
   columns: TableColumn[]
@@ -173,9 +173,6 @@ function cellValue(row: TableRow, col: TableColumn): string {
   return String(v)
 }
 
-function imageSource(value: unknown): string {
-  return typeof value === 'string' && value.trim() ? value : eKhmerLogo
-}
 </script>
 
 <template>
@@ -243,7 +240,11 @@ function imageSource(value: unknown): string {
               </td>
               <template v-for="col in props.columns" :key="col.key">
                 <td v-if="col.type === 'image'" class="px-4 py-3 align-middle">
-                  <img :src="imageSource(row[col.key])" class="h-10 w-10 rounded-lg object-cover" alt="" @error="($event.currentTarget as HTMLImageElement).src = eKhmerLogo" />
+                  <AppImage
+                    :src="typeof row[col.key] === 'string' ? String(row[col.key]) : null"
+                    :alt="String(row.name ?? row.title ?? col.label)"
+                    class="h-10 w-10 rounded-lg"
+                  />
                 </td>
                 <td v-else-if="col.type === 'status'" class="px-4 py-3 align-middle">
                   <StatusTag :status="String(row[col.key])" />
@@ -262,7 +263,7 @@ function imageSource(value: unknown): string {
                 </td>
                 <td v-else-if="col.type === 'actions'" class="px-4 py-3 align-middle text-right">
                   <div class="relative">
-                    <button class="btn-icon h-8 w-8" @click="openMenu($event, row)">
+                    <button class="btn-icon h-8 w-8 max-sm:h-10 max-sm:w-10" aria-label="More actions" @click="openMenu($event, row)">
                       <MoreHorizontal class="h-4 w-4" />
                     </button>
                     <Teleport to="body"><div v-if="menuOpenId === String(row.id) && props.rowActions.length" class="fixed z-[100] w-44 overflow-hidden rounded-xl border border-border-gray bg-surface py-1 shadow-popover" :style="{ top: `${menuPosition.top}px`, left: `${menuPosition.left}px` }"><button v-for="a in props.rowActions" :key="a.value" class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm text-gray-700 transition-colors hover:bg-gray-50 hover:text-ink dark:text-muted dark:hover:bg-surface-hover dark:hover:text-ink" @click="runRowAction(a.value, row)">{{ a.label }}</button></div></Teleport>

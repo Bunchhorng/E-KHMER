@@ -10,11 +10,21 @@ export default {
         canvas: 'rgb(var(--color-canvas) / <alpha-value>)',
         surface: 'rgb(var(--color-surface) / <alpha-value>)',
         'surface-hover': 'rgb(var(--color-surface-hover) / <alpha-value>)',
+        'surface-raised': 'rgb(var(--color-surface-raised) / <alpha-value>)',
+        'surface-muted': 'rgb(var(--color-surface-muted) / <alpha-value>)',
+        'surface-active': 'rgb(var(--color-surface-active) / <alpha-value>)',
         ink: 'rgb(var(--color-ink) / <alpha-value>)',
+        'text-secondary': 'rgb(var(--color-text-secondary) / <alpha-value>)',
+        'text-muted': 'rgb(var(--color-text-muted) / <alpha-value>)',
         muted: 'rgb(var(--color-muted) / <alpha-value>)',
         'border-gray': 'rgb(var(--color-border) / <alpha-value>)',
+        'border-strong': 'rgb(var(--color-border-strong) / <alpha-value>)',
+        'border-focus': 'rgb(var(--color-border-focus) / <alpha-value>)',
         accent: 'rgb(var(--color-accent) / <alpha-value>)',
-        success: 'rgb(var(--color-success) / <alpha-value>)'
+        success: 'rgb(var(--color-success) / <alpha-value>)',
+        warning: 'rgb(var(--color-warning) / <alpha-value>)',
+        danger: 'rgb(var(--color-danger) / <alpha-value>)',
+        info: 'rgb(var(--color-info) / <alpha-value>)'
       },
       fontFamily: {
         sans: ['Inter', 'ui-sans-serif', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
@@ -36,7 +46,8 @@ export default {
         '9xl': ['8.25rem', { lineHeight: '1.1' }]
       },
       boxShadow: {
-        card: '0 1px 3px rgba(17, 24, 39, 0.08), 0 1px 2px rgba(17, 24, 39, 0.04)',
+        card: 'var(--shadow-card)',
+        raised: 'var(--shadow-raised)',
         popover: '0 10px 40px rgba(17, 24, 39, 0.16)'
       },
       keyframes: {

@@ -74,7 +74,7 @@ async function subscribe(): Promise<void> {
           <p class="mt-4 text-sm text-gray-400 dark:text-muted">
             {{ $t('footer.newsletter_text') }}
           </p>
-          <form class="mt-4 flex gap-2" @submit.prevent="subscribe">
+          <form class="mt-4 flex gap-2 max-[359px]:flex-col" @submit.prevent="subscribe">
             <input
               v-model="email"
               type="email"
@@ -83,7 +83,7 @@ async function subscribe(): Promise<void> {
               :placeholder="$t('footer.email_placeholder')"
               :aria-label="$t('footer.email_placeholder')"
             />
-            <button type="submit" class="btn-primary shrink-0 !px-4" :disabled="subscribing || !consent" :aria-label="$t('footer.subscribe')">
+            <button type="submit" class="btn-primary shrink-0 !px-4 max-[359px]:w-full" :disabled="subscribing || !consent" :aria-label="$t('footer.subscribe')">
               <Send :size="15" />
             </button>
           </form>

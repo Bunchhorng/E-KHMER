@@ -7,6 +7,7 @@ import type { Product } from '@/types'
 import { formatPrice } from '@/utils/format'
 import { swatchColor } from '@/utils/color'
 import StarRating from './StarRating.vue'
+import AppImage from './AppImage.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -65,13 +66,11 @@ function handleWishlistToggle(): void {
 <template>
   <div class="card feature-glow group flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-lg dark:bg-surface">
     <div class="relative aspect-square shrink-0 overflow-hidden bg-canvas dark:bg-surface-hover/50">
-      <RouterLink :to="`/product/${props.product.slug}`" class="block h-full w-full">
-        <img
-          v-if="coverImage"
-          :src="coverImage.url"
-          :alt="coverImage.alt ?? props.product.title"
-          loading="lazy"
-          class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+      <RouterLink :to="`/product/${props.product.slug}`" class="block h-full w-full" :aria-label="`${$t('actions.view_all')}: ${props.product.title}`">
+        <AppImage
+          :src="coverImage?.url"
+          :alt="coverImage?.alt ?? props.product.title"
+          class="h-full w-full transition-transform duration-300 group-hover:scale-105"
         />
       </RouterLink>
       <div v-if="discountPercent > 0 || props.product.isNew" class="absolute left-3 top-3 flex flex-col items-start gap-1">

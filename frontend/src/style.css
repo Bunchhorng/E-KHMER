@@ -5,30 +5,58 @@
 @layer base {
   :root {
     --app-content-max-width: 1600px;
+    /* E-KHMER semantic design tokens. Components consume these roles rather
+       than choosing page-specific greys and blues. */
     --color-ink: 17 24 39; /* gray-900 */
+    --color-text-secondary: 55 65 81;
+    --color-text-muted: 107 114 128;
+    --color-text-disabled: 156 163 175;
     --color-canvas: 249 250 251; /* gray-50 */
     --color-surface: 255 255 255; /* white */
+    --color-surface-raised: 255 255 255;
+    --color-surface-muted: 243 244 246;
     --color-surface-hover: 249 250 251; /* gray-50 */
+    --color-surface-active: 239 246 255;
     --color-border: 229 231 235; /* gray-200 */
+    --color-border-strong: 209 213 219;
+    --color-border-focus: 37 99 235;
     --color-muted: 107 114 128; /* gray-500 */
     --color-primary: 37 99 235; /* blue-600 */
     --color-primary-dark: 30 64 175; /* blue-800 */
     --color-accent: 251 191 36; /* amber-400 */
     --color-success: 16 185 129; /* emerald-500 */
+    --color-warning: 217 119 6;
+    --color-danger: 220 38 38;
+    --color-info: 37 99 235;
+    --radius-control: 0.625rem;
+    --radius-card: 0.875rem;
+    --shadow-card: 0 1px 2px rgb(15 23 42 / 0.05), 0 1px 3px rgb(15 23 42 / 0.08);
+    --shadow-raised: 0 12px 32px rgb(15 23 42 / 0.12);
     color-scheme: light;
   }
 
   html.dark {
     --color-ink: 248 250 252; /* #F8FAFC */
+    --color-text-secondary: 203 213 225;
+    --color-text-muted: 148 163 184;
+    --color-text-disabled: 100 116 139;
     --color-canvas: 11 15 25; /* #0B0F19 midnight navy */
     --color-surface: 30 41 59; /* #1E293B dark slate */
+    --color-surface-raised: 36 49 69;
+    --color-surface-muted: 24 34 51;
     --color-surface-hover: 51 65 85; /* #334155 */
+    --color-surface-active: 30 58 138;
     --color-border: 51 65 85; /* #334155 */
+    --color-border-strong: 71 85 105;
+    --color-border-focus: 96 165 250;
     --color-muted: 148 163 184; /* #94A3B8 */
     --color-primary: 59 130 246; /* #3B82F6 electric blue */
     --color-primary-dark: 29 78 216; /* #1D4ED8 */
     --color-accent: 250 204 21; /* #FACC15 golden amber */
     --color-success: 52 211 153; /* #34D399 mint green */
+    --color-warning: 251 191 36;
+    --color-danger: 248 113 113;
+    --color-info: 96 165 250;
     color-scheme: dark;
   }
 
@@ -37,7 +65,14 @@
   }
 
   body {
-    @apply bg-canvas font-sans text-base text-ink antialiased transition-colors duration-300;
+    @apply bg-canvas font-sans text-base text-ink antialiased transition-colors duration-200;
+  }
+
+  button, input, select, textarea { font: inherit; }
+
+  :focus-visible {
+    outline: 2px solid rgb(var(--color-border-focus));
+    outline-offset: 3px;
   }
 
   ::-webkit-scrollbar {
@@ -106,8 +141,18 @@
   }
 
   .card {
-    @apply rounded-xl border border-border-gray bg-surface shadow-card transition-colors duration-300;
+    @apply rounded-2xl border border-border-gray bg-surface shadow-card transition-colors duration-200;
   }
+
+  .panel { @apply rounded-2xl border border-border-gray bg-surface p-5 shadow-card sm:p-6; }
+
+  .page-header { @apply flex flex-wrap items-start justify-between gap-4; }
+  .page-header-copy { @apply min-w-0; }
+  .page-title { @apply text-2xl font-bold tracking-tight text-ink sm:text-3xl; }
+  .page-description { @apply mt-2 max-w-3xl text-sm leading-relaxed text-muted sm:text-base; }
+  .page-actions { @apply flex flex-wrap items-center gap-3; }
+  .filter-bar { @apply flex flex-wrap items-end gap-3 rounded-2xl border border-border-gray bg-surface-muted/70 p-3; }
+  .table-shell { @apply overflow-hidden rounded-2xl border border-border-gray bg-surface shadow-card; }
 
   .account-content > .space-y-6,
   .account-content > .space-y-8 {
@@ -144,7 +189,7 @@
 
   /* ---------- Buttons ---------- */
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:cursor-not-allowed disabled:opacity-60;
+    @apply inline-flex min-h-10 items-center justify-center gap-2 rounded-[var(--radius-control)] font-semibold transition-all duration-150 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/40 disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-55;
   }
 
   .btn-primary {
@@ -172,11 +217,11 @@
   }
 
   .btn-sm {
-    @apply px-3 py-1.5 text-xs;
+    @apply min-h-8 px-3 py-1.5 text-xs;
   }
 
   .btn-lg {
-    @apply px-7 py-3.5 text-base;
+    @apply min-h-12 px-7 py-3 text-base;
   }
 
   .btn-icon {
@@ -185,7 +230,7 @@
 
   /* ---------- Form controls ---------- */
   .input {
-    @apply w-full rounded-lg border border-border-gray bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-gray-400 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:placeholder:text-gray-500 dark:focus:border-blue-500 dark:focus:ring-blue-500/30;
+    @apply min-h-10 w-full rounded-[var(--radius-control)] border border-border-gray bg-surface px-3 py-2 text-sm text-ink placeholder:text-gray-400 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:placeholder:text-gray-500 dark:focus:border-blue-500 dark:focus:ring-blue-500/30;
   }
 
   .input-error {
@@ -197,11 +242,11 @@
   }
 
   .select {
-    @apply w-full appearance-none rounded-lg border border-border-gray bg-surface px-3 py-2.5 pr-9 text-sm text-ink transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:focus:border-blue-500;
+    @apply min-h-10 w-full appearance-none rounded-[var(--radius-control)] border border-border-gray bg-surface px-3 py-2 pr-9 text-sm text-ink transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:focus:border-blue-500;
   }
 
   .textarea {
-    @apply w-full rounded-lg border border-border-gray bg-surface px-3 py-2.5 text-sm text-ink placeholder:text-gray-400 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:placeholder:text-gray-500 dark:focus:border-blue-500;
+    @apply w-full rounded-[var(--radius-control)] border border-border-gray bg-surface px-3 py-2 text-sm text-ink placeholder:text-gray-400 transition-colors focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 dark:placeholder:text-gray-500 dark:focus:border-blue-500;
   }
 
   /* ---------- Misc ---------- */
@@ -227,5 +272,16 @@
 
   .sticky-header {
     @apply sticky top-0 z-40 border-b border-border-gray bg-surface;
+  }
+
+  .state-empty { @apply rounded-2xl border-2 border-dashed border-border-gray bg-surface-muted/60 px-6 py-14 text-center; }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  }
+
+  @media (max-width: 639px) {
+    .page-actions { width: 100%; }
+    .page-actions > .btn { flex: 1 1 100%; }
   }
 }
