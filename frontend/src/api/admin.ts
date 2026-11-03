@@ -370,10 +370,18 @@ export const adminApi = {
     return apiClient.get<{
       data: {
         revenue: number
+        settled_revenue: number
+        net_revenue: number
+        gross_order_demand: number
         items_revenue: number
         refunded: number
+        refunded_amount: number
         orders_count: number
+        orders_created: number
+        paid_orders: number
+        cancelled_orders: number
         customers_count: number
+        units_ordered: number
         units_sold: number
         avg_order_value: number
         payment_methods: { method: string; count: number; amount: number }[]

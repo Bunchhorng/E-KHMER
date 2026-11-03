@@ -72,9 +72,11 @@ class AdminDashboardTest extends TestCase
     {
         $product = Product::factory()->withVariant()->create();
         $customer = User::factory()->create();
-        $this->sale($product, $customer, '2026-10-01', 50, Order::STATUS_DELIVERED, Order::PAYMENT_PAID);
+        $paidThisMonth = $this->sale($product, $customer, '2026-10-01', 50, Order::STATUS_DELIVERED, Order::PAYMENT_PAID);
+        Payment::create(['order_id' => $paidThisMonth->id, 'method' => 'card', 'status' => Payment::STATUS_COMPLETED, 'amount' => 50, 'paid_at' => '2026-10-01']);
         $this->sale($product, $customer, '2026-10-02', 75, Order::STATUS_PENDING, Order::PAYMENT_UNPAID);
-        $this->sale($product, $customer, '2026-09-01', 100, Order::STATUS_DELIVERED, Order::PAYMENT_PAID);
+        $paidLastMonth = $this->sale($product, $customer, '2026-09-01', 100, Order::STATUS_DELIVERED, Order::PAYMENT_PAID);
+        Payment::create(['order_id' => $paidLastMonth->id, 'method' => 'card', 'status' => Payment::STATUS_COMPLETED, 'amount' => 100, 'paid_at' => '2026-09-01']);
         $this->actingAs(User::factory()->admin()->create(), 'sanctum')
             ->getJson('/api/admin/reports/summary?from=2026-10-01&to=2026-10-02')->assertOk()
             ->assertJsonPath('data.top_selling_products.0.revenue', 50)

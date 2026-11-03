@@ -2,8 +2,8 @@
 
 namespace Tests\Feature\Api;
 
-use App\Models\Inventory;
 use App\Models\Brand;
+use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\Payment;
 use App\Models\PaymentTransaction;
@@ -323,6 +323,7 @@ class AdminOpsTest extends TestCase
     public function test_report_summary_returns_aggregates(): void
     {
         $order = $this->order(['status' => Order::STATUS_DELIVERED, 'payment_status' => Order::PAYMENT_PAID, 'total' => 120]);
+        Payment::create(['order_id' => $order->id, 'method' => 'card', 'status' => Payment::STATUS_COMPLETED, 'amount' => 120, 'paid_at' => now()]);
         Order::factory()->create(['status' => Order::STATUS_CANCELLED, 'payment_status' => Order::PAYMENT_UNPAID, 'total' => 40, 'placed_at' => now()->subDays(2)]);
         Order::factory()->create(['status' => Order::STATUS_REFUNDED, 'payment_status' => Order::PAYMENT_REFUNDED, 'total' => 30, 'placed_at' => now()->subDays(3)]);
 
@@ -332,7 +333,7 @@ class AdminOpsTest extends TestCase
             ->assertJsonPath('data.revenue', 120)
             ->assertJsonPath('data.orders_count', 3)
             ->assertJsonPath('data.customers_count', 3)
-            ->assertJsonPath('data.refunded', 30)
+            ->assertJsonPath('data.refunded', 0)
             ->assertJsonStructure([
                 'data' => [
                     'revenue', 'items_revenue', 'refunded', 'orders_count',

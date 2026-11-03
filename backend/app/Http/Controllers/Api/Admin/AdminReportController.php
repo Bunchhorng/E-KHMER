@@ -6,13 +6,10 @@ use App\Http\Controllers\Controller;
 use App\Models\Inventory;
 use App\Models\Order;
 use App\Models\Payment;
-use App\Models\PaymentRefund;
-use App\Models\PaymentTransaction;
-use App\Services\DashboardService;
+use App\Services\Analytics\FinancialMetricService;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class AdminReportController extends Controller
 {
@@ -33,7 +30,7 @@ class AdminReportController extends Controller
         return $query;
     }
 
-    public function summary(Request $request, DashboardService $dashboard)
+    public function summary(Request $request, FinancialMetricService $financial)
     {
         $request->validate([
             'from' => ['nullable', 'date_format:Y-m-d'],
@@ -42,30 +39,7 @@ class AdminReportController extends Controller
         $from = $request->filled('from') ? Carbon::parse($request->from)->startOfDay() : null;
         $to = $request->filled('to') ? Carbon::parse($request->to)->endOfDay() : null;
 
-        $ordersQuery = Order::query()
-            ->when($from !== null, fn ($q) => $q->where('placed_at', '>=', $from))
-            ->when($to !== null, fn ($q) => $q->where('placed_at', '<=', $to));
-
-        $paidQuery = (clone $ordersQuery)->where('payment_status', Order::PAYMENT_PAID);
-
-        $hasCollections = fn ($query) => $query->whereHas('payment.transactions', fn ($transactions) => $transactions->where('type', 'collection')->where('status', 'success'));
-        $codOrders = (clone $ordersQuery)->whereNotIn('status', ['pending', 'cancelled'])->where($hasCollections);
-        $codCollected = PaymentTransaction::where('type', 'collection')->where('status', 'success')
-            ->whereHas('payment.order', fn ($query) => $query->whereIn('id', (clone $codOrders)->select('id')))->sum('amount');
-        $codRefunded = PaymentRefund::whereIn('order_id', (clone $codOrders)->select('id'))->sum('amount');
-        $revenue = round((float) (clone $paidQuery)->whereNot($hasCollections)->sum('total') + (float) $codCollected - (float) $codRefunded, 2);
-        $refunded = round((float) (clone $ordersQuery)->whereIn('status', [Order::STATUS_REFUNDED])->sum('total'), 2);
-        $ordersCount = (clone $ordersQuery)->count();
-        $customersCount = (clone $ordersQuery)->whereNotNull('user_id')->distinct()->count('user_id');
-
-        $itemsQuery = DB::table('order_items')
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->whereNotIn('orders.status', [Order::STATUS_CANCELLED, Order::STATUS_REFUNDED])
-            ->when($from !== null, fn ($q) => $q->where('orders.placed_at', '>=', $from))
-            ->when($to !== null, fn ($q) => $q->where('orders.placed_at', '<=', $to));
-
-        $unitsSold = (int) (clone $itemsQuery)->sum('quantity');
-        $itemsRevenue = round((float) (clone $itemsQuery)->sum('line_total'), 2);
+        $metrics = $financial->report($from, $to);
 
         $paymentMethods = Payment::query()
             ->join('orders', 'orders.id', '=', 'payments.order_id')
@@ -89,17 +63,35 @@ class AdminReportController extends Controller
 
         return [
             'data' => [
-                'revenue' => $revenue,
-                'items_revenue' => $itemsRevenue,
-                'refunded' => $refunded,
-                'orders_count' => $ordersCount,
-                'customers_count' => $customersCount,
-                'units_sold' => $unitsSold,
-                'avg_order_value' => $ordersCount > 0 ? round($revenue / $ordersCount, 2) : 0,
+                // The aliases preserve the previous API contract. Revenue is
+                // now explicitly net collected revenue.
+                'revenue' => round($metrics['net_revenue'] / 100, 2),
+                'settled_revenue' => round($metrics['settled_revenue'] / 100, 2),
+                'net_revenue' => round($metrics['net_revenue'] / 100, 2),
+                'gross_order_demand' => round($metrics['gross_order_demand'] / 100, 2),
+                'items_revenue' => round($metrics['items_revenue'] / 100, 2),
+                'refunded' => round($metrics['refunded_amount'] / 100, 2),
+                'refunded_amount' => round($metrics['refunded_amount'] / 100, 2),
+                'orders_count' => $metrics['orders_created'],
+                'orders_created' => $metrics['orders_created'],
+                'paid_orders' => $metrics['paid_orders'],
+                'cancelled_orders' => $metrics['cancelled_orders'],
+                'customers_count' => $metrics['customers_count'],
+                'units_ordered' => $metrics['units_ordered'],
+                'units_sold' => $metrics['units_sold'],
+                'avg_order_value' => $metrics['paid_orders'] > 0 ? round($metrics['net_revenue'] / $metrics['paid_orders'] / 100, 2) : 0,
                 'payment_methods' => $paymentMethods,
                 'low_stock_count' => (int) $lowStockCount,
-                'sales_by_category' => $dashboard->salesByCategory($from, $to),
-                'top_selling_products' => $dashboard->topSellingProducts(5, $from, $to),
+                'sales_by_category' => collect($metrics['categories'])->sortByDesc('revenue')->values()->map(fn (array $category) => [
+                    ...$category,
+                    'revenue' => round($category['revenue'] / 100, 2),
+                ])->all(),
+                'top_selling_products' => collect($metrics['products'])->sortByDesc('units_sold')->take(5)->values()->map(fn (array $product) => [
+                    'product_id' => $product['product_id'],
+                    'product_name' => $product['product_name'],
+                    'total_qty' => $product['units_sold'],
+                    'revenue' => round($product['revenue'] / 100, 2),
+                ])->all(),
             ],
         ];
     }
@@ -157,22 +149,14 @@ class AdminReportController extends Controller
         return $pdf->download('orders-'.now()->format('Y-m-d').'.pdf');
     }
 
-    public function productsCsv(Request $request)
+    public function productsCsv(Request $request, FinancialMetricService $financial)
     {
         $from = $request->filled('from') ? Carbon::parse($request->from)->startOfDay() : null;
         $to = $request->filled('to') ? Carbon::parse($request->to)->endOfDay() : null;
 
-        $rows = DB::table('order_items')
-            ->join('orders', 'orders.id', '=', 'order_items.order_id')
-            ->whereNotIn('orders.status', [Order::STATUS_CANCELLED, Order::STATUS_REFUNDED])
-            ->when($from !== null, fn ($q) => $q->where('orders.placed_at', '>=', $from))
-            ->when($to !== null, fn ($q) => $q->where('orders.placed_at', '<=', $to))
-            ->selectRaw('order_items.product_id, order_items.product_name,
-                SUM(order_items.quantity) as units_sold,
-                SUM(order_items.line_total) as revenue')
-            ->groupBy('order_items.product_id', 'order_items.product_name')
-            ->orderByDesc('units_sold')
-            ->get();
+        $rows = collect($financial->report($from, $to)['products'])
+            ->sortByDesc('units_sold')
+            ->values();
 
         $headers = ['product_id', 'product_name', 'units_sold', 'revenue'];
 
@@ -182,10 +166,10 @@ class AdminReportController extends Controller
 
             foreach ($rows as $row) {
                 fputcsv($handle, [
-                    $row->product_id,
-                    $row->product_name,
-                    (string) $row->units_sold,
-                    (string) $row->revenue,
+                    $row['product_id'],
+                    $row['product_name'],
+                    (string) $row['units_sold'],
+                    number_format($row['revenue'] / 100, 2, '.', ''),
                 ]);
             }
 

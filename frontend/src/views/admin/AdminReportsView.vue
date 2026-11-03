@@ -17,10 +17,18 @@ const downloading = ref('')
 const loadingSummary = ref(true)
 const summary = ref<{
   revenue: number
+  settled_revenue: number
+  net_revenue: number
+  gross_order_demand: number
   items_revenue: number
   refunded: number
+  refunded_amount: number
   orders_count: number
+  orders_created: number
+  paid_orders: number
+  cancelled_orders: number
   customers_count: number
+  units_ordered: number
   units_sold: number
   avg_order_value: number
   payment_methods: { method: string; count: number; amount: number }[]
@@ -46,13 +54,17 @@ const statusOptions = [
 const cards = computed(() => {
   const s = summary.value
   return [
-    { key: 'revenue', label: t('admin.reports.revenue'), value: s ? formatPrice(s.revenue) : '—', icon: DollarSign },
-    { key: 'orders', label: t('admin.reports.orders_count'), value: s ? String(s.orders_count) : '—', icon: ShoppingCart },
+    { key: 'settled', label: t('admin.reports.settled_revenue'), value: s ? formatPrice(s.settled_revenue) : '—', icon: DollarSign },
+    { key: 'net', label: t('admin.reports.net_revenue'), value: s ? formatPrice(s.net_revenue) : '—', icon: DollarSign },
+    { key: 'demand', label: t('admin.reports.gross_order_demand'), value: s ? formatPrice(s.gross_order_demand) : '—', icon: TrendingUp },
+    { key: 'orders', label: t('admin.reports.orders_created'), value: s ? String(s.orders_created) : '—', icon: ShoppingCart },
+    { key: 'paid', label: t('admin.reports.paid_orders'), value: s ? String(s.paid_orders) : '—', icon: ShoppingCart },
     { key: 'customers', label: t('admin.reports.customers_count'), value: s ? String(s.customers_count) : '—', icon: Users },
     { key: 'units', label: t('admin.reports.units_sold'), value: s ? String(s.units_sold) : '—', icon: Package },
+    { key: 'ordered', label: t('admin.reports.units_ordered'), value: s ? String(s.units_ordered) : '—', icon: Package },
     { key: 'avg', label: t('admin.reports.avg_order_value'), value: s ? formatPrice(s.avg_order_value) : '—', icon: TrendingUp },
-    { key: 'items', label: t('admin.reports.items_revenue'), value: s ? formatPrice(s.items_revenue) : '—', icon: FileSpreadsheet },
-    { key: 'refunded', label: t('admin.reports.refunded'), value: s ? formatPrice(s.refunded) : '—', icon: XCircle },
+    { key: 'items', label: t('admin.reports.settled_items_revenue'), value: s ? formatPrice(s.items_revenue) : '—', icon: FileSpreadsheet },
+    { key: 'refunded', label: t('admin.reports.refunded_amount'), value: s ? formatPrice(s.refunded_amount) : '—', icon: XCircle },
     { key: 'low_stock', label: t('admin.reports.low_stock'), value: s ? String(s.low_stock_count) : '—', icon: AlertTriangle }
   ]
 })
