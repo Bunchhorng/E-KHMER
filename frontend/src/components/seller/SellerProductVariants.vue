@@ -19,12 +19,12 @@ function remove(row: SellerVariant) {
   <section class="card space-y-5 rounded-2xl p-5 sm:p-6">
     <div class="flex items-center justify-between gap-3"><h2 class="font-semibold">{{ t('seller_variants.title') }}</h2><button type="button" class="btn-secondary" :disabled="disabled || modelValue.length >= 200" @click="add"><Plus :size="16" />{{ t('seller_variants.add') }}</button></div>
     <p class="text-xs leading-relaxed text-muted">{{ t('seller_variants.help') }}</p>
-    <fieldset v-for="(row, index) in modelValue" :key="row.key" :disabled="disabled" class="space-y-4 rounded-xl border border-border-gray p-4">
+    <fieldset v-for="(row, index) in modelValue" :key="row.key" :aria-label="row.name || t('seller_variants.option_number', { number: index + 1 })" :disabled="disabled" class="space-y-4 rounded-xl border border-border-gray p-4">
       <legend class="px-2 text-sm font-semibold">{{ t('seller_variants.option_number', { number: index + 1 }) }}</legend>
       <div class="grid gap-4 sm:grid-cols-2">
         <label><span class="label">{{ t('seller.name') }}</span><input v-model="row.name" class="input w-full" maxlength="255" :placeholder="t('seller_variants.name_example')" /></label>
         <label><span class="label">{{ t('seller.sku') }}</span><input v-model="row.sku" class="input w-full" maxlength="255" /></label>
-        <SellerBarcodeField v-model="row.barcode" :disabled="disabled" :error="errors?.[`variants.${index}.barcode`]" />
+        <SellerBarcodeField v-model="row.barcode" test-id="variant-barcode" :disabled="disabled" :error="errors?.[`variants.${index}.barcode`]" />
         <label><span class="label">{{ t('seller.purchase_price') }} (USD)</span><input v-model.number="row.cost_price" type="number" min="0" max="99999999.99" step="0.01" class="input w-full" :aria-label="`${t('seller.purchase_price')} (USD)`" :aria-describedby="`variant-cost-help-${index}`" :aria-invalid="!!errors?.[`variants.${index}.cost_price`]" /><span :id="`variant-cost-help-${index}`" class="mt-1 block text-xs" :class="errors?.[`variants.${index}.cost_price`] ? 'text-red-600' : 'text-muted'">{{ errors?.[`variants.${index}.cost_price`] || t('seller.purchase_help') }}</span></label>
         <label><span class="label">{{ t('seller.price') }} (USD)</span><input v-model.number="row.price" required type="number" min="0" max="99999999.99" step="0.01" class="input w-full" /></label>
         <label><span class="label">{{ t('seller.original_price') }} (USD)</span><input v-model.number="row.compare_at_price" type="number" min="0" max="99999999.99" step="0.01" class="input w-full" /></label>
