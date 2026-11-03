@@ -22,10 +22,10 @@ function isActive(slug: string): boolean {
 </script>
 
 <template>
-  <nav class="border-b border-border-gray bg-white dark:bg-canvas">
+  <nav data-testid="storefront-category-nav" class="border-b border-border-gray bg-surface">
     <div class="container-app">
       <ul
-        class="flex items-center gap-1 overflow-x-auto whitespace-nowrap py-2.5 text-sm font-medium [scrollbar-width:none]"
+        class="scrollbar-none flex items-center gap-1 overflow-x-auto whitespace-nowrap py-2.5 text-sm font-medium"
       >
         <li>
           <RouterLink to="/shop" class="nav-link" exact-active-class="!bg-primary/10 !text-primary dark:!bg-primary/15">

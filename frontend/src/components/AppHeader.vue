@@ -99,14 +99,9 @@ async function signOut(): Promise<void> {
 </script>
 
 <template>
-  <header>
-    <div
-      class="bg-primary-dark px-4 py-1.5 text-center text-xs font-medium text-white"
-    >
-      {{ $t('header.announcement') }}
-    </div>
-    <div class="sticky-header">
-      <div class="container-app flex h-16 items-center gap-2 sm:gap-4 lg:h-20">
+  <header data-testid="storefront-main-header">
+    <div class="border-b border-border-gray bg-surface md:sticky md:top-0 md:z-40">
+      <div class="container-app flex h-14 items-center gap-2 sm:gap-4 lg:h-20">
         <button
           type="button"
           class="btn-icon lg:hidden"
