@@ -5,10 +5,11 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Order;
-use App\Models\ShopOrder;
 
 class ShopOrderService
 {
+    public function __construct(private OrderNumberService $orderNumbers) {}
+
     /** Create one seller-facing order per shop from immutable parent item snapshots. */
     public function split(Order $order, array $shippingByShop = [], ?int $couponShopId = null): void
     {
@@ -44,10 +45,8 @@ class ShopOrderService
         );
 
         foreach ($sellerGroups->keys()->values() as $index => $shopId) {
-            $shopOrder = ShopOrder::create([
-                'order_id' => $order->id,
+            $shopOrder = $this->orderNumbers->createShop($order, $index + 1, [
                 'shop_id' => (int) $shopId,
-                'shop_order_number' => $order->order_number.'-'.($index + 1),
                 'status' => Order::STATUS_PENDING,
                 'subtotal' => $subtotals[$shopId] / 100,
                 'discount_amount' => $discounts[$shopId] / 100,

@@ -29,7 +29,7 @@ class CheckoutService
         private CouponService $coupon,
         private ShopOrderService $shopOrders,
         private ShopOrderFulfillmentService $fulfillment,
-        private OrderNumberGenerator $orderNumber,
+        private OrderNumberService $orderNumbers,
     ) {}
 
     /** Read-only preview; uses the same calculator as order creation. */
@@ -200,8 +200,7 @@ class CheckoutService
             $phone = $user?->phone ?? ($address['phone'] ?? null);
             $customerName = $user?->name ?? ($address['full_name'] ?? null);
 
-            $order = new Order([
-                'order_number' => $this->generateOrderNumber(),
+            $order = $this->orderNumbers->createParent([
                 'user_id' => $user?->id,
                 'coupon_id' => $couponId,
                 'coupon_code' => $couponCode,
@@ -221,8 +220,6 @@ class CheckoutService
                 'note' => $payload['note'] ?? null,
                 'placed_at' => now(),
             ]);
-            $order->save();
-
             $order->trackingEvents()->create([
                 'status' => Order::STATUS_PENDING,
                 'description' => 'Order placed',
@@ -439,19 +436,6 @@ class CheckoutService
         }
 
         return $count;
-    }
-
-    private function generateOrderNumber(): string
-    {
-        for ($attempt = 0; $attempt < 2; $attempt++) {
-            $number = $this->orderNumber->next();
-
-            if (! Order::withTrashed()->where('order_number', $number)->exists()) {
-                return $number;
-            }
-        }
-
-        return $this->orderNumber->next();
     }
 
     private function variantLabel(ProductVariant $variant): string
