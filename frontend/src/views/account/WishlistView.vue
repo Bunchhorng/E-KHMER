@@ -2,7 +2,7 @@
 import { RouterLink, useRouter } from 'vue-router'
 import { Heart } from 'lucide-vue-next'
 import EmptyState from '@/components/EmptyState.vue'
-import ProductCard from '@/components/ProductCard.vue'
+import ProductGrid from '@/components/ProductGrid.vue'
 import AccountState from '@/components/account/AccountState.vue'
 import { useWishlistStore } from '@/stores/wishlist'
 import { computed, ref } from 'vue'
@@ -36,15 +36,12 @@ async function removeAddedProduct(product: Product) {
 
     <p v-if="actionError" role="alert" class="text-sm text-red-500">{{ actionError }}</p>
     <AccountState :loading="wishlist.loading" :error="wishlist.error ? $t('account.ui.load_error') : ''" @retry="wishlist.fetchProducts()">
-    <div v-if="products.length" class="grid grid-cols-2 gap-3 xl:grid-cols-3 2xl:grid-cols-4">
-      <ProductCard
-        v-for="p in products"
-        :key="p.id"
-        :product="p"
-        @added-to-cart="removeAddedProduct(p)"
-        @wishlist-toggle="wishlist.toggle($event)"
-      />
-    </div>
+    <ProductGrid
+      v-if="products.length"
+      :products="products"
+      @added-to-cart="removeAddedProduct($event.product)"
+      @wishlist-toggle="wishlist.toggle($event)"
+    />
 
     <EmptyState
       v-else

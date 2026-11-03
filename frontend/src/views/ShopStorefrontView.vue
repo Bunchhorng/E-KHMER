@@ -11,7 +11,7 @@ import { useWishlistStore } from '@/stores/wishlist'
 import AssetImage from '@/components/AssetImage.vue'
 import BasePagination from '@/components/BasePagination.vue'
 import EmptyState from '@/components/EmptyState.vue'
-import ProductCard from '@/components/ProductCard.vue'
+import ProductGrid from '@/components/ProductGrid.vue'
 import CatalogPriceFilter from '@/components/CatalogPriceFilter.vue'
 import CatalogRatingFilter from '@/components/CatalogRatingFilter.vue'
 const { t } = useI18n()
@@ -75,7 +75,7 @@ onBeforeUnmount(() => request++)
         <button class="btn-outline w-fit" @click="clearFilters">{{ t('shop.clear_filters') }}</button>
       </div>
       <div v-if="loading" class="card h-80 animate-pulse bg-border-gray/20" aria-busy="true"></div>
-      <div v-else-if="products.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-4"><ProductCard v-for="product in products" :key="product.id" :product="product" @wishlist-toggle="wishlist.toggle($event)" /></div>
+      <ProductGrid v-else-if="products.length" :products="products" @wishlist-toggle="wishlist.toggle($event)" />
       <EmptyState v-else :title="t('shop.no_match_title')" :description="t('shop.no_match_description')" :cta-label="t('shop.clear_filters')" @cta="clearFilters" />
       <BasePagination :page="meta.current_page" :page-count="meta.last_page" :total-items="meta.total" :page-size="meta.per_page" @update:page="router.push({ query: { ...route.query, page: $event } })" />
     </template>

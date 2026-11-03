@@ -2,7 +2,7 @@
 import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { SlidersHorizontal, X, SearchX } from 'lucide-vue-next'
-import ProductCard from '@/components/ProductCard.vue'
+import ProductGrid from '@/components/ProductGrid.vue'
 import BasePagination from '@/components/BasePagination.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import CatalogPriceFilter from '@/components/CatalogPriceFilter.vue'
@@ -440,14 +440,7 @@ function setPage(p: number) {
           <button class="btn-outline ml-2" @click="clearAll">{{ $t('shop.clear_filters') }}</button>
         </div>
         <template v-else>
-          <div v-if="products.length" class="grid grid-cols-2 gap-3 max-[359px]:grid-cols-1 sm:gap-5 md:grid-cols-3 xl:grid-cols-4">
-            <ProductCard
-              v-for="p in products"
-              :key="p.id"
-              :product="p"
-              @wishlist-toggle="wishlist.toggle($event)"
-            />
-          </div>
+          <ProductGrid v-if="products.length" :products="products" @wishlist-toggle="wishlist.toggle($event)" />
 
           <EmptyState
             v-else

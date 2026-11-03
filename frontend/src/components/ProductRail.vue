@@ -3,7 +3,7 @@ import { ArrowRight, PackageOpen } from 'lucide-vue-next'
 import { useWishlistStore } from '@/stores/wishlist'
 import type { Product } from '@/types'
 import EmptyState from './EmptyState.vue'
-import ProductCard from './ProductCard.vue'
+import ProductGrid from './ProductGrid.vue'
 
 withDefaults(
   defineProps<{
@@ -37,14 +37,7 @@ function handleWishlist(productId: string): void {
         <ArrowRight :size="16" />
       </RouterLink>
     </div>
-    <div class="grid grid-cols-2 gap-3 max-[359px]:grid-cols-1 sm:gap-4 sm:grid-cols-3 lg:grid-cols-6">
-      <ProductCard
-        v-for="product in products"
-        :key="product.id"
-        :product="product"
-        @wishlist-toggle="handleWishlist"
-      />
-    </div>
+    <ProductGrid :products="products" density="rail" @wishlist-toggle="handleWishlist" />
   </section>
   <EmptyState v-else :title="$t('account.no_products_title')">
     <template #icon>

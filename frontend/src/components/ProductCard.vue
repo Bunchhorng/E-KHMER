@@ -65,7 +65,7 @@ function handleWishlistToggle(): void {
 
 <template>
   <div class="card feature-glow group flex h-full flex-col overflow-hidden transition-shadow duration-300 hover:shadow-lg dark:bg-surface">
-    <div class="relative aspect-square shrink-0 overflow-hidden bg-canvas dark:bg-surface-hover/50">
+    <div class="relative aspect-[4/3] shrink-0 overflow-hidden bg-canvas sm:aspect-square dark:bg-surface-hover/50">
       <RouterLink :to="`/product/${props.product.slug}`" class="block h-full w-full" :aria-label="`${$t('actions.view_all')}: ${props.product.title}`">
         <AppImage
           :src="coverImage?.url"
@@ -83,12 +83,12 @@ function handleWishlistToggle(): void {
       </div>
       <button
         type="button"
-        class="absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-md transition-colors dark:bg-surface-hover dark:shadow-black/40"
+        class="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-md transition-colors dark:bg-surface-hover dark:shadow-black/40"
         :class="isWishlisted ? 'text-red-500' : 'text-gray-400 hover:text-red-500 dark:text-muted'"
         :aria-label="isWishlisted ? $t('product.remove_from_wishlist') : $t('product.add_to_wishlist')"
         @click="handleWishlistToggle"
       >
-        <Heart :size="16" :fill="isWishlisted ? 'currentColor' : 'none'" />
+        <Heart :size="18" :fill="isWishlisted ? 'currentColor' : 'none'" />
       </button>
     </div>
 
@@ -106,9 +106,9 @@ function handleWishlistToggle(): void {
         <StarRating :value="props.product.rating" :size="12" />
         <span class="text-xs text-gray-500 dark:text-muted">({{ props.product.reviewCount }})</span>
       </div>
-      <div class="mt-2 flex items-baseline gap-2">
-        <span class="text-base font-bold text-ink dark:text-gray-50">{{ formatPrice(props.product.price) }}</span>
-        <span v-if="props.product.compareAtPrice" class="text-sm text-gray-400 line-through dark:text-gray-500">
+      <div class="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+        <span class="min-w-0 break-words text-base font-bold text-ink dark:text-gray-50">{{ formatPrice(props.product.price) }}</span>
+        <span v-if="props.product.compareAtPrice" class="min-w-0 break-words text-sm text-gray-400 line-through dark:text-gray-500">
           {{ formatPrice(props.product.compareAtPrice) }}
         </span>
       </div>
@@ -124,7 +124,7 @@ function handleWishlistToggle(): void {
       <div v-if="showActions" class="mt-auto pt-3">
         <button
           type="button"
-          class="btn-primary btn-sm w-full dark:bg-blue-500 dark:hover:bg-blue-600"
+          class="btn-primary btn-sm !min-h-11 w-full dark:bg-blue-500 dark:hover:bg-blue-600"
           :disabled="!props.product.isInStock || !availableVariantId || pending"
           :aria-busy="pending"
           @click="handleAddToCart"

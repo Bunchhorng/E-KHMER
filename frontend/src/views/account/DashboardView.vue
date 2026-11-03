@@ -8,7 +8,7 @@ import { ordersApi, type ApiOrderListItem } from '@/api/orders'
 import { useAuthStore } from '@/stores/auth'
 import { useWishlistStore } from '@/stores/wishlist'
 import EmptyState from '@/components/EmptyState.vue'
-import ProductCard from '@/components/ProductCard.vue'
+import ProductGrid from '@/components/ProductGrid.vue'
 import AccountOrderList from '@/components/account/AccountOrderList.vue'
 import AccountState from '@/components/account/AccountState.vue'
 import { mapCatalogProduct } from '@/utils/product'
@@ -71,7 +71,7 @@ onMounted(load)
       <div class="account-toolbar"><h2 class="text-lg font-semibold">{{ $t('account.your_wishlist') }}</h2><RouterLink to="/account/wishlist" class="btn-ghost btn-sm min-h-10 text-primary">{{ $t('actions.view_all') }}<ArrowUpRight class="h-4 w-4" /></RouterLink></div>
       <p v-if="actionError" role="alert" class="text-sm text-red-500">{{ actionError }}</p>
       <AccountState :loading="wishlist.loading" :error="wishlist.error ? $t('account.ui.load_error') : ''" @retry="wishlist.fetchProducts()">
-        <div v-if="products.length" class="grid grid-cols-2 gap-3 xl:grid-cols-4"><ProductCard v-for="product in products" :key="product.id" :product="product" @added-to-cart="removeAddedProduct(product)" @wishlist-toggle="wishlist.toggle($event)" /></div>
+        <ProductGrid v-if="products.length" :products="products" @added-to-cart="removeAddedProduct($event.product)" @wishlist-toggle="wishlist.toggle($event)" />
         <EmptyState v-else :title="$t('account.wishlist_empty_title')" :description="$t('account.wishlist_empty_description')" :cta-label="$t('account.explore_products')" @cta="router.push('/shop')"><template #icon><Heart class="h-7 w-7" /></template></EmptyState>
       </AccountState>
     </section>

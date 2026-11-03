@@ -25,7 +25,7 @@ import {
 } from 'lucide-vue-next'
 import StarRating from '@/components/StarRating.vue'
 import ProductRail from '@/components/ProductRail.vue'
-import ProductCard from '@/components/ProductCard.vue'
+import ProductGrid from '@/components/ProductGrid.vue'
 import type { Product } from '@/types'
 import { mapCatalogProduct } from '@/utils/product'
 import { useWishlistStore } from '@/stores/wishlist'
@@ -449,14 +449,7 @@ function subscribe() {
           <ArrowRight :size="16" />
         </RouterLink>
       </div>
-      <div class="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
-        <ProductCard
-          v-for="product in newArrivals"
-          :key="product.id"
-          :product="product"
-          @wishlist-toggle="handleWishlist"
-        />
-      </div>
+      <ProductGrid :products="newArrivals" @wishlist-toggle="handleWishlist" />
     </section>
 
     <!-- ===================== TESTIMONIALS ===================== -->
