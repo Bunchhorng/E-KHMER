@@ -23,10 +23,6 @@ jobs:
           docker compose exec -T app php artisan test --compact
       - name: Frontend production build
         run: docker compose exec -T frontend npm run build
-      - name: Production dependency security audit
-        run: |
-          docker compose exec -T app composer audit --no-dev
-          docker compose exec -T frontend npm audit --omit=dev --package-lock-only
       - name: Browser tests
         run: docker compose --profile test run --rm browser-tests
       - name: Logs on failure
@@ -35,4 +31,26 @@ jobs:
       - name: Stop services
         if: always()
         run: docker compose down
+
+  dependency-security:
+    name: Dependency Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start audit containers
+        run: docker compose up -d --build app frontend
+      - name: Clean frontend install
+        run: docker compose exec -T frontend npm ci
+      - name: Audit production npm dependencies
+        run: docker compose exec -T frontend npm audit --omit=dev --audit-level=moderate --package-lock-only
+      - name: Clean backend install
+        run: docker compose exec -T app composer install --no-interaction --prefer-dist --no-progress
+      - name: Check PHP platform requirements
+        run: docker compose exec -T app composer check-platform-reqs
+      - name: Audit production Composer dependencies
+        run: docker compose exec -T app composer audit --no-dev
+      - name: Stop audit services
+        if: always()
+        run: docker compose down -v --remove-orphans
 
