@@ -37,6 +37,13 @@ This source-based audit covers the Vue frontend, the UX/UI guide, the current st
 
 ## Next stages
 
-1. Improve mobile search/filter results, product detail, cart, checkout, and account flows with task-specific mobile hierarchy.
+1. Improve customer account screens with task-specific mobile hierarchy and compact order cards.
 2. Build responsive seller/admin table alternatives and compact action patterns.
 3. Run light/dark and Khmer/English visual QA at 320, 375, 390, 412, tablet, and desktop widths; then add browser regression tests.
+
+## Stage 2 delivered: purchase and checkout flow
+
+- Product detail now exposes its existing wishlist, add-to-cart, and buy-now actions in a fixed mobile bar above the storefront navigation and safe area.
+- Cart now exposes its existing checkout eligibility state and formatted total in a mobile sticky checkout bar; desktop retains the existing summary panel.
+- Checkout keeps the existing four-step address, delivery, payment, and review flow, with tighter phone spacing, compact progress indicators, full-width phone step actions, and a smaller summary card.
+- No API calls, payment state handling, authentication checks, or order/cart business logic were changed.

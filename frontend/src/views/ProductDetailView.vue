@@ -434,10 +434,25 @@ const featureList = computed(() => {
 </script>
 
 <template>
-  <div class="py-6">
+  <div class="py-6 pb-28 lg:pb-6">
     <template v-if="loading">
       <div class="flex min-h-[400px] items-center justify-center">
         <Loader2 class="h-8 w-8 animate-spin text-primary" />
+      </div>
+
+      <div class="fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 border-t border-border-gray bg-surface/95 px-3 py-2 shadow-[0_-8px_24px_rgb(15_23_42_/_0.10)] backdrop-blur lg:hidden">
+        <div class="mx-auto flex max-w-lg gap-2">
+          <button type="button" class="btn-secondary min-h-11 shrink-0 px-3" :aria-label="$t('product.toggle_wishlist')" @click="toggleWishlist">
+            <Heart class="h-5 w-5" :class="wishlist.isWishlisted(product.id) ? 'fill-red-500 text-red-500' : ''" />
+          </button>
+          <button type="button" class="btn-primary min-h-11 flex-1 !px-3 text-xs" :disabled="cartActionPending || stockStatus === 'out' || !selectedVariant || !hasCombination" :aria-busy="pendingCartAction === 'add'" @click="addToCart">
+            <ShoppingCart class="h-4 w-4" />
+            {{ pendingCartAction === 'add' ? $t('cart.adding') : $t('actions.add_to_cart') }}
+          </button>
+          <button type="button" class="btn-accent min-h-11 flex-1 !px-3 text-xs" :disabled="cartActionPending || stockStatus === 'out' || !selectedVariant || !hasCombination" :aria-busy="pendingCartAction === 'buy'" @click="buyNow">
+            {{ pendingCartAction === 'buy' ? $t('cart.preparing') : $t('actions.buy_now') }}
+          </button>
+        </div>
       </div>
     </template>
 

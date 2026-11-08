@@ -7,6 +7,7 @@ import CartLine from '@/components/CartLine.vue'
 import CartLoadState from '@/components/CartLoadState.vue'
 import QuoteSummary from '@/components/QuoteSummary.vue'
 import EmptyState from '@/components/EmptyState.vue'
+import { formatPrice } from '@/utils/format'
 
 const router = useRouter()
 const cartStore = useCartStore()
@@ -27,7 +28,7 @@ const itemGroups = computed(() => [
 </script>
 
 <template>
-  <div class="py-8">
+  <div class="py-6 pb-28 sm:py-8 lg:pb-8">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <h1 class="text-2xl font-bold text-ink dark:text-ink sm:text-3xl">Shopping Cart</h1>
       <RouterLink to="/shop" class="text-sm font-medium text-primary hover:text-primary-dark">
@@ -118,6 +119,17 @@ const itemGroups = computed(() => [
           <Lock class="h-3.5 w-3.5" />
           Secure checkout · SSL encrypted
         </p>
+      </div>
+    </div>
+
+    <div v-if="cartStore.loaded && cartStore.items.length" class="fixed inset-x-0 bottom-[calc(3.75rem+env(safe-area-inset-bottom))] z-30 border-t border-border-gray bg-surface/95 px-3 py-2 shadow-[0_-8px_24px_rgb(15_23_42_/_0.10)] backdrop-blur lg:hidden">
+      <div class="mx-auto flex max-w-lg items-center gap-3">
+        <div class="min-w-0 flex-1">
+          <p class="text-[11px] font-medium text-muted">{{ $t('order.total') }}</p>
+          <p class="truncate text-lg font-bold text-ink">{{ formatPrice(cartStore.totalAmount) }}</p>
+        </div>
+        <RouterLink v-if="cartStore.canCheckout" to="/checkout" class="btn-primary min-h-11 shrink-0 !px-5">{{ $t('actions.checkout') }}</RouterLink>
+        <button v-else type="button" class="btn-primary min-h-11 shrink-0 !px-5" disabled>{{ $t('actions.checkout') }}</button>
       </div>
     </div>
   </div>

@@ -332,13 +332,13 @@ async function placeOrder() {
     </div>
 
     <template v-else-if="cartStore.loaded && cartStore.items.length">
-      <h1 class="mb-6 text-2xl font-bold text-ink dark:text-ink sm:text-3xl">{{ $t('nav.checkout') }}</h1>
+      <h1 class="mb-4 text-2xl font-bold text-ink sm:mb-6 dark:text-ink sm:text-3xl">{{ $t('nav.checkout') }}</h1>
 
-      <div class="mb-8 flex items-center">
+      <div class="mb-6 flex items-center sm:mb-8">
         <template v-for="(s, i) in steps" :key="s.id">
           <div class="flex items-center gap-2">
             <div
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+              class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold sm:h-9 sm:w-9 sm:text-sm"
               :class="
                 step === s.id
                   ? 'bg-primary text-white'
@@ -356,14 +356,14 @@ async function placeOrder() {
           </div>
           <div
             v-if="i < steps.length - 1"
-            class="mx-3 h-0.5 flex-1 rounded"
+            class="mx-2 h-0.5 flex-1 rounded sm:mx-3"
             :class="step > s.id ? 'bg-success' : 'bg-gray-200 dark:bg-surface-hover'"
           ></div>
         </template>
       </div>
 
-      <div class="grid gap-8 lg:grid-cols-[1fr_380px]">
-        <div class="card space-y-6 p-6">
+      <div class="grid gap-5 sm:gap-8 lg:grid-cols-[1fr_380px]">
+        <div class="card space-y-5 p-4 sm:space-y-6 sm:p-6">
           <template v-if="step === 1">
             <div>
               <h2 class="text-lg font-bold text-ink dark:text-ink">{{ $t('checkout.shipping_address') }}</h2>
@@ -449,10 +449,10 @@ async function placeOrder() {
             </div>
             <p v-if="checkoutError" role="alert" class="text-sm text-red-600">{{ checkoutError }}</p>
 
-            <div class="flex justify-end">
+            <div class="flex justify-end max-[639px]:w-full">
               <button
                 type="button"
-                class="btn-primary"
+                class="btn-primary max-[639px]:w-full"
                 :disabled="!isGuest && !stepAllowed()"
                 @click="continueToDelivery"
               >
@@ -483,12 +483,12 @@ async function placeOrder() {
               </fieldset>
             </div>
 
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-3 max-[639px]:flex-col-reverse max-[639px]:items-stretch">
               <button type="button" class="btn-secondary" @click="step = 1">
                 <ArrowLeft class="h-4 w-4" />
                 Back
               </button>
-              <button type="button" class="btn-primary" :disabled="loadingShipping || !shippingReady || cartStore.quoteLoading" @click="step = 3">
+              <button type="button" class="btn-primary max-[639px]:w-full" :disabled="loadingShipping || !shippingReady || cartStore.quoteLoading" @click="step = 3">
                 Continue to Payment
                 <ArrowRight class="h-4 w-4" />
               </button>
@@ -534,12 +534,12 @@ async function placeOrder() {
               </label>
             </div>
 
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-3 max-[639px]:flex-col-reverse max-[639px]:items-stretch">
               <button type="button" class="btn-secondary" @click="step = 2">
                 <ArrowLeft class="h-4 w-4" />
                 Back
               </button>
-              <button type="button" class="btn-primary" @click="step = 4">
+              <button type="button" class="btn-primary max-[639px]:w-full" @click="step = 4">
                 Review Order
                 <ArrowRight class="h-4 w-4" />
               </button>
@@ -615,7 +615,7 @@ async function placeOrder() {
           </template>
         </div>
 
-        <div class="card h-fit p-6 lg:sticky lg:top-24">
+        <div class="card h-fit p-4 sm:p-6 lg:sticky lg:top-24">
           <div class="mb-4 flex items-center justify-between">
             <h3 class="font-bold text-ink dark:text-ink">{{ $t('checkout.order_summary') }}</h3>
             <RouterLink to="/cart" class="text-sm font-medium text-primary hover:text-primary-dark">
