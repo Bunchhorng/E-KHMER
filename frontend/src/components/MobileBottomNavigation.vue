@@ -78,12 +78,12 @@ onBeforeUnmount(() => {
 
       <button type="button" class="mobile-nav-item" :class="itemClass(categorySheetOpen || isShopRoute)" :aria-expanded="categorySheetOpen" aria-controls="mobile-category-sheet" @click="toggleCategorySheet">
         <LayoutGrid :size="21" :stroke-width="categorySheetOpen || isShopRoute ? 2.5 : 2" />
-        <span>{{ $t('nav.shop_by_category') }}</span>
+        <span>{{ $t('nav.categories') }}</span>
       </button>
 
       <RouterLink to="/shops" class="mobile-nav-item" :class="itemClass(route.name === 'shops' || route.name === 'shop-storefront')">
         <Store :size="21" :stroke-width="route.name === 'shops' || route.name === 'shop-storefront' ? 2.5 : 2" />
-        <span>{{ $t('storefront.title') }}</span>
+        <span>{{ $t('nav.shops') }}</span>
       </RouterLink>
 
       <RouterLink to="/cart" class="mobile-nav-item relative" :class="itemClass(route.name === 'cart')">

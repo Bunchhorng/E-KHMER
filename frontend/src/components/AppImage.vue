@@ -20,6 +20,7 @@ watch(() => props.src, () => { failed.value = false })
       :src="src"
       :alt="alt"
       :loading="loading"
+      decoding="async"
       class="h-full w-full"
       :class="fit === 'cover' ? 'object-cover' : 'object-contain'"
       @error="failed = true"
