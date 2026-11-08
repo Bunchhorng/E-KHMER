@@ -37,23 +37,23 @@ async function subscribe(): Promise<void> {
 </script>
 
 <template>
-  <footer class="border-t border-border-gray bg-ink dark:bg-surface">
+  <footer class="border-t border-border-gray bg-surface dark:bg-ink">
     <div class="container-app py-14">
       <div class="grid gap-10 lg:grid-cols-4">
         <div>
-          <RouterLink to="/" class="text-2xl font-extrabold tracking-tight text-white">
+          <RouterLink to="/" class="text-2xl font-extrabold tracking-tight text-ink dark:text-white">
             E-<span class="text-primary">KHMER</span>
           </RouterLink>
-          <p class="mt-4 max-w-xs text-sm text-gray-400 dark:text-muted">
+          <p class="mt-4 max-w-xs text-sm text-muted">
             {{ $t('footer.tagline') }}
           </p>
         </div>
 
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-wide text-white dark:text-ink">{{ $t('footer.shop') }}</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-wide text-ink dark:text-white">{{ $t('footer.shop') }}</h3>
           <ul class="mt-4 space-y-2.5 text-sm">
             <li v-for="link in shopLinks" :key="link.labelKey">
-              <RouterLink :to="link.to" class="text-gray-400 transition-colors hover:text-white dark:text-muted dark:hover:text-ink">
+              <RouterLink :to="link.to" class="text-muted transition-colors hover:text-ink dark:hover:text-white">
                 {{ $t(link.labelKey) }}
               </RouterLink>
             </li>
@@ -61,17 +61,17 @@ async function subscribe(): Promise<void> {
         </div>
 
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-wide text-white dark:text-ink">{{ $t('footer.help') }}</h3>
+          <h3 class="text-sm font-semibold uppercase tracking-wide text-ink dark:text-white">{{ $t('footer.help') }}</h3>
           <ul class="mt-4 space-y-2.5 text-sm">
             <li v-for="link in helpLinks" :key="link.labelKey">
-              <RouterLink :to="link.to" class="text-gray-400 transition-colors hover:text-white dark:text-muted dark:hover:text-ink">{{ $t(link.labelKey) }}</RouterLink>
+              <RouterLink :to="link.to" class="text-muted transition-colors hover:text-ink dark:hover:text-white">{{ $t(link.labelKey) }}</RouterLink>
             </li>
           </ul>
         </div>
 
         <div>
-          <h3 class="text-sm font-semibold uppercase tracking-wide text-white dark:text-ink">{{ $t('footer.newsletter') }}</h3>
-          <p class="mt-4 text-sm text-gray-400 dark:text-muted">
+          <h3 class="text-sm font-semibold uppercase tracking-wide text-ink dark:text-white">{{ $t('footer.newsletter') }}</h3>
+          <p class="mt-4 text-sm text-muted">
             {{ $t('footer.newsletter_text') }}
           </p>
           <form class="mt-4 flex gap-2 max-[359px]:flex-col" @submit.prevent="subscribe">
@@ -79,7 +79,7 @@ async function subscribe(): Promise<void> {
               v-model="email"
               type="email"
               required
-              class="input !border-white/10 !bg-white/5 !text-white placeholder:!text-gray-500 dark:!text-ink dark:placeholder:!text-muted"
+              class="input !border-border-gray !bg-canvas !text-ink placeholder:!text-muted dark:!border-white/10 dark:!bg-white/5 dark:!text-white dark:placeholder:!text-gray-500"
               :placeholder="$t('footer.email_placeholder')"
               :aria-label="$t('footer.email_placeholder')"
             />
@@ -87,7 +87,7 @@ async function subscribe(): Promise<void> {
               <Send :size="15" />
             </button>
           </form>
-          <label class="mt-3 flex items-start gap-2 text-xs text-gray-400"><input v-model="consent" type="checkbox" class="mt-0.5" />{{ $t('footer.newsletter_consent') }}</label>
+          <label class="mt-3 flex items-start gap-2 text-xs text-muted"><input v-model="consent" type="checkbox" class="mt-0.5" />{{ $t('footer.newsletter_consent') }}</label>
           <p v-if="subscriptionError" role="alert" class="mt-3 text-sm text-red-400">{{ subscriptionError }}</p>
           <p v-if="subscribed" class="mt-3 text-sm font-medium text-success">
             {{ $t('footer.newsletter_success') }}
@@ -95,13 +95,13 @@ async function subscribe(): Promise<void> {
         </div>
       </div>
 
-      <div class="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 dark:border-border-gray">
-        <p class="text-xs text-gray-400 dark:text-muted">{{ $t('footer.copyright') }}</p>
+      <div class="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-border-gray pt-6 dark:border-white/10">
+        <p class="text-xs text-muted">{{ $t('footer.copyright') }}</p>
         <div class="flex flex-wrap gap-2">
           <span
             v-for="pay in ['Bakong / KHQR', 'Cash on Delivery']"
             :key="pay"
-            class="rounded border border-white/10 bg-white/5 px-2 py-1 text-[11px] font-semibold text-gray-300 dark:text-muted"
+            class="rounded border border-border-gray bg-canvas px-2 py-1 text-[11px] font-semibold text-text-secondary dark:border-white/10 dark:bg-white/5 dark:text-gray-300"
           >
             {{ pay }}
           </span>
