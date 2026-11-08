@@ -8,6 +8,8 @@ This folder contains the maintained documentation for the E-KHMER e-commerce sys
 | [Architecture](./ARCHITECTURE.md) | Application design, data relationships, and business rules. |
 | [API reference](./API-REFERENCE.md) | Current REST endpoints, validation, and response contracts. |
 | [Frontend guide](./FRONTEND.md) | Vue application structure, routes, stores, and API integration. |
+| [UX/UI guide](./UX-UI-GUIDE.md) | Design system, responsive behavior, accessibility baseline, UI review checklist, and device-QA priorities. |
+| [UX/UI audit — mobile storefront stage](./UX-UI-AUDIT-2026-11-08.md) | Current UX/UI findings, delivered mobile storefront work, and staged follow-up plan. |
 | [Development workflow](./DEVELOPMENT.md) | Docker-based local development, testing, and git conventions. |
 | [Commerce completion](./COMMERCE-COMPLETION.md) | Seller/storefront features, direct Bakong payments, routes, operating rules and launch gates. |
 | [Oracle Cloud deployment](./ORACLE-CLOUD.md) | Production Docker, HTTPS, SMTP, backups and isolated restore verification. |

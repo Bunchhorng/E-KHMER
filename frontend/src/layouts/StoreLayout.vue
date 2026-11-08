@@ -5,6 +5,7 @@ import CategoryNavBar from '@/components/CategoryNavBar.vue'
 import PromotionBar from '@/components/PromotionBar.vue'
 import AppFooter from '@/components/AppFooter.vue'
 import CartDrawer from '@/components/CartDrawer.vue'
+import MobileBottomNavigation from '@/components/MobileBottomNavigation.vue'
 import ContentLayout from '@/layouts/ContentLayout.vue'
 
 const scrolled = ref(false)
@@ -22,7 +23,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', updateScrollElevation
 </script>
 
 <template>
-  <div class="flex min-h-screen flex-col">
+  <div class="flex min-h-[100dvh] flex-col pb-[calc(3.75rem+env(safe-area-inset-bottom))] lg:pb-0">
     <PromotionBar />
     <div data-testid="mobile-storefront-sticky" class="mobile-storefront-sticky lg:contents" :class="{ 'mobile-storefront-sticky--elevated': scrolled }">
       <AppHeader />
@@ -38,6 +39,7 @@ onBeforeUnmount(() => window.removeEventListener('scroll', updateScrollElevation
     </router-view>
     <AppFooter />
     <CartDrawer />
+    <MobileBottomNavigation />
   </div>
 </template>
 

@@ -171,38 +171,38 @@ function subscribe() {
       <div class="pointer-events-none absolute -bottom-28 right-4 h-96 w-96 rounded-full bg-accent/20 blur-3xl"></div>
       <div class="pointer-events-none absolute right-1/3 top-10 h-40 w-40 rounded-full bg-primary/40 blur-2xl"></div>
 
-      <div class="container-app relative py-14 lg:py-24">
-        <div class="grid items-center gap-14 lg:grid-cols-2">
+      <div class="container-app relative py-8 sm:py-14 lg:py-24">
+        <div class="grid items-center gap-8 lg:gap-14 lg:grid-cols-2">
           <div class="max-w-xl">
             <div class="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider backdrop-blur">
               <Sparkles :size="14" class="text-accent" />
               {{ $t('home.hero_badge') }}
             </div>
 
-            <h1 class="mt-6 text-4xl font-extrabold leading-tight sm:text-5xl lg:text-[3.4rem]">
+            <h1 class="mt-5 text-3xl font-extrabold leading-tight sm:mt-6 sm:text-5xl lg:text-[3.4rem]">
               {{ $t('home.hero_title_1') }}<br />
               <span class="bg-gradient-to-r from-accent to-amber-300 bg-clip-text text-transparent">{{ $t('home.hero_title_2') }}</span>
             </h1>
 
-            <p class="mt-5 max-w-lg text-lg leading-relaxed text-blue-100">
+            <p class="mt-4 max-w-lg text-base leading-relaxed text-blue-100 sm:mt-5 sm:text-lg">
               {{ $t('home.hero_subtitle') }}
             </p>
 
-            <div class="mt-8 flex flex-wrap items-center gap-4">
-              <RouterLink to="/shop" class="btn-accent btn-lg gap-2 !px-8">
+            <div class="mt-6 flex flex-wrap items-center gap-3 sm:mt-8 sm:gap-4">
+              <RouterLink to="/shop" class="btn-accent min-h-11 gap-2 !px-5 sm:min-h-12 sm:px-8 sm:py-3 sm:text-base">
                 {{ $t('home.shop_now') }}
                 <ArrowRight :size="18" />
               </RouterLink>
               <RouterLink
                 to="/shop?sort=featured"
-                class="group inline-flex items-center gap-2 rounded-full border-2 border-white/30 px-6 py-3 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10"
+                class="group inline-flex min-h-11 items-center gap-2 rounded-full border-2 border-white/30 px-5 py-2 text-sm font-semibold text-white transition hover:border-white hover:bg-white/10 sm:px-6 sm:py-3"
               >
                 {{ $t('home.explore_offers') }}
                 <ChevronRight :size="16" class="transition-transform group-hover:translate-x-0.5" />
               </RouterLink>
             </div>
 
-            <div class="mt-10 flex items-center gap-8 border-t border-white/15 pt-6">
+            <div class="mt-8 grid grid-cols-3 gap-3 border-t border-white/15 pt-5 sm:mt-10 sm:gap-8 sm:pt-6">
               <div>
                 <div class="flex items-center gap-1">
                   <Star v-for="i in 5" :key="i" :size="16" class="fill-current text-accent" />
@@ -268,7 +268,7 @@ function subscribe() {
 
     <!-- ===================== BENEFITS STRIP ===================== -->
     <section class="border-b border-border-gray bg-white dark:border-border-gray dark:bg-canvas">
-      <div class="container-app grid grid-cols-2 gap-6 py-6 lg:grid-cols-4">
+      <div class="container-app grid grid-cols-2 gap-3 py-4 sm:gap-6 sm:py-6 lg:grid-cols-4">
         <div v-for="b in benefits" :key="b.titleKey" class="flex items-center gap-3">
           <div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
             <component :is="b.icon" :size="20" />
@@ -282,7 +282,7 @@ function subscribe() {
     </section>
 
     <!-- ===================== CATEGORIES ===================== -->
-    <section id="categories" class="container-app py-16">
+    <section id="categories" class="container-app py-10 sm:py-16">
       <div class="flex items-end justify-between gap-4">
         <div>
           <div class="section-eyebrow">{{ $t('home.browse') }}</div>
@@ -298,14 +298,14 @@ function subscribe() {
         </RouterLink>
       </div>
 
-      <div class="mt-10 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div class="scrollbar-none -mx-4 mt-6 flex gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:mt-10 sm:grid sm:grid-cols-3 sm:gap-4 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-6">
         <RouterLink
           v-for="cat in categoriesList"
           :key="cat.id"
           :to="`/shop?category=${cat.slug}`"
-          class="feature-glow group relative overflow-hidden rounded-2xl border border-border-gray bg-white shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-lg dark:border-border-gray dark:bg-surface"
+          class="feature-glow group relative w-28 shrink-0 overflow-hidden rounded-2xl border border-border-gray bg-white shadow-card transition-all duration-300 hover:-translate-y-1 hover:shadow-lg sm:w-auto dark:border-border-gray dark:bg-surface"
         >
-          <div class="relative h-28 overflow-hidden bg-canvas sm:h-32">
+          <div class="relative h-20 overflow-hidden bg-canvas sm:h-32">
             <img
               v-if="cat.image"
               :src="cat.image"
@@ -321,15 +321,15 @@ function subscribe() {
             </div>
             <div class="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"></div>
           </div>
-          <div class="flex items-center gap-3 px-4 py-3.5">
-            <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-white">
+          <div class="flex items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4 sm:py-3.5">
+            <div class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary transition-colors group-hover:bg-primary group-hover:text-white sm:h-9 sm:w-9">
               <component :is="categoryIcons['Tag'] ?? Tag" class="h-4.5 w-4.5" />
             </div>
             <div class="min-w-0">
               <div class="truncate text-sm font-semibold text-ink dark:text-ink">{{ $te(`categories.${cat.slug.replace(/-/g, '_')}`) ? $t(`categories.${cat.slug.replace(/-/g, '_')}`) : cat.name }}</div>
-              <div class="text-xs text-gray-500 dark:text-muted">{{ $t('home.shop_now') }}</div>
+              <div class="hidden text-xs text-gray-500 sm:block dark:text-muted">{{ $t('home.shop_now') }}</div>
             </div>
-            <ChevronRight :size="16" class="ml-auto shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary dark:text-gray-500" />
+            <ChevronRight :size="16" class="ml-auto hidden shrink-0 text-gray-300 transition-transform group-hover:translate-x-0.5 group-hover:text-primary sm:block dark:text-gray-500" />
           </div>
         </RouterLink>
       </div>
@@ -346,16 +346,16 @@ function subscribe() {
     </section>
 
     <!-- ===================== DEAL OF THE DAY ===================== -->
-    <section v-if="dealOfDay" class="container-app py-16">
+    <section v-if="dealOfDay" class="container-app py-10 sm:py-16">
       <div class="hero-gradient overflow-hidden rounded-3xl text-white">
         <div class="grid items-center gap-8 lg:grid-cols-2">
-          <div class="p-8 sm:p-12">
+          <div class="p-5 sm:p-12">
             <div class="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-wider ring-1 ring-white/20">
               <Clock :size="14" class="text-accent" />
               {{ $t('home.deal_of_day') }}
             </div>
 
-            <h2 class="mt-5 text-3xl font-extrabold leading-tight sm:text-4xl">{{ dealOfDay.name }}</h2>
+            <h2 class="mt-4 text-2xl font-extrabold leading-tight sm:mt-5 sm:text-4xl">{{ dealOfDay.name }}</h2>
             <p class="mt-3 line-clamp-3 max-w-md text-blue-100">{{ dealOfDay.short_description }}</p>
 
             <div class="mt-6 flex items-end gap-3">
@@ -368,11 +368,11 @@ function subscribe() {
               </span>
             </div>
 
-            <div class="mt-7 flex flex-wrap gap-3">
+            <div class="mt-6 grid grid-cols-4 gap-2 sm:mt-7 sm:flex sm:flex-wrap sm:gap-3">
               <div
                 v-for="(value, key) in dealCountdown"
                 :key="key"
-                class="min-w-[64px] rounded-xl bg-white/10 px-3 py-2.5 text-center ring-1 ring-white/20 backdrop-blur"
+                class="min-w-0 rounded-xl bg-white/10 px-2 py-2 text-center ring-1 ring-white/20 backdrop-blur sm:min-w-[64px] sm:px-3 sm:py-2.5"
               >
                 <div class="text-2xl font-extrabold tabular-nums">{{ value }}</div>
                 <div class="text-[10px] font-semibold uppercase tracking-wider text-blue-100">{{ $t('home.time_' + key) }}</div>

@@ -18,8 +18,8 @@ const emit = defineEmits<{
 }>()
 
 const gridClass = computed(() => props.density === 'rail'
-  ? 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6'
-  : 'grid grid-cols-1 gap-4 sm:grid-cols-2 sm:gap-5 lg:grid-cols-4 2xl:grid-cols-5')
+  ? 'grid grid-cols-2 gap-3 max-[359px]:grid-cols-1 sm:gap-4 lg:grid-cols-4 xl:grid-cols-6'
+  : 'grid grid-cols-2 gap-3 max-[359px]:grid-cols-1 sm:gap-5 lg:grid-cols-4 2xl:grid-cols-5')
 </script>
 
 <template>
