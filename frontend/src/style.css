@@ -63,6 +63,7 @@
   html {
     -webkit-text-size-adjust: 100%;
     scroll-behavior: smooth;
+    overflow-x: clip;
   }
 
   body {
@@ -284,5 +285,9 @@
   @media (max-width: 639px) {
     .page-actions { width: 100%; }
     .page-actions > .btn { flex: 1 1 100%; }
+
+    /* Keep primary controls comfortably tappable without changing desktop density. */
+    .btn, .input, .select { min-height: 2.75rem; }
+    .btn-icon { width: 2.75rem; height: 2.75rem; }
   }
 }

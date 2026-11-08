@@ -72,7 +72,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKeydown); if (pr
   <Teleport to="body">
     <div v-if="modelValue" class="fixed inset-0 z-50 overflow-y-auto">
       <div class="fixed inset-0 animate-fade-in bg-black/40" @click="handleBackdropClick"></div>
-      <div class="relative flex min-h-[100dvh] items-center justify-center p-3 sm:p-4">
+      <div class="relative flex min-h-[100dvh] items-center justify-center px-3 py-[max(0.75rem,env(safe-area-inset-top))] pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:p-4">
         <div
           ref="dialog"
           role="dialog"
@@ -82,16 +82,16 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKeydown); if (pr
           class="relative my-4 flex max-h-[calc(100dvh-1.5rem)] w-full flex-col rounded-2xl bg-surface shadow-popover sm:my-8 sm:max-h-[85vh]"
           :class="sizeClasses[size]"
         >
-          <header class="flex shrink-0 items-center justify-between border-b border-border-gray px-6 py-4">
+          <header class="flex shrink-0 items-center justify-between border-b border-border-gray px-4 py-4 sm:px-6">
             <h3 :id="titleId" class="text-lg font-semibold text-ink">{{ title }}</h3>
             <button type="button" class="btn-icon" :aria-label="$t('actions.close')" @click="close">
               <X :size="20" />
             </button>
           </header>
-          <div class="overflow-y-auto px-6 py-5">
+          <div class="overflow-y-auto px-4 py-5 sm:px-6">
             <slot />
           </div>
-          <footer v-if="$slots.footer" class="shrink-0 border-t border-border-gray px-6 py-4">
+          <footer v-if="$slots.footer" class="shrink-0 border-t border-border-gray px-4 py-4 sm:px-6">
             <slot name="footer" />
           </footer>
         </div>

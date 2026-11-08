@@ -38,8 +38,8 @@ async function subscribe(): Promise<void> {
 
 <template>
   <footer class="border-t border-border-gray bg-surface dark:bg-ink">
-    <div class="container-app py-14">
-      <div class="grid gap-10 lg:grid-cols-4">
+    <div class="container-app py-10 sm:py-14">
+      <div class="grid gap-8 sm:grid-cols-2 sm:gap-x-10 sm:gap-y-12 lg:grid-cols-4">
         <div>
           <RouterLink to="/" class="text-2xl font-extrabold tracking-tight text-ink dark:text-white">
             E-<span class="text-primary">KHMER</span>
@@ -74,7 +74,7 @@ async function subscribe(): Promise<void> {
           <p class="mt-4 text-sm text-muted">
             {{ $t('footer.newsletter_text') }}
           </p>
-          <form class="mt-4 flex gap-2 max-[359px]:flex-col" @submit.prevent="subscribe">
+          <form class="mt-4 flex gap-2 max-[479px]:flex-col" @submit.prevent="subscribe">
             <input
               v-model="email"
               type="email"
@@ -83,7 +83,7 @@ async function subscribe(): Promise<void> {
               :placeholder="$t('footer.email_placeholder')"
               :aria-label="$t('footer.email_placeholder')"
             />
-            <button type="submit" class="btn-primary shrink-0 !px-4 max-[359px]:w-full" :disabled="subscribing || !consent" :aria-label="$t('footer.subscribe')">
+            <button type="submit" class="btn-primary shrink-0 !px-4 max-[479px]:w-full" :disabled="subscribing || !consent" :aria-label="$t('footer.subscribe')">
               <Send :size="15" />
             </button>
           </form>
@@ -95,7 +95,7 @@ async function subscribe(): Promise<void> {
         </div>
       </div>
 
-      <div class="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-border-gray pt-6 dark:border-white/10">
+      <div class="mt-10 flex flex-col items-start gap-4 border-t border-border-gray pt-6 sm:mt-12 sm:flex-row sm:items-center sm:justify-between dark:border-white/10">
         <p class="text-xs text-muted">{{ $t('footer.copyright') }}</p>
         <div class="flex flex-wrap gap-2">
           <span
