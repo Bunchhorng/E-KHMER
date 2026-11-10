@@ -146,6 +146,7 @@ class CategoryService
                     'id' => $category->id,
                     'name' => $category->name,
                     'slug' => $category->slug,
+                    'icon' => $category->icon,
                     'description' => $category->description,
                     'image' => $category->image,
                     'sort_order' => (int) $category->sort_order,

@@ -1,29 +1,22 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
 import { onMounted, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import {
   ArrowRight,
   ChevronRight,
-  Flower2,
-  Footprints,
   Headphones,
-  Home,
   RefreshCcw,
   Quote,
-  Shirt,
   ShieldCheck,
-  Smartphone,
   Sparkles,
-  Tag,
   Truck,
-  Watch
 } from 'lucide-vue-next'
 import StarRating from '@/components/StarRating.vue'
 import ProductRail from '@/components/ProductRail.vue'
 import ProductGrid from '@/components/ProductGrid.vue'
 import type { Product } from '@/types'
 import { mapCatalogProduct } from '@/utils/product'
+import { getCategoryIcon } from '@/utils/categoryIcon'
 import { useWishlistStore } from '@/stores/wishlist'
 import { catalogApi, brandsApi, categoriesApi, reviewsApi } from '@/api'
 import type { CatalogProduct, ApiBrand, ApiCategory } from '@/api'
@@ -33,27 +26,6 @@ const route = useRoute()
 
 function handleWishlist(productId: string): void {
   wishlistStore.toggle(productId)
-}
-
-const categoryIcons: Record<string, Component> = {
-  Smartphone,
-  Shirt,
-  Footprints,
-  Flower2,
-  Watch,
-  Home,
-  Tag
-}
-
-function categoryIcon(category: ApiCategory): Component {
-  const slug = category.slug.toLowerCase()
-  if (slug.includes('phone') || slug.includes('electronic')) return Smartphone
-  if (slug.includes('fashion') || slug.includes('cloth')) return Shirt
-  if (slug.includes('shoe') || slug.includes('footwear')) return Footprints
-  if (slug.includes('beauty') || slug.includes('health')) return Flower2
-  if (slug.includes('watch') || slug.includes('accessor')) return Watch
-  if (slug.includes('home') || slug.includes('living')) return Home
-  return categoryIcons[category.slug] ?? Tag
 }
 
 function isActiveCategory(category: ApiCategory): boolean {
@@ -285,7 +257,7 @@ const benefits = [
               v-else
               class="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/15 text-primary"
             >
-              <component :is="categoryIcon(cat)" class="h-9 w-9" />
+              <component :is="getCategoryIcon(cat)" class="h-9 w-9" />
             </div>
           </div>
           <div class="flex min-h-12 flex-1 items-center justify-center px-2 py-2 text-center sm:min-h-14 sm:px-3">

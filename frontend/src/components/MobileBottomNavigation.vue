@@ -2,13 +2,14 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { House, LayoutGrid, ShoppingBag, Store, User, X } from 'lucide-vue-next'
-import { categoriesApi } from '@/api'
+import { categoriesApi, type ApiCategory } from '@/api'
 import { useCartStore } from '@/stores/cart'
+import { getCategoryIcon } from '@/utils/categoryIcon'
 
 const route = useRoute()
 const cart = useCartStore()
 const categorySheetOpen = ref(false)
-const categories = ref<{ id: number; name: string; slug: string }[]>([])
+const categories = ref<ApiCategory[]>([])
 const loadingCategories = ref(false)
 let previousBodyOverflow = ''
 
@@ -113,7 +114,7 @@ onBeforeUnmount(() => {
           </header>
           <div class="grid max-h-[calc(min(76dvh,38rem)-5.5rem)] grid-cols-2 gap-2 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <RouterLink to="/shop" class="category-sheet-link" @click="closeCategorySheet">
-              <LayoutGrid :size="18" />
+              <component :is="getCategoryIcon(category)" :size="18" />
               {{ $t('nav.all_products') }}
             </RouterLink>
             <RouterLink v-for="category in categories" :key="category.id" :to="{ name: 'shop', query: { category: category.slug } }" class="category-sheet-link" @click="closeCategorySheet">

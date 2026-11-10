@@ -33,6 +33,9 @@ class AdminCategoryRequest extends FormRequest
             // The slug is normalised to a web-safe alphabet in
             // prepareForValidation(), so the shape is guaranteed rather than rejected.
             'slug' => ['nullable', 'string', 'max:255'],
+            // Only stable identifiers from the frontend's approved Lucide registry
+            // are stored, preventing arbitrary component names from reaching clients.
+            'icon' => ['nullable', 'string', 'max:64', 'in:'.implode(',', config('category_icons.allowed', []))],
             // categories.description is a text column (65 535 bytes).
             'description' => ['nullable', 'string', 'max:60000'],
             'image' => ['nullable', 'string', 'max:255'],

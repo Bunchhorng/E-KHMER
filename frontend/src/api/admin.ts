@@ -130,6 +130,7 @@ export interface AdminCategory {
   id: number
   name: string
   slug: string
+  icon: string | null
   description: string | null
   image: string | null
   sort_order: number

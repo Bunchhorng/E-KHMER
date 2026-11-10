@@ -65,6 +65,27 @@ class CategoryTest extends TestCase
         $this->getJson('/api/categories')->assertOk()->assertJsonCount(1, 'data');
     }
 
+    public function test_admin_can_save_an_approved_category_icon_and_the_public_tree_exposes_it(): void
+    {
+        $category = $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/categories', ['name' => 'Computers', 'icon' => 'laptop'])
+            ->assertCreated()
+            ->assertJsonPath('data.icon', 'laptop');
+
+        $this->assertDatabaseHas('categories', ['id' => $category->json('data.id'), 'icon' => 'laptop']);
+        $this->getJson('/api/categories')
+            ->assertOk()
+            ->assertJsonPath('data.0.icon', 'laptop');
+    }
+
+    public function test_admin_cannot_save_an_icon_outside_the_approved_registry(): void
+    {
+        $this->actingAs($this->admin(), 'sanctum')
+            ->postJson('/api/admin/categories', ['name' => 'Unsafe', 'icon' => 'arbitrary-component'])
+            ->assertUnprocessable()
+            ->assertJsonValidationErrors('icon');
+    }
+
     // -----------------------------------------------------------------
     // Admin tree
     // -----------------------------------------------------------------

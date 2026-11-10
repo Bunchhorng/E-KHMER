@@ -1,14 +1,14 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch, onMounted } from "vue";
-import type { Component } from 'vue'
 import { useRouter } from "vue-router";
 import type { RouteLocationRaw } from "vue-router";
-import { ChevronDown, ChevronRight, Flower2, Footprints, Grid2X2, Headphones, Heart, HelpCircle, Home, LogIn, LogOut, Menu, Search, Shirt, ShoppingBag, Smartphone, User, X } from "lucide-vue-next";
+import { ChevronDown, ChevronRight, Grid2X2, Headphones, Heart, HelpCircle, Home, LogIn, LogOut, Menu, Search, ShoppingBag, User, X } from "lucide-vue-next";
 import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import { categoriesApi } from "@/api";
+import { getCategoryIcon } from '@/utils/categoryIcon'
 
-type NavigationCategory = { id: number; name: string; slug: string; children?: NavigationCategory[] }
+type NavigationCategory = { id: number; name: string; slug: string; icon?: string | null; children?: NavigationCategory[] }
 const navCategories = ref<NavigationCategory[]>([]);
 
 onMounted(async () => {
@@ -67,16 +67,6 @@ function closeMobile(): void {
 
 function toggleCategoryGroup(id: number): void {
   expandedCategoryId.value = expandedCategoryId.value === id ? null : id
-}
-
-function iconForCategory(slug: string): Component {
-  const name = slug.toLowerCase()
-  if (name.includes('phone') || name.includes('electronic')) return Smartphone
-  if (name.includes('fashion') || name.includes('cloth')) return Shirt
-  if (name.includes('shoe') || name.includes('footwear')) return Footprints
-  if (name.includes('beauty') || name.includes('health')) return Flower2
-  if (name.includes('home') || name.includes('living')) return Home
-  return Grid2X2
 }
 
 function toggleUserMenu(): void {
@@ -336,7 +326,7 @@ async function signOut(): Promise<void> {
                       class="drawer-link min-w-0 flex-1 !bg-transparent"
                       @click="closeMobile"
                     >
-                      <component :is="iconForCategory(item.slug)" :size="18" />
+                      <component :is="getCategoryIcon(item)" :size="18" />
                       <span class="truncate">{{ $te(`categories.${item.slug.replace(/-/g, '_')}`) ? $t(`categories.${item.slug.replace(/-/g, '_')}`) : item.name }}</span>
                     </RouterLink>
                     <button
@@ -358,7 +348,7 @@ async function signOut(): Promise<void> {
                       class="drawer-link !min-h-10 !py-2 text-sm"
                       @click="closeMobile"
                     >
-                      <ChevronRight :size="15" />
+                      <component :is="getCategoryIcon(child, item)" :size="15" />
                       <span class="truncate">{{ $te(`categories.${child.slug.replace(/-/g, '_')}`) ? $t(`categories.${child.slug.replace(/-/g, '_')}`) : child.name }}</span>
                     </RouterLink>
                   </div>

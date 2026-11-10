@@ -4,6 +4,8 @@ export interface ApiCategory {
   id: number
   name: string
   slug: string
+  /** Optional presentation metadata for a new/custom category. */
+  icon?: string | null
   description: string | null
   image: string | null
   sort_order: number

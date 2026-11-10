@@ -6,6 +6,7 @@ import { useI18n } from 'vue-i18n'
 import { adminApi } from '@/api/admin'
 import type { AdminCategory } from '@/api/admin'
 import { mediaApi } from '@/api/uploads'
+import { categoryIconOptions, getCategoryIcon } from '@/utils/categoryIcon'
 
 const { t } = useI18n()
 
@@ -23,6 +24,7 @@ interface ParentOption {
 const form = reactive({
   name: '',
   slug: '',
+  icon: null as string | null,
   parentId: null as number | null,
   sortOrder: 0,
   status: 'Active',
@@ -40,6 +42,7 @@ const imageInput = ref<HTMLInputElement | null>(null)
 const imageRemoved = ref(false)
 
 const categoryId = computed(() => (isEdit.value ? Number(route.params.id) : null))
+const selectedIcon = computed(() => getCategoryIcon({ slug: form.slug, icon: form.icon }))
 
 const formTitle = computed(() => {
   if (isEdit.value) return t('admin.categories.edit_category')
@@ -158,6 +161,7 @@ onMounted(async () => {
       }
       form.name = node.name
       form.slug = node.slug
+      form.icon = node.icon
       form.parentId = node.parent_id
       form.description = node.description ?? ''
       form.sortOrder = node.sort_order ?? 0
@@ -224,6 +228,7 @@ async function save() {
   const payload: Record<string, unknown> = {
     name,
     slug,
+    icon: form.icon,
     description: form.description.trim() || null,
     parent_id: form.parentId,
     sort_order: Number(form.sortOrder) || 0,
@@ -318,6 +323,21 @@ async function save() {
           <label class="label" for="cat-sort-order">{{ $t('admin.categories.sort_order_label') }}</label>
           <input id="cat-sort-order" v-model.number="form.sortOrder" class="input" :class="{ 'input-error': errors.sort_order }" type="number" min="0" placeholder="0" />
           <p v-if="errors.sort_order" class="mt-1 text-xs text-red-600">{{ errors.sort_order }}</p>
+        </div>
+
+        <div>
+          <label class="label" for="cat-icon">{{ $t('admin.categories.icon_label') }}</label>
+          <div class="flex items-center gap-3">
+            <span class="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-primary/10 text-primary" aria-hidden="true">
+              <component :is="selectedIcon" :size="21" />
+            </span>
+            <select id="cat-icon" v-model="form.icon" class="select" :class="{ 'input-error': errors.icon }">
+              <option :value="null">{{ $t('admin.categories.icon_automatic') }}</option>
+              <option v-for="option in categoryIconOptions" :key="option[0]" :value="option[0]">{{ option[1] }}</option>
+            </select>
+          </div>
+          <p class="mt-1 text-xs text-muted">{{ $t('admin.categories.icon_help') }}</p>
+          <p v-if="errors.icon" class="mt-1 text-xs text-red-600">{{ errors.icon }}</p>
         </div>
 
         <div class="sm:col-span-2">
