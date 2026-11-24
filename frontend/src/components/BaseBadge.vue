@@ -6,8 +6,9 @@ const props = withDefaults(
     variant?: BadgeVariant
     size?: 'sm' | 'md'
     dot?: boolean
+    square?: boolean
   }>(),
-  { variant: 'neutral', size: 'sm', dot: false }
+  { variant: 'neutral', size: 'sm', dot: false, square: false }
 )
 
 const variantClasses: Record<BadgeVariant, string> = {
@@ -36,13 +37,14 @@ const dotClasses: Record<BadgeVariant, string> = {
     class="inline-flex items-center gap-1 rounded-full font-medium ring-1 ring-inset"
     :class="[
       variantClasses[props.variant],
+      { '!rounded-none': props.square },
       props.size === 'sm' ? 'px-2.5 py-0.5 text-xs' : 'px-3 py-1 text-sm'
     ]"
   >
     <span
       v-if="props.dot"
       class="rounded-full"
-      :class="[dotClasses[props.variant], props.size === 'sm' ? 'h-1.5 w-1.5' : 'h-2 w-2']"
+      :class="[dotClasses[props.variant], { '!rounded-none': props.square }, props.size === 'sm' ? 'h-1.5 w-1.5' : 'h-2 w-2']"
     ></span>
     <slot />
   </span>

@@ -11,6 +11,7 @@ ChartJS.defaults.font.family = 'Inter, sans-serif'
 
 const props = defineProps<{
   data: { label: string; orders: number }[]
+  square?: boolean
 }>()
 
 const { palette } = useChartTheme()
@@ -24,7 +25,7 @@ const chartData = computed<ChartData<'bar'>>(() => ({
       data: props.data.map((p) => p.orders),
       backgroundColor: 'rgba(37, 99, 235, 0.35)',
       borderColor: '#2563EB',
-      borderRadius: 5,
+      borderRadius: props.square ? 0 : 5,
       barPercentage: 0.75
     }
   ]

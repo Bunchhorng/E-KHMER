@@ -48,7 +48,7 @@ test('admin and seller dashboards fit small screens, Khmer and dark mode', async
     await expect(page.locator('.dashboard-metric')).toHaveCount(4)
     if (testInfo.project.name === 'desktop') await page.setViewportSize({ width: 1918, height: 1025 })
     await page.screenshot({ path: testInfo.outputPath(`${area}-dashboard.png`), animations: 'disabled' })
-    const widths = testInfo.project.name === 'desktop' ? [360, 768, 1024, 1440, 1918] : [393]
+    const widths = testInfo.project.name === 'desktop' ? [320, 360, 375, 390, 430, 768, 1024, 1440, 1918] : [320, 360, 375, 390, 430]
     for (const width of widths) {
       await page.setViewportSize({ width, height: 1025 })
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth), `${area} overflow at ${width}`).toBeLessThanOrEqual(1)

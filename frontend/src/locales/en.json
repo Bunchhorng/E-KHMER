@@ -1099,6 +1099,8 @@
       "shops_unavailable": "Shop totals are unavailable. Retry in the approvals panel.",
       "no_pending_shops": "No shops waiting for approval.",
       "approve": "Approve",
+      "approve_title": "Approve shop application",
+      "approve_description": "Approve {name} and allow this shop to sell on the marketplace?",
       "reject": "Reject",
       "reject_title": "Reject shop application",
       "reject_description": "The applicant for {name} will receive the reason below.",

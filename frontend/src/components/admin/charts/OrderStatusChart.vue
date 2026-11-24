@@ -11,6 +11,7 @@ ChartJS.defaults.font.family = 'Inter, sans-serif'
 
 const props = defineProps<{
   data: { status: string; count: number }[]
+  square?: boolean
 }>()
 
 const { palette } = useChartTheme()
@@ -37,7 +38,7 @@ const chartData = computed<ChartData<'bar'>>(() => ({
       label: t('admin.chart.orders'),
       data: props.data.map((d) => d.count),
       backgroundColor: props.data.map((d) => statusColors[d.status] ?? '#6B728B'),
-      borderRadius: 6,
+      borderRadius: props.square ? 0 : 6,
       barPercentage: 0.6,
       maxBarThickness: 40
     }

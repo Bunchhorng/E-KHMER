@@ -5,7 +5,7 @@ import BaseBadge from './BaseBadge.vue'
 
 type BadgeVariant = 'success' | 'warning' | 'danger' | 'info' | 'neutral'
 
-const props = defineProps<{ status: string; label?: string }>()
+const props = defineProps<{ status: string; label?: string; square?: boolean }>()
 const { t, te } = useI18n()
 const label = computed(() => {
   if (props.label) return props.label
@@ -47,5 +47,5 @@ const variant = computed<BadgeVariant>(() => {
 </script>
 
 <template>
-  <BaseBadge :variant="variant" dot>{{ label }}</BaseBadge>
+  <BaseBadge :variant="variant" :square="props.square" dot>{{ label }}</BaseBadge>
 </template>
