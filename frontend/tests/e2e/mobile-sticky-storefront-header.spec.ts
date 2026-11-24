@@ -30,21 +30,43 @@ test('the mobile storefront header keeps navigation, search and categories toget
   await page.goto('/shop')
   const promotion = page.getByTestId('storefront-promotion')
   const sticky = page.getByTestId('mobile-storefront-sticky')
+  const header = page.getByTestId('storefront-main-header')
+  const headerRow = header.locator('> div > .container-app')
+  const utilities = page.getByTestId('storefront-header-utilities')
+  const languageToggle = utilities.locator('button:has(img)')
+  const themeToggle = utilities.getByRole('button', { name: /Switch theme/ })
   const categoriesRow = page.getByTestId('storefront-category-nav').locator('ul')
 
   await expect(promotion).toBeVisible()
-  await expect(page.getByTestId('storefront-main-header').getByRole('searchbox')).toBeVisible()
+  await expect(header.getByRole('searchbox')).toBeVisible()
   await expect(page.getByTestId('storefront-category-nav')).toBeVisible()
+  await expect(languageToggle).toBeVisible()
+  await expect(themeToggle).toBeVisible()
   await expect.poll(() => categoriesRow.evaluate(row => row.scrollWidth > row.clientWidth)).toBe(true)
 
-  for (const width of [320, 360, 375, 390, 412, 430]) {
+  await languageToggle.click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'km')
+  await expect(languageToggle).toBeVisible()
+  await languageToggle.click()
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en')
+
+  await themeToggle.click()
+  await expect(page.locator('html')).toHaveClass(/dark/)
+  await expect(themeToggle).toBeVisible()
+  await themeToggle.click()
+  await expect(page.locator('html')).not.toHaveClass(/dark/)
+
+  for (const width of [320, 360, 375, 390, 430]) {
     await page.setViewportSize({ width, height: 915 })
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await expect.poll(() => headerRow.evaluate(row => row.scrollWidth <= row.clientWidth)).toBe(true)
+    await expect(languageToggle).toBeVisible()
+    await expect(themeToggle).toBeVisible()
   }
 
   await page.evaluate(() => window.scrollTo(0, 500))
   await expect.poll(() => sticky.evaluate(element => Math.round(element.getBoundingClientRect().top))).toBe(0)
   await expect.poll(() => promotion.evaluate(element => element.getBoundingClientRect().bottom < 0)).toBe(true)
-  await expect(page.getByTestId('storefront-main-header').getByRole('searchbox')).toBeVisible()
+  await expect(header.getByRole('searchbox')).toBeVisible()
   await expect(page.getByTestId('storefront-category-nav')).toBeVisible()
 })

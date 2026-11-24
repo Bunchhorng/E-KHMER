@@ -19,7 +19,9 @@ const props = withDefaults(defineProps<{
   collapsed?: boolean
   collapsible?: boolean
   compact?: boolean
-}>(), { collapsed: false, collapsible: false, compact: false })
+  accordion?: boolean
+  navigationStorageKey?: string
+}>(), { collapsed: false, collapsible: false, compact: false, accordion: false, navigationStorageKey: undefined })
 const emit = defineEmits<{ 'update:collapsed': [value: boolean]; signOut: [] }>()
 const auth = useAuthStore()
 const route = useRoute()
@@ -28,7 +30,56 @@ const isDesktop = ref(desktopMedia.matches)
 const mobileOpen = ref(false)
 const sidebar = ref<HTMLElement | null>(null)
 const menuButton = ref<HTMLButtonElement | null>(null)
+const expandedGroupIds = ref<string[]>([])
 const expanded = computed(() => !isDesktop.value || !props.collapsed)
+const activeGroupIds = computed(() => new Set(
+  props.groups
+    .filter(group => group.items.some(item => item.active))
+    .map((group, index) => groupId(group, index))
+))
+
+function groupId(group: DashboardNavGroup, index: number): string {
+  return group.id ?? `group-${index}`
+}
+
+function panelId(group: DashboardNavGroup, index: number): string {
+  return `${props.navigationId}-group-${groupId(group, index)}`
+}
+
+function saveExpandedGroups() {
+  if (!props.navigationStorageKey) return
+  try {
+    localStorage.setItem(props.navigationStorageKey, JSON.stringify(expandedGroupIds.value))
+  } catch {
+    // Persisting navigation preferences is optional.
+  }
+}
+
+function syncExpandedGroups() {
+  if (!props.accordion) return
+  const available = new Set(props.groups.map(groupId))
+  const active = activeGroupIds.value
+  const normalized = expandedGroupIds.value.filter(id => available.has(id))
+  active.forEach(id => {
+    if (!normalized.includes(id)) normalized.push(id)
+  })
+  if (normalized.length !== expandedGroupIds.value.length || normalized.some((id, index) => id !== expandedGroupIds.value[index])) {
+    expandedGroupIds.value = normalized
+    saveExpandedGroups()
+  }
+}
+
+function isGroupOpen(group: DashboardNavGroup, index: number): boolean {
+  return expandedGroupIds.value.includes(groupId(group, index))
+}
+
+function toggleGroup(group: DashboardNavGroup, index: number) {
+  const id = groupId(group, index)
+  expandedGroupIds.value = expandedGroupIds.value.includes(id)
+    ? expandedGroupIds.value.filter(groupId => groupId !== id)
+    : [...expandedGroupIds.value, id]
+  saveExpandedGroups()
+}
 
 function toggleSidebar() {
   if (isDesktop.value) emit('update:collapsed', !props.collapsed)
@@ -53,12 +104,22 @@ function onViewport(event: MediaQueryListEvent) {
 }
 
 watch(() => route.fullPath, () => { mobileOpen.value = false })
+watch([() => props.groups, () => route.fullPath], syncExpandedGroups, { immediate: true })
 watch(mobileOpen, async open => {
   await nextTick()
   if (open && mobileOpen.value) sidebar.value?.querySelector<HTMLElement>('a')?.focus()
   else if (!isDesktop.value) menuButton.value?.focus()
 })
 onMounted(() => {
+  if (props.accordion && props.navigationStorageKey) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(props.navigationStorageKey) ?? '[]')
+      if (Array.isArray(saved) && saved.every(value => typeof value === 'string')) expandedGroupIds.value = saved
+    } catch {
+      // A malformed preference should not prevent access to navigation.
+    }
+    syncExpandedGroups()
+  }
   desktopMedia.addEventListener('change', onViewport)
   window.addEventListener('keydown', onKeydown)
 })
@@ -97,11 +158,32 @@ onBeforeUnmount(() => {
       <div v-if="$slots.context && expanded" class="dashboard-context"><slot name="context" /></div>
       <nav class="dashboard-nav" :aria-label="label">
         <div v-for="(group, index) in groups" :key="group.label ?? index" class="dashboard-nav-group">
-          <p v-if="group.label && expanded" class="dashboard-nav-label">{{ group.label }}</p>
-          <RouterLink v-for="item in group.items" :key="item.id" :to="item.to" class="dashboard-nav-link" :class="{ 'dashboard-nav-active': item.active }" :title="expanded ? undefined : item.label" :aria-current="item.active ? 'page' : undefined">
-            <component :is="item.icon" :size="22" :stroke-width="1.8" class="shrink-0" aria-hidden="true" />
-            <span v-if="expanded">{{ item.label }}</span>
-          </RouterLink>
+          <template v-if="accordion && expanded">
+            <button
+              type="button"
+              class="dashboard-nav-group-button"
+              :aria-expanded="isGroupOpen(group, index)"
+              :aria-controls="panelId(group, index)"
+              @click="toggleGroup(group, index)"
+            >
+              <component v-if="group.icon" :is="group.icon" :size="18" :stroke-width="1.8" class="shrink-0" aria-hidden="true" />
+              <span class="min-w-0 flex-1 truncate">{{ group.label }}</span>
+              <ChevronRight :size="17" class="dashboard-nav-group-chevron shrink-0" :class="{ 'dashboard-nav-group-chevron-open': isGroupOpen(group, index) }" aria-hidden="true" />
+            </button>
+          </template>
+          <p v-else-if="group.label && expanded" class="dashboard-nav-label">{{ group.label }}</p>
+          <div
+            :id="accordion && expanded ? panelId(group, index) : undefined"
+            class="dashboard-nav-group-items"
+            :class="{ 'dashboard-nav-group-items-open': !accordion || !expanded || isGroupOpen(group, index) }"
+          >
+            <div class="dashboard-nav-group-items-inner">
+              <RouterLink v-for="item in group.items" :key="item.id" :to="item.to" class="dashboard-nav-link" :class="{ 'dashboard-nav-active': item.active }" :title="expanded ? undefined : item.label" :aria-current="item.active ? 'page' : undefined">
+                <component :is="item.icon" :size="22" :stroke-width="1.8" class="shrink-0" aria-hidden="true" />
+                <span v-if="expanded">{{ item.label }}</span>
+              </RouterLink>
+            </div>
+          </div>
         </div>
       </nav>
       <div v-if="$slots.note && expanded" class="dashboard-note"><slot name="note" /></div>
@@ -160,6 +242,15 @@ onBeforeUnmount(() => {
 .dashboard-nav { min-height: 0; flex: 1; overflow-y: auto; padding: 4px 12px 20px; overscroll-behavior: contain; }
 .dashboard-nav-group + .dashboard-nav-group { margin-top: 24px; }
 .dashboard-nav-label { padding: 8px 12px 10px; font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; color: rgb(var(--color-muted)); }
+.dashboard-nav-group-button { display: flex; width: 100%; min-height: 44px; align-items: center; gap: 10px; border-radius: 10px; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: rgb(var(--color-muted)); transition: background .15s, color .15s; }
+.dashboard-nav-group-button:hover { background: rgb(var(--color-canvas)); color: rgb(var(--color-ink)); }
+.dashboard-nav-group-chevron { transition: transform .18s ease; }
+.dashboard-nav-group-chevron-open { transform: rotate(90deg); }
+.dashboard-nav-group-items { display: grid; grid-template-rows: 0fr; transition: grid-template-rows .18s ease; }
+.dashboard-nav-group-items-open { grid-template-rows: 1fr; }
+.dashboard-nav-group-items-inner { min-height: 0; overflow: hidden; }
+.dashboard-nav-group-button + .dashboard-nav-group-items .dashboard-nav-group-items-inner { padding-top: 4px; padding-left: 12px; }
+.dashboard-nav-group-button + .dashboard-nav-group-items .dashboard-nav-link { padding-left: 14px; }
 .dashboard-nav-link { display: flex; min-height: 44px; align-items: center; gap: 12px; border-radius: 12px; padding: 10px 12px; font-size: 14px; color: rgb(var(--color-muted)); transition: background .15s, color .15s; }
 .dashboard-nav-link > svg { width: 18px; height: 18px; flex-shrink: 0; }
 .dashboard-nav-link + .dashboard-nav-link { margin-top: 4px; }
@@ -199,5 +290,5 @@ onBeforeUnmount(() => {
   .dashboard-topbar-actions { gap: 0; }
   .dashboard-content { padding: 24px 16px; }
 }
-@media (prefers-reduced-motion: reduce) { .dashboard-sidebar { transition: none; } }
+@media (prefers-reduced-motion: reduce) { .dashboard-sidebar, .dashboard-nav-group-chevron, .dashboard-nav-group-items { transition: none; } }
 </style>

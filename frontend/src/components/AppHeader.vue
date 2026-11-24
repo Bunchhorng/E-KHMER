@@ -138,7 +138,7 @@ async function signOut(): Promise<void> {
 <template>
   <header data-testid="storefront-main-header">
     <div class="sticky top-0 z-40 border-b border-border-gray bg-surface/95 backdrop-blur">
-      <div class="container-app flex h-14 items-center gap-2 sm:gap-4 lg:h-20">
+      <div class="container-app flex h-14 flex-nowrap items-center gap-2 sm:gap-4 lg:h-20">
         <button
           ref="menuTriggerRef"
           type="button"
@@ -173,8 +173,8 @@ async function signOut(): Promise<void> {
           />
         </form>
 
-        <div class="ml-auto flex items-center gap-1">
-          <div class="hidden items-center gap-1 md:flex">
+        <div data-testid="storefront-header-utilities" class="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
+          <div class="flex items-center gap-0.5 sm:gap-1">
             <LanguageSwitcher />
             <ThemeToggle />
           </div>

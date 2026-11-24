@@ -10,7 +10,9 @@ export interface DashboardNavItem {
 }
 
 export interface DashboardNavGroup {
+  id?: string
   label?: string
+  icon?: Component
   items: DashboardNavItem[]
 }
 

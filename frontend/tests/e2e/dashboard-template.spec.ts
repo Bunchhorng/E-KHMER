@@ -93,10 +93,46 @@ test('navigation supports desktop collapse and mobile keyboard dismissal', async
     await page.keyboard.press('Escape')
     await expect(menu).toBeFocused()
     await menu.click()
+    await dialog.getByRole('button', { name: 'Platform oversight', exact: true }).click()
     await dialog.getByRole('link', { name: 'Orders', exact: true }).click()
     await expect(page).toHaveURL(/\/admin\/orders$/)
     await expect(menu).toHaveAttribute('aria-expanded', 'false')
   }
+})
+
+test('admin accordion keeps multiple groups open, highlights the active item, and restores the preference', async ({ page }, testInfo) => {
+  await setup(page)
+  await page.goto('/admin/dashboard')
+  const sidebar = page.locator('#admin-sidebar')
+  if (testInfo.project.name === 'mobile') await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click()
+
+  const oversight = sidebar.getByRole('button', { name: 'Platform oversight', exact: true })
+  await expect(sidebar.getByRole('button', { name: 'Overview', exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(oversight).toHaveAttribute('aria-expanded', 'false')
+  await oversight.click()
+  await expect(oversight).toHaveAttribute('aria-expanded', 'true')
+  await expect(sidebar.getByRole('button', { name: 'Overview', exact: true })).toHaveAttribute('aria-expanded', 'true')
+
+  if (testInfo.project.name === 'desktop') {
+    for (const group of ['Catalog', 'Marketing', 'Community', 'System']) {
+      await sidebar.getByRole('button', { name: group, exact: true }).click()
+    }
+    const navigation = sidebar.locator('.dashboard-nav')
+    await expect.poll(() => navigation.evaluate(element => element.scrollHeight > element.clientHeight)).toBe(true)
+    await navigation.evaluate(element => { element.scrollTop = element.scrollHeight })
+    await expect.poll(() => navigation.evaluate(element => element.scrollTop > 0)).toBe(true)
+  }
+
+  await sidebar.getByRole('link', { name: 'Orders', exact: true }).click()
+  await expect(page).toHaveURL(/\/admin\/orders$/)
+
+  if (testInfo.project.name === 'mobile') await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click()
+  await expect(sidebar.getByRole('button', { name: 'Platform oversight', exact: true })).toHaveAttribute('aria-expanded', 'true')
+  await expect(sidebar.getByRole('link', { name: 'Orders', exact: true })).toHaveClass(/dashboard-nav-active/)
+
+  await page.reload()
+  if (testInfo.project.name === 'mobile') await page.getByRole('button', { name: 'Toggle sidebar', exact: true }).click()
+  await expect(sidebar.getByRole('button', { name: 'Platform oversight', exact: true })).toHaveAttribute('aria-expanded', 'true')
 })
 
 test('shop switching updates overview counts and keeps actions scoped to the selected shop', async ({ page }, testInfo) => {

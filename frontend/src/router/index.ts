@@ -5,6 +5,7 @@ import AccountLayout from '@/layouts/AccountLayout.vue'
 import AdminLayout from '@/layouts/AdminLayout.vue'
 import AuthLayout from '@/layouts/AuthLayout.vue'
 import { useAuthStore } from '@/stores/auth'
+import type { AdminNavRouteMeta } from '@/config/adminNavigation'
 
 declare module 'vue-router' {
   interface RouteMeta {
@@ -12,6 +13,7 @@ declare module 'vue-router' {
     requiresAuth?: boolean
     admin?: boolean
     guestOnly?: boolean
+    adminNav?: AdminNavRouteMeta
   }
 }
 
@@ -85,46 +87,46 @@ const router = createRouter({
       meta: { requiresAuth: true, admin: true },
       redirect: { name: 'admin-dashboard' },
       children: [
-        { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/AdminDashboardView.vue'), meta: { title: 'Dashboard' } },
-        { path: 'returns', name: 'admin-returns', component: () => import('@/views/ReturnsView.vue'), props: { manage: true }, meta: { title: 'Return requests' } },
-        { path: 'support', name: 'admin-support', component: () => import('@/views/SupportInboxView.vue'), props: { admin: true }, meta: { title: 'Support requests' } },
-        { path: 'shops', name: 'admin-shops', component: () => import('@/views/admin/AdminShopsView.vue'), meta: { title: 'Marketplace Shops' } },
-        { path: 'shop-members', name: 'admin-shop-members', component: () => import('@/views/admin/AdminShopMembersView.vue'), meta: { title: 'Shop Members' } },
-        { path: 'shop-owners', name: 'admin-shop-owners', component: () => import('@/views/admin/AdminShopMembersView.vue'), props: { role: 'owner' }, meta: { title: 'Shop Owners' } },
-        { path: 'shop-owners/new', name: 'admin-shop-owner-create', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: { role: 'owner' }, meta: { title: 'Create Shop Owner' } },
-        { path: 'shop-owners/:id/edit', name: 'admin-shop-owner-edit', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: (route) => ({ role: 'owner', memberId: Number(route.params.id) }), meta: { title: 'Edit Shop Owner' } },
-        { path: 'shop-admins', name: 'admin-shop-admins', component: () => import('@/views/admin/AdminShopMembersView.vue'), props: { role: 'manager' }, meta: { title: 'Shop Admins' } },
-        { path: 'shop-admins/new', name: 'admin-shop-admin-create', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: { role: 'manager' }, meta: { title: 'Create Shop Admin' } },
-        { path: 'shop-admins/:id/edit', name: 'admin-shop-admin-edit', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: (route) => ({ role: 'manager', memberId: Number(route.params.id) }), meta: { title: 'Edit Shop Admin' } },
-        { path: 'shops/new', name: 'admin-shop-create', component: () => import('@/views/admin/AdminShopFormView.vue'), meta: { title: 'Create Shop' } },
-        { path: 'shops/:id/edit', name: 'admin-shop-edit', component: () => import('@/views/admin/AdminShopFormView.vue'), meta: { title: 'Edit Shop' } },
-        { path: 'products', name: 'admin-products', component: () => import('@/views/admin/AdminProductsView.vue'), meta: { title: 'Products' } },
-        { path: 'products/new', name: 'admin-product-create', component: () => import('@/views/admin/AddProductView.vue'), meta: { title: 'Add Product' } },
-        { path: 'products/:id/edit', name: 'admin-product-edit', component: () => import('@/views/admin/AddProductView.vue'), meta: { title: 'Edit Product' } },
-        { path: 'orders', name: 'admin-orders', component: () => import('@/views/admin/AdminOrdersView.vue'), meta: { title: 'Orders' } },
-        { path: 'orders/:id', name: 'admin-order-detail', component: () => import('@/views/admin/AdminOrderDetailView.vue'), meta: { title: 'Order Detail' } },
-        { path: 'inventory', name: 'admin-inventory', component: () => import('@/views/admin/AdminInventoryView.vue'), meta: { title: 'Inventory' } },
-        { path: 'reports', name: 'admin-reports', component: () => import('@/views/admin/AdminReportsView.vue'), meta: { title: 'Reports' } },
-        { path: 'analytics', name: 'admin-analytics', component: () => import('@/views/BusinessAnalyticsView.vue'), meta: { title: 'Business Analytics' } },
-        { path: 'payments', name: 'admin-payments', component: () => import('@/views/admin/AdminPaymentsView.vue'), meta: { title: 'Payments' } },
-        { path: 'shipments', name: 'admin-shipments', component: () => import('@/views/admin/AdminShipmentsView.vue'), meta: { title: 'Shipments' } },
-        { path: 'notifications', name: 'admin-notifications', component: () => import('@/views/admin/AdminNotificationsView.vue'), meta: { title: 'Notifications' } },
-        { path: 'customers', name: 'admin-customers', component: () => import('@/views/admin/AdminCustomersView.vue'), meta: { title: 'Customers' } },
-        { path: 'customers/:id', name: 'admin-customer-detail', component: () => import('@/views/admin/AdminCustomerDetailView.vue'), meta: { title: 'Customer Detail' } },
-        { path: 'settings', name: 'admin-settings', component: () => import('@/views/admin/AdminSettingsView.vue'), meta: { title: 'Settings' } },
-        { path: 'coupons', name: 'admin-coupons', component: () => import('@/views/admin/AdminCouponsView.vue'), meta: { title: 'Coupons' } },
-        { path: 'coupons/new', name: 'admin-coupon-create', component: () => import('@/views/admin/CouponFormView.vue'), meta: { title: 'Add Coupon' } },
-        { path: 'coupons/:id/edit', name: 'admin-coupon-edit', component: () => import('@/views/admin/CouponFormView.vue'), meta: { title: 'Edit Coupon' } },
-        { path: 'reviews', name: 'admin-reviews', component: () => import('@/views/admin/AdminReviewsView.vue'), meta: { title: 'Reviews' } },
-        { path: 'categories', name: 'admin-categories', component: () => import('@/views/admin/AdminCategoriesView.vue'), meta: { title: 'Categories' } },
-        { path: 'categories/new', name: 'admin-category-create', component: () => import('@/views/admin/CategoryFormView.vue'), meta: { title: 'Add Category' } },
-        { path: 'categories/:id/edit', name: 'admin-category-edit', component: () => import('@/views/admin/CategoryFormView.vue'), meta: { title: 'Edit Category' } },
-        { path: 'brands', name: 'admin-brands', component: () => import('@/views/admin/AdminBrandsView.vue'), meta: { title: 'Brands' } },
-        { path: 'brands/new', name: 'admin-brand-create', component: () => import('@/views/admin/BrandFormView.vue'), meta: { title: 'Add Brand' } },
-        { path: 'brands/:id/edit', name: 'admin-brand-edit', component: () => import('@/views/admin/BrandFormView.vue'), meta: { title: 'Edit Brand' } },
-        { path: 'shipping', name: 'admin-shipping', component: () => import('@/views/admin/AdminShippingMethodsView.vue'), meta: { title: 'Shipping Methods' } },
-        { path: 'shipping/new', name: 'admin-shipping-create', component: () => import('@/views/admin/ShippingMethodFormView.vue'), meta: { title: 'Add Shipping Method' } },
-        { path: 'shipping/:id/edit', name: 'admin-shipping-edit', component: () => import('@/views/admin/ShippingMethodFormView.vue'), meta: { title: 'Edit Shipping Method' } }
+        { path: 'dashboard', name: 'admin-dashboard', component: () => import('@/views/admin/AdminDashboardView.vue'), meta: { title: 'Dashboard', adminNav: { group: 'overview', labelKey: 'nav.dashboard', icon: 'dashboard', order: 10 } } },
+        { path: 'returns', name: 'admin-returns', component: () => import('@/views/ReturnsView.vue'), props: { manage: true }, meta: { title: 'Return requests', adminNav: { group: 'fulfillment', labelKey: 'returns.title', icon: 'returns', order: 60 } } },
+        { path: 'support', name: 'admin-support', component: () => import('@/views/SupportInboxView.vue'), props: { admin: true }, meta: { title: 'Support requests', adminNav: { group: 'fulfillment', labelKey: 'support.inbox', icon: 'support', order: 70 } } },
+        { path: 'shops', name: 'admin-shops', component: () => import('@/views/admin/AdminShopsView.vue'), meta: { title: 'Marketplace Shops', adminNav: { group: 'overview', labelKey: 'admin.nav.shops', icon: 'store', order: 30 } } },
+        { path: 'shop-members', name: 'admin-shop-members', component: () => import('@/views/admin/AdminShopMembersView.vue'), meta: { title: 'Shop Members', adminNav: { group: 'overview', labelKey: 'admin.overview.shop_members', icon: 'users', order: 40 } } },
+        { path: 'shop-owners', name: 'admin-shop-owners', component: () => import('@/views/admin/AdminShopMembersView.vue'), props: { role: 'owner' }, meta: { title: 'Shop Owners', adminNav: { group: 'overview', parent: 'admin-shop-members' } } },
+        { path: 'shop-owners/new', name: 'admin-shop-owner-create', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: { role: 'owner' }, meta: { title: 'Create Shop Owner', adminNav: { group: 'overview', parent: 'admin-shop-members' } } },
+        { path: 'shop-owners/:id/edit', name: 'admin-shop-owner-edit', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: (route) => ({ role: 'owner', memberId: Number(route.params.id) }), meta: { title: 'Edit Shop Owner', adminNav: { group: 'overview', parent: 'admin-shop-members' } } },
+        { path: 'shop-admins', name: 'admin-shop-admins', component: () => import('@/views/admin/AdminShopMembersView.vue'), props: { role: 'manager' }, meta: { title: 'Shop Admins', adminNav: { group: 'overview', parent: 'admin-shop-members' } } },
+        { path: 'shop-admins/new', name: 'admin-shop-admin-create', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: { role: 'manager' }, meta: { title: 'Create Shop Admin', adminNav: { group: 'overview', parent: 'admin-shop-members' } } },
+        { path: 'shop-admins/:id/edit', name: 'admin-shop-admin-edit', component: () => import('@/views/admin/AdminShopMemberFormView.vue'), props: (route) => ({ role: 'manager', memberId: Number(route.params.id) }), meta: { title: 'Edit Shop Admin', adminNav: { group: 'overview', parent: 'admin-shop-members' } } },
+        { path: 'shops/new', name: 'admin-shop-create', component: () => import('@/views/admin/AdminShopFormView.vue'), meta: { title: 'Create Shop', adminNav: { group: 'overview', parent: 'admin-shops' } } },
+        { path: 'shops/:id/edit', name: 'admin-shop-edit', component: () => import('@/views/admin/AdminShopFormView.vue'), meta: { title: 'Edit Shop', adminNav: { group: 'overview', parent: 'admin-shops' } } },
+        { path: 'products', name: 'admin-products', component: () => import('@/views/admin/AdminProductsView.vue'), meta: { title: 'Products', adminNav: { group: 'catalog', labelKey: 'admin.nav.products', icon: 'products', order: 10 } } },
+        { path: 'products/new', name: 'admin-product-create', component: () => import('@/views/admin/AddProductView.vue'), meta: { title: 'Add Product', adminNav: { group: 'catalog', parent: 'admin-products' } } },
+        { path: 'products/:id/edit', name: 'admin-product-edit', component: () => import('@/views/admin/AddProductView.vue'), meta: { title: 'Edit Product', adminNav: { group: 'catalog', parent: 'admin-products' } } },
+        { path: 'orders', name: 'admin-orders', component: () => import('@/views/admin/AdminOrdersView.vue'), meta: { title: 'Orders', adminNav: { group: 'fulfillment', labelKey: 'admin.nav.orders', icon: 'orders', order: 10 } } },
+        { path: 'orders/:id', name: 'admin-order-detail', component: () => import('@/views/admin/AdminOrderDetailView.vue'), meta: { title: 'Order Detail', adminNav: { group: 'fulfillment', parent: 'admin-orders' } } },
+        { path: 'inventory', name: 'admin-inventory', component: () => import('@/views/admin/AdminInventoryView.vue'), meta: { title: 'Inventory', adminNav: { group: 'fulfillment', labelKey: 'admin.nav.inventory', icon: 'inventory', order: 20 } } },
+        { path: 'reports', name: 'admin-reports', component: () => import('@/views/admin/AdminReportsView.vue'), meta: { title: 'Reports', adminNav: { group: 'fulfillment', labelKey: 'admin.nav.reports', icon: 'reports', order: 50 } } },
+        { path: 'analytics', name: 'admin-analytics', component: () => import('@/views/BusinessAnalyticsView.vue'), meta: { title: 'Business Analytics', adminNav: { group: 'overview', labelKey: 'analytics.nav', icon: 'analytics', order: 20 } } },
+        { path: 'payments', name: 'admin-payments', component: () => import('@/views/admin/AdminPaymentsView.vue'), meta: { title: 'Payments', adminNav: { group: 'fulfillment', labelKey: 'admin.nav.payments', icon: 'payments', order: 30 } } },
+        { path: 'shipments', name: 'admin-shipments', component: () => import('@/views/admin/AdminShipmentsView.vue'), meta: { title: 'Shipments', adminNav: { group: 'fulfillment', labelKey: 'admin.nav.shipments', icon: 'shipments', order: 40 } } },
+        { path: 'notifications', name: 'admin-notifications', component: () => import('@/views/admin/AdminNotificationsView.vue'), meta: { title: 'Notifications', adminNav: { group: 'system', labelKey: 'admin.nav.notifications', icon: 'notifications', order: 10 } } },
+        { path: 'customers', name: 'admin-customers', component: () => import('@/views/admin/AdminCustomersView.vue'), meta: { title: 'Customers', adminNav: { group: 'community', labelKey: 'admin.nav.customers', icon: 'users', order: 10 } } },
+        { path: 'customers/:id', name: 'admin-customer-detail', component: () => import('@/views/admin/AdminCustomerDetailView.vue'), meta: { title: 'Customer Detail', adminNav: { group: 'community', parent: 'admin-customers' } } },
+        { path: 'settings', name: 'admin-settings', component: () => import('@/views/admin/AdminSettingsView.vue'), meta: { title: 'Settings', adminNav: { group: 'system', labelKey: 'admin.nav.settings', icon: 'settings', order: 20 } } },
+        { path: 'coupons', name: 'admin-coupons', component: () => import('@/views/admin/AdminCouponsView.vue'), meta: { title: 'Coupons', adminNav: { group: 'marketing', labelKey: 'admin.nav.coupons', icon: 'coupons', order: 10 } } },
+        { path: 'coupons/new', name: 'admin-coupon-create', component: () => import('@/views/admin/CouponFormView.vue'), meta: { title: 'Add Coupon', adminNav: { group: 'marketing', parent: 'admin-coupons' } } },
+        { path: 'coupons/:id/edit', name: 'admin-coupon-edit', component: () => import('@/views/admin/CouponFormView.vue'), meta: { title: 'Edit Coupon', adminNav: { group: 'marketing', parent: 'admin-coupons' } } },
+        { path: 'reviews', name: 'admin-reviews', component: () => import('@/views/admin/AdminReviewsView.vue'), meta: { title: 'Reviews', adminNav: { group: 'community', labelKey: 'nav.reviews', icon: 'reviews', order: 20 } } },
+        { path: 'categories', name: 'admin-categories', component: () => import('@/views/admin/AdminCategoriesView.vue'), meta: { title: 'Categories', adminNav: { group: 'catalog', labelKey: 'admin.nav.categories', icon: 'categories', order: 20 } } },
+        { path: 'categories/new', name: 'admin-category-create', component: () => import('@/views/admin/CategoryFormView.vue'), meta: { title: 'Add Category', adminNav: { group: 'catalog', parent: 'admin-categories' } } },
+        { path: 'categories/:id/edit', name: 'admin-category-edit', component: () => import('@/views/admin/CategoryFormView.vue'), meta: { title: 'Edit Category', adminNav: { group: 'catalog', parent: 'admin-categories' } } },
+        { path: 'brands', name: 'admin-brands', component: () => import('@/views/admin/AdminBrandsView.vue'), meta: { title: 'Brands', adminNav: { group: 'catalog', labelKey: 'admin.nav.brands', icon: 'brands', order: 30 } } },
+        { path: 'brands/new', name: 'admin-brand-create', component: () => import('@/views/admin/BrandFormView.vue'), meta: { title: 'Add Brand', adminNav: { group: 'catalog', parent: 'admin-brands' } } },
+        { path: 'brands/:id/edit', name: 'admin-brand-edit', component: () => import('@/views/admin/BrandFormView.vue'), meta: { title: 'Edit Brand', adminNav: { group: 'catalog', parent: 'admin-brands' } } },
+        { path: 'shipping', name: 'admin-shipping', component: () => import('@/views/admin/AdminShippingMethodsView.vue'), meta: { title: 'Shipping Methods', adminNav: { group: 'fulfillment', labelKey: 'admin.nav.shipping_methods', icon: 'shipping', order: 80 } } },
+        { path: 'shipping/new', name: 'admin-shipping-create', component: () => import('@/views/admin/ShippingMethodFormView.vue'), meta: { title: 'Add Shipping Method', adminNav: { group: 'fulfillment', parent: 'admin-shipping' } } },
+        { path: 'shipping/:id/edit', name: 'admin-shipping-edit', component: () => import('@/views/admin/ShippingMethodFormView.vue'), meta: { title: 'Edit Shipping Method', adminNav: { group: 'fulfillment', parent: 'admin-shipping' } } }
       ]
     },
     {

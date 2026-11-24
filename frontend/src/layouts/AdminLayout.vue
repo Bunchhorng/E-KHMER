@@ -1,44 +1,16 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
 import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
-import {
-  LayoutDashboard,
-  Boxes,
-  FolderTree,
-  Tags,
-  ShoppingCart,
-  Warehouse,
-  Truck,
-  Ship,
-  CreditCard,
-  FileBarChart,
-  TicketPercent,
-  Users,
-  MessageSquare,
-  Bell,
-  Settings,
-  Store
-} from 'lucide-vue-next'
+import { Bell } from 'lucide-vue-next'
 import { useUiStore } from '@/stores/ui'
 import { useAuthStore } from '@/stores/auth'
 import { accountApi } from '@/api'
 import type { ApiNotification } from '@/api/account'
 import { formatDateTime } from '@/utils/format'
 import DashboardLayout from '@/layouts/DashboardLayout.vue'
-import type { DashboardNavGroup } from '@/components/dashboard/types'
-
-interface NavItem {
-  labelKey: string
-  route: { name: string }
-  icon: Component
-}
-
-interface NavGroup {
-  titleKey: string
-  items: NavItem[]
-}
+import type { DashboardNavGroup, DashboardNavItem } from '@/components/dashboard/types'
+import { adminNavGroups, adminNavIcons } from '@/config/adminNavigation'
 
 const route = useRoute()
 const router = useRouter()
@@ -58,70 +30,40 @@ onMounted(async () => {
   }
 })
 
-const navGroups: NavGroup[] = [
-  {
-    titleKey: 'admin.nav.group_overview',
-    items: [
-      { labelKey: 'nav.dashboard', route: { name: 'admin-dashboard' }, icon: LayoutDashboard },
-      { labelKey: 'analytics.nav', route: { name: 'admin-analytics' }, icon: FileBarChart },
-      { labelKey: 'admin.nav.shops', route: { name: 'admin-shops' }, icon: Store },
-      { labelKey: 'admin.overview.shop_members', route: { name: 'admin-shop-members' }, icon: Users }
-    ]
-  },
-  {
-    titleKey: 'admin.nav.group_catalog',
-    items: [
-      { labelKey: 'admin.nav.products', route: { name: 'admin-products' }, icon: Boxes },
-      { labelKey: 'admin.nav.categories', route: { name: 'admin-categories' }, icon: FolderTree },
-      { labelKey: 'admin.nav.brands', route: { name: 'admin-brands' }, icon: Tags }
-    ]
-  },
-  {
-    titleKey: 'admin.nav.group_fulfillment',
-    items: [
-      { labelKey: 'admin.nav.orders', route: { name: 'admin-orders' }, icon: ShoppingCart },
-      { labelKey: 'admin.nav.inventory', route: { name: 'admin-inventory' }, icon: Warehouse },
-      { labelKey: 'admin.nav.payments', route: { name: 'admin-payments' }, icon: CreditCard },
-      { labelKey: 'admin.nav.shipments', route: { name: 'admin-shipments' }, icon: Ship },
-      { labelKey: 'admin.nav.reports', route: { name: 'admin-reports' }, icon: FileBarChart },
-      { labelKey: 'returns.title', route: { name: 'admin-returns' }, icon: FileBarChart },
-      { labelKey: 'support.inbox', route: { name: 'admin-support' }, icon: FileBarChart },
-      { labelKey: 'admin.nav.shipping_methods', route: { name: 'admin-shipping' }, icon: Truck }
-    ]
-  },
-  {
-    titleKey: 'admin.nav.group_marketing',
-    items: [{ labelKey: 'admin.nav.coupons', route: { name: 'admin-coupons' }, icon: TicketPercent }]
-  },
-  {
-    titleKey: 'admin.nav.group_community',
-    items: [
-      { labelKey: 'admin.nav.customers', route: { name: 'admin-customers' }, icon: Users },
-      { labelKey: 'nav.reviews', route: { name: 'admin-reviews' }, icon: MessageSquare }
-    ]
-  },
-  {
-    titleKey: 'admin.nav.group_system',
-    items: [
-      { labelKey: 'admin.nav.notifications', route: { name: 'admin-notifications' }, icon: Bell },
-      { labelKey: 'admin.nav.settings', route: { name: 'admin-settings' }, icon: Settings }
-    ]
-  }
-]
-
-function isActive(item: NavItem): boolean {
-  return item.route.name === 'admin-shop-members'
-    ? ['admin-shop-members', 'admin-shop-owners', 'admin-shop-admins', 'admin-shop-owner-create', 'admin-shop-owner-edit', 'admin-shop-admin-create', 'admin-shop-admin-edit'].includes(String(route.name))
-    : route.name === item.route.name
+function isActive(routeName: string): boolean {
+  return route.matched.some(record => record.meta.adminNav?.parent === routeName || String(record.name) === routeName)
 }
 
+const groups = computed<DashboardNavGroup[]>(() => {
+  if (!auth.isAdmin) return []
 
-const groups = computed<DashboardNavGroup[]>(() => navGroups.map(group => ({
-  label: t(group.titleKey),
-  items: group.items.map(item => ({
-    id: item.route.name, label: t(item.labelKey), to: item.route, icon: item.icon, active: isActive(item)
-  }))
-})))
+  const visibleRoutes = router.getRoutes().filter(record => {
+    const navigation = record.meta.adminNav
+    return typeof record.name === 'string'
+      && Boolean(navigation?.labelKey && navigation.icon)
+      && router.resolve({ name: record.name }).matched.some(match => match.meta.admin)
+  })
+
+  return adminNavGroups.map(group => {
+    const items = visibleRoutes
+      .filter(record => record.meta.adminNav?.group === group.id)
+      .sort((left, right) => (left.meta.adminNav?.order ?? 0) - (right.meta.adminNav?.order ?? 0))
+      .map(record => {
+        const navigation = record.meta.adminNav
+        if (!navigation?.labelKey || !navigation.icon || typeof record.name !== 'string') return null
+        return {
+          id: record.name,
+          label: t(navigation.labelKey),
+          to: { name: record.name },
+          icon: adminNavIcons[navigation.icon],
+          active: isActive(record.name)
+        } satisfies DashboardNavItem
+      })
+      .filter((item): item is DashboardNavItem => item !== null)
+
+    return { id: group.id, label: t(group.titleKey), icon: group.icon, items }
+  }).filter(group => group.items.length > 0)
+})
 
 async function signOut() {
   await auth.logout()
@@ -140,6 +82,8 @@ async function signOut() {
     :groups="groups"
     v-model:collapsed="uiStore.adminSidebarCollapsed"
     collapsible
+    accordion
+    navigation-storage-key="ekhmer_admin_sidebar_expanded_groups"
     @sign-out="signOut"
   >
     <template #header-actions>

@@ -21,7 +21,7 @@ function toggle() {
     type="button"
     :aria-label="toggleText"
     :title="toggleText"
-    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 dark:hover:bg-surface-hover dark:focus-visible:ring-offset-surface"
+    class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg transition-colors hover:bg-gray-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 max-sm:h-11 max-sm:w-11 dark:hover:bg-surface-hover dark:focus-visible:ring-offset-surface"
     @click="toggle"
   >
     <img :src="targetFlag" alt="" aria-hidden="true" class="h-5 w-8 rounded-sm object-cover shadow-sm" width="32" height="20" />
