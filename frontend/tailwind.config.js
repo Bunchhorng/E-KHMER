@@ -3,6 +3,27 @@ export default {
   content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
   darkMode: 'class',
   theme: {
+    borderRadius: {
+      none: '0px',
+      sm: '0px',
+      DEFAULT: '0px',
+      md: '0px',
+      lg: '0px',
+      xl: '0px',
+      '2xl': '0px',
+      '3xl': '0px',
+      full: '0px'
+    },
+    boxShadow: {
+      none: '0 0 #0000',
+      sm: '0 1px 1px rgb(15 23 42 / 0.04)',
+      DEFAULT: '0 1px 2px rgb(15 23 42 / 0.05)',
+      md: '0 2px 4px rgb(15 23 42 / 0.06)',
+      lg: '0 3px 8px rgb(15 23 42 / 0.07)',
+      xl: '0 5px 14px rgb(15 23 42 / 0.08)',
+      '2xl': '0 8px 20px rgb(15 23 42 / 0.10)',
+      inner: 'inset 0 1px 2px rgb(15 23 42 / 0.05)'
+    },
     extend: {
       colors: {
         primary: 'rgb(var(--color-primary) / <alpha-value>)',
@@ -48,7 +69,7 @@ export default {
       boxShadow: {
         card: 'var(--shadow-card)',
         raised: 'var(--shadow-raised)',
-        popover: '0 10px 40px rgba(17, 24, 39, 0.16)'
+        popover: '0 6px 18px rgba(17, 24, 39, 0.10)'
       },
       keyframes: {
         'slide-in-right': {

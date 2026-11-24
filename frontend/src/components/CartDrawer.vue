@@ -49,7 +49,7 @@ function startShopping(): void {
               {{ $t('cart.your_cart') }}
               <span
                 v-if="cartStore.totalItemCount > 0"
-                class="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-white dark:bg-blue-500"
+                class="flex h-5 min-w-5 items-center justify-center bg-primary px-1.5 text-xs font-semibold text-white dark:bg-blue-500"
               >
                 {{ cartStore.totalItemCount }}
               </span>

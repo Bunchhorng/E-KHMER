@@ -58,7 +58,7 @@ const rangeEnd = computed(() => {
     <div class="flex items-center gap-1">
       <button
         type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-canvas hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        class="flex h-10 w-10 items-center justify-center text-muted transition-colors hover:bg-canvas hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
         :disabled="page <= 1"
         :aria-label="$t('pagination.previous')"
         @click="selectPage(page - 1)"
@@ -69,7 +69,7 @@ const rangeEnd = computed(() => {
         v-for="item in pageItems()"
         :key="item"
         type="button"
-        class="h-10 w-10 rounded-lg text-sm font-medium transition-colors disabled:cursor-default"
+        class="h-10 w-10 text-sm font-medium transition-colors disabled:cursor-default"
         :class="item === page ? 'bg-primary text-white' : 'text-muted hover:bg-canvas hover:text-primary'"
         :disabled="typeof item !== 'number'"
         :aria-current="item === page ? 'page' : undefined"
@@ -79,7 +79,7 @@ const rangeEnd = computed(() => {
       </button>
       <button
         type="button"
-        class="flex h-10 w-10 items-center justify-center rounded-lg text-muted transition-colors hover:bg-canvas hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
+        class="flex h-10 w-10 items-center justify-center text-muted transition-colors hover:bg-canvas hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
         :disabled="page >= pageCount"
         :aria-label="$t('pagination.next')"
         @click="selectPage(page + 1)"

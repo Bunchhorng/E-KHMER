@@ -202,8 +202,8 @@ onBeforeUnmount(() => {
     <div class="dashboard-main" :inert="!isDesktop && mobileOpen">
       <header class="dashboard-topbar">
         <ContentLayout class="dashboard-topbar-content">
-          <div class="flex min-w-0 items-center gap-3">
-            <button ref="menuButton" type="button" class="btn-icon shrink-0" :class="{ 'lg:hidden': !collapsible }" :aria-label="$t('admin.nav.toggle_sidebar')" :aria-controls="navigationId" :aria-expanded="isDesktop ? expanded : mobileOpen" @click="toggleSidebar"><Menu :size="22" /></button>
+          <div v-if="!isDesktop" class="flex min-w-0 items-center gap-3">
+            <button ref="menuButton" type="button" class="btn-icon shrink-0" :aria-label="$t('admin.nav.toggle_sidebar')" :aria-controls="navigationId" :aria-expanded="mobileOpen" @click="toggleSidebar"><Menu :size="22" /></button>
             <div class="dashboard-title min-w-0"><p class="truncate">{{ title }}</p></div>
           </div>
           <div class="dashboard-topbar-actions">

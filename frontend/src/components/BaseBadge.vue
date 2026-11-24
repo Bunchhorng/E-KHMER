@@ -34,7 +34,7 @@ const dotClasses: Record<BadgeVariant, string> = {
 
 <template>
   <span
-    class="inline-flex items-center gap-1 rounded-full font-medium ring-1 ring-inset"
+    class="inline-flex items-center gap-1 font-medium ring-1 ring-inset"
     :class="[
       variantClasses[props.variant],
       { '!rounded-none': props.square },
@@ -43,7 +43,6 @@ const dotClasses: Record<BadgeVariant, string> = {
   >
     <span
       v-if="props.dot"
-      class="rounded-full"
       :class="[dotClasses[props.variant], { '!rounded-none': props.square }, props.size === 'sm' ? 'h-1.5 w-1.5' : 'h-2 w-2']"
     ></span>
     <slot />

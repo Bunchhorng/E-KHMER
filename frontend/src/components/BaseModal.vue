@@ -80,7 +80,7 @@ onBeforeUnmount(() => { window.removeEventListener('keydown', onKeydown); if (pr
           aria-modal="true"
           :aria-labelledby="titleId"
           tabindex="-1"
-          class="relative my-4 flex max-h-[calc(100dvh-1.5rem)] w-full flex-col rounded-2xl bg-surface shadow-popover sm:my-8 sm:max-h-[85vh]"
+          class="relative my-4 flex max-h-[calc(100dvh-1.5rem)] w-full flex-col bg-surface shadow-popover sm:my-8 sm:max-h-[85vh]"
           :class="[sizeClasses[size], { 'base-modal-sharp !rounded-none !shadow-none': sharp }]"
         >
           <header class="flex shrink-0 items-center justify-between border-b border-border-gray px-4 py-4 sm:px-6">

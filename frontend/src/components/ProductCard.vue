@@ -74,17 +74,17 @@ function handleWishlistToggle(): void {
         />
       </RouterLink>
       <div v-if="discountPercent > 0 || props.product.isNew" class="absolute left-3 top-3 flex flex-col items-start gap-1">
-        <span v-if="discountPercent > 0" class="rounded-md bg-accent px-2 py-1 text-xs font-bold text-ink dark:text-gray-900">
+        <span v-if="discountPercent > 0" class="bg-accent px-2 py-1 text-xs font-bold text-ink dark:text-gray-900">
           -{{ discountPercent }}%
         </span>
-        <span v-if="props.product.isNew" class="rounded-md bg-primary px-2 py-1 text-xs font-bold text-white dark:bg-blue-500">
+        <span v-if="props.product.isNew" class="bg-primary px-2 py-1 text-xs font-bold text-white dark:bg-blue-500">
           {{ $t('product.new') }}
         </span>
       </div>
       <button
         v-if="showActions"
         type="button"
-        class="absolute right-3 top-3 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-md transition-colors dark:bg-surface-hover dark:shadow-black/40"
+        class="absolute right-3 top-3 flex h-11 w-11 items-center justify-center bg-white shadow-md transition-colors dark:bg-surface-hover dark:shadow-black/40"
         :class="isWishlisted ? 'text-red-500' : 'text-gray-400 hover:text-red-500 dark:text-muted'"
         :aria-label="isWishlisted ? $t('product.remove_from_wishlist') : $t('product.add_to_wishlist')"
         @click="handleWishlistToggle"
@@ -117,7 +117,7 @@ function handleWishlistToggle(): void {
         <li
           v-for="color in props.product.colors"
           :key="color"
-          class="h-3 w-3 rounded-full ring-1 ring-gray-300 dark:ring-gray-600"
+          class="h-3 w-3 ring-1 ring-gray-300 dark:ring-gray-600"
           :style="{ backgroundColor: swatchColor(null, color) }"
           :title="color"
         ></li>

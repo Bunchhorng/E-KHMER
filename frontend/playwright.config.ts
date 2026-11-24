@@ -1,4 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
+
+const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+
 export default defineConfig({
   testDir: './tests/e2e',
   fullyParallel: true,
@@ -8,7 +11,10 @@ export default defineConfig({
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://localhost:5173', trace: 'retain-on-failure',
     permissions: ['camera'],
-    launchOptions: { args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream'] }
+    launchOptions: {
+      ...(executablePath ? { executablePath } : {}),
+      args: ['--use-fake-device-for-media-stream', '--use-fake-ui-for-media-stream']
+    }
   },
   projects: [
     { name: 'desktop', use: { ...devices['Desktop Chrome'] } },

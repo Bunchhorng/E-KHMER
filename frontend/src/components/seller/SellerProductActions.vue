@@ -62,7 +62,7 @@ onBeforeUnmount(() => { document.removeEventListener('pointerdown', outside); wi
 <style scoped>
 .product-actions .btn-secondary { min-height: 42px; padding: 8px 12px; border-radius: 10px; gap: 8px; font-size: 13px; white-space: nowrap; box-shadow: none; }
 .product-actions .product-more { width: 40px; padding-inline: 0; }
-.product-action-menu { position: fixed; z-index: 60; width: 210px; padding: 6px; border: 1px solid rgb(var(--color-border)); border-radius: 12px; background: rgb(var(--color-surface)); color: rgb(var(--color-ink)); box-shadow: 0 8px 30px rgb(17 24 39 / 15%); }
+.product-action-menu { position: fixed; z-index: 60; width: 210px; padding: 6px; border: 1px solid rgb(var(--color-border)); border-radius: 0; background: rgb(var(--color-surface)); color: rgb(var(--color-ink)); box-shadow: var(--shadow-raised); }
 .product-action-menu button { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 46px; padding: 10px; border-radius: 8px; text-align: left; font-size: 14px; }
 .product-action-menu button:hover, .product-action-menu button:focus-visible { background: rgb(var(--color-canvas)); outline: 2px solid rgb(var(--color-primary) / 30%); outline-offset: -2px; }
 </style>
