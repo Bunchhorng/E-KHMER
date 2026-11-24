@@ -264,7 +264,7 @@ onBeforeUnmount(() => {
 .dashboard-topbar { position: sticky; top: 0; z-index: 30; border-bottom: 1px solid rgb(var(--color-border)); background: rgb(var(--color-surface)); }
 .dashboard-topbar-content { display: flex; min-height: var(--dashboard-header-height); align-items: center; justify-content: space-between; gap: 12px; padding: 12px 32px; }
 .dashboard-title p { font-size: 16px; font-weight: 500; color: rgb(var(--color-muted)); }
-.dashboard-topbar-actions { display: flex; flex-shrink: 0; align-items: center; gap: 4px; }
+.dashboard-topbar-actions { display: flex; flex-shrink: 0; align-items: center; gap: 4px; margin-left: auto; }
 .dashboard-shopping { margin-right: 8px; }
 .dashboard-language { display: flex; }
 .dashboard-content { padding: 32px; }
