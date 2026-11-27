@@ -1,5 +1,6 @@
+
 {
-  "name": "ekhmer-storefront",
+  "name": "e-khmer",
   "compatibility_date": "2026-03-01",
   "build": {
     "command": "npm run build"

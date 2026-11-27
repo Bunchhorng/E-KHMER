@@ -1,9 +1,7 @@
+
 {
-  "name": "ekhmer-storefront",
+  "name": "e-khmer",
   "compatibility_date": "2026-03-01",
-  "build": {
-    "command": "npm --prefix frontend ci && npm --prefix frontend run build"
-  },
   "assets": {
     "directory": "./frontend/dist",
     "not_found_handling": "single-page-application",
