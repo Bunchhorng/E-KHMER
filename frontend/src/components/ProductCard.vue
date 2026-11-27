@@ -64,8 +64,8 @@ function handleWishlistToggle(): void {
 </script>
 
 <template>
-  <article class="card feature-glow group flex h-full min-w-0 flex-col overflow-hidden transition-shadow duration-300 hover:shadow-lg dark:bg-surface">
-    <div class="relative aspect-[4/3] shrink-0 overflow-hidden bg-surface-muted sm:aspect-square dark:bg-surface-hover/50">
+  <article class="card group flex h-full min-w-0 flex-col overflow-hidden transition-colors hover:border-border-strong dark:bg-surface">
+    <div class="relative aspect-square shrink-0 overflow-hidden bg-surface-muted dark:bg-surface-hover/50">
       <RouterLink :to="`/product/${props.product.slug}`" class="block h-full w-full" :aria-label="`${$t('actions.view_all')}: ${props.product.title}`">
         <AppImage
           :src="coverImage?.url"
@@ -87,6 +87,7 @@ function handleWishlistToggle(): void {
         class="absolute right-3 top-3 flex h-11 w-11 items-center justify-center bg-white shadow-md transition-colors dark:bg-surface-hover dark:shadow-black/40"
         :class="isWishlisted ? 'text-red-500' : 'text-gray-400 hover:text-red-500 dark:text-muted'"
         :aria-label="isWishlisted ? $t('product.remove_from_wishlist') : $t('product.add_to_wishlist')"
+        :aria-pressed="isWishlisted"
         @click="handleWishlistToggle"
       >
         <Heart :size="18" :fill="isWishlisted ? 'currentColor' : 'none'" />
@@ -94,7 +95,7 @@ function handleWishlistToggle(): void {
     </div>
 
     <div class="flex min-w-0 flex-1 flex-col p-3 sm:p-4">
-      <p class="truncate text-[11px] font-semibold uppercase tracking-wide text-primary">
+      <p v-if="props.product.brand.name" class="truncate text-[11px] font-semibold uppercase tracking-wide text-primary">
         {{ props.product.brand.name }}
       </p>
       <RouterLink
@@ -103,13 +104,13 @@ function handleWishlistToggle(): void {
       >
         {{ props.product.title }}
       </RouterLink>
-      <div v-if="props.product.reviewCount > 0" class="mt-1.5 flex items-center gap-1.5">
+      <div v-if="props.product.reviewCount > 0" class="mt-1.5 flex flex-wrap items-center gap-1.5">
         <StarRating :value="props.product.rating" :size="12" />
         <span class="text-xs text-gray-500 dark:text-muted">({{ props.product.reviewCount }})</span>
       </div>
       <div class="mt-2 flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-        <span class="max-w-full truncate text-base font-bold tabular-nums text-ink dark:text-gray-50" :title="formatPrice(props.product.price)">{{ formatPrice(props.product.price) }}</span>
-        <span v-if="props.product.compareAtPrice" class="max-w-full truncate text-sm tabular-nums text-gray-400 line-through dark:text-gray-500" :title="formatPrice(props.product.compareAtPrice)">
+        <span class="max-w-full break-all text-sm font-bold tabular-nums text-ink sm:text-base dark:text-gray-50">{{ formatPrice(props.product.price) }}</span>
+        <span v-if="props.product.compareAtPrice && props.product.compareAtPrice > props.product.price" class="max-w-full break-all text-xs tabular-nums text-gray-400 line-through dark:text-gray-500">
           {{ formatPrice(props.product.compareAtPrice) }}
         </span>
       </div>
@@ -125,7 +126,7 @@ function handleWishlistToggle(): void {
       <div v-if="showActions" class="mt-auto pt-3">
         <button
           type="button"
-          class="btn-primary btn-sm !min-h-11 w-full dark:bg-blue-500 dark:hover:bg-blue-600"
+          class="btn-primary btn-sm !min-h-11 w-full !px-1 text-center !text-[12px] sm:!text-xs dark:bg-blue-500 dark:hover:bg-blue-600"
           :disabled="!props.product.isInStock || !availableVariantId || pending"
           :aria-busy="pending"
           @click="handleAddToCart"

@@ -55,7 +55,7 @@ const rangeEnd = computed(() => {
     <p v-if="totalItems" class="text-sm text-muted">
       {{ $t('pagination.showing', { from: rangeStart, to: rangeEnd, total: totalItems }) }}
     </p>
-    <div class="flex items-center gap-1">
+    <div class="flex max-w-full flex-wrap items-center gap-1">
       <button
         type="button"
         class="flex h-10 w-10 items-center justify-center text-muted transition-colors hover:bg-canvas hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"

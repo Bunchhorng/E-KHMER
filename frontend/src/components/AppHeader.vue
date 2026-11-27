@@ -2,7 +2,7 @@
 import { computed, nextTick, onBeforeUnmount, ref, watch, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import type { RouteLocationRaw } from "vue-router";
-import { ChevronDown, ChevronRight, Grid2X2, Headphones, Heart, HelpCircle, Home, LogIn, LogOut, Menu, Search, ShoppingBag, User, X } from "lucide-vue-next";
+import { ChevronDown, ChevronRight, Grid2X2, Headphones, Heart, HelpCircle, LogIn, LogOut, Menu, Search, ShoppingBag, User, X } from "lucide-vue-next";
 import LanguageSwitcher from "@/components/LanguageSwitcher.vue";
 import ThemeToggle from "@/components/ThemeToggle.vue";
 import { categoriesApi } from "@/api";
@@ -137,8 +137,8 @@ async function signOut(): Promise<void> {
 
 <template>
   <header data-testid="storefront-main-header">
-    <div class="sticky top-0 z-40 border-b border-border-gray bg-surface/95 backdrop-blur">
-      <div class="container-app flex h-14 flex-nowrap items-center gap-2 sm:gap-4 lg:h-20">
+    <div class="border-b border-border-gray bg-surface">
+      <div class="container-app flex min-w-0 items-center gap-1 py-1 pt-[max(0.25rem,env(safe-area-inset-top))] sm:gap-3 lg:h-[4.75rem] lg:py-0">
         <button
           ref="menuTriggerRef"
           type="button"
@@ -151,13 +151,13 @@ async function signOut(): Promise<void> {
 
         <RouterLink
           to="/"
-          class="shrink-0 whitespace-nowrap text-lg font-extrabold tracking-tight text-primary sm:text-2xl"
+          class="min-w-0 shrink whitespace-nowrap text-lg font-extrabold tracking-tight text-primary sm:text-xl lg:shrink-0 lg:text-2xl"
         >
           E-<span class="text-ink dark:text-ink">KHMER</span>
         </RouterLink>
 
         <form
-          class="relative hidden flex-1 max-w-lg md:block"
+          class="relative hidden min-w-0 flex-1 lg:block lg:max-w-2xl xl:max-w-3xl"
           role="search"
           @submit.prevent="submitSearch"
         >
@@ -173,7 +173,7 @@ async function signOut(): Promise<void> {
           />
         </form>
 
-        <div data-testid="storefront-header-utilities" class="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1">
+        <div data-testid="storefront-header-utilities" class="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1 lg:gap-1.5">
           <div class="flex items-center gap-0.5 sm:gap-1">
             <LanguageSwitcher />
             <ThemeToggle />
@@ -182,7 +182,7 @@ async function signOut(): Promise<void> {
           <RouterLink
             v-if="!auth.isAuthenticated"
             to="/auth/login"
-            class="btn-icon hidden md:inline-flex"
+            class="btn-icon hidden lg:inline-flex"
             :aria-label="$t('nav.sign_in')"
             :title="$t('nav.sign_in')"
           >
@@ -191,13 +191,13 @@ async function signOut(): Promise<void> {
 
           <RouterLink
             to="/account/wishlist"
-            class="btn-icon relative hidden sm:inline-flex"
+            class="btn-icon relative hidden lg:inline-flex"
             :aria-label="$t('nav.wishlist')"
           >
             <Heart :size="20" />
             <span
               v-if="wishlistStore.count > 0"
-              class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white"
+              class="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center border border-surface bg-primary px-1 text-[10px] font-bold leading-none text-white"
             >
               {{ wishlistStore.count }}
             </span>
@@ -205,20 +205,20 @@ async function signOut(): Promise<void> {
 
           <button
             type="button"
-            class="btn-icon relative hidden md:inline-flex"
+            class="btn-icon relative hidden lg:inline-flex"
             :aria-label="$t('header.open_cart')"
             @click="uiStore.openCartDrawer()"
           >
             <ShoppingBag :size="20" />
             <span
               v-if="cartStore.totalItemCount > 0"
-              class="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] font-bold text-white"
+              class="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center border border-surface bg-primary px-1 text-[10px] font-bold leading-none text-white"
             >
               {{ cartStore.totalItemCount }}
             </span>
           </button>
 
-          <div ref="userMenuRef" class="relative hidden md:block">
+          <div ref="userMenuRef" class="relative hidden lg:block">
             <button
               v-if="auth.isAuthenticated"
               type="button"
@@ -266,7 +266,7 @@ async function signOut(): Promise<void> {
           </div>
         </div>
       </div>
-      <div class="border-t border-border-gray md:hidden">
+      <div class="border-t border-border-gray lg:hidden">
         <form class="container-app relative py-2" role="search" @submit.prevent="submitSearch">
           <Search class="pointer-events-none absolute left-7 top-1/2 -translate-y-1/2 text-gray-400" :size="18" />
           <input v-model="searchTerm" type="search" class="input w-full pl-10 pr-4" :placeholder="$t('header.search_placeholder')" />
@@ -320,7 +320,7 @@ async function signOut(): Promise<void> {
               </RouterLink>
               <div class="mt-1 space-y-1">
                 <div v-for="item in navCategories" :key="item.id">
-                  <div class="flex items-center rounded-xl transition-colors hover:bg-canvas dark:hover:bg-surface-hover">
+                  <div class="flex items-center transition-colors hover:bg-canvas dark:hover:bg-surface-hover">
                     <RouterLink
                       :to="{ name: 'shop', query: { category: item.slug } }"
                       class="drawer-link min-w-0 flex-1 !bg-transparent"
@@ -403,7 +403,7 @@ async function signOut(): Promise<void> {
   min-width: 0;
   align-items: center;
   gap: 0.75rem;
-  border-radius: 0.75rem;
+  border-radius: 0;
   padding: 0.625rem 0.75rem;
   color: rgb(var(--color-ink));
   font-size: 0.875rem;

@@ -69,10 +69,15 @@ async function rowAction(page: Page, id: number, action: 'Reject' | 'Delete' | '
 }
 async function assertDetail(page: Page, average: number, count: number) {
   await page.goto('/product/rated-product')
-  await expect(page.getByRole('main').getByText(`${average.toFixed(1)}/5`, { exact: true })).toBeVisible()
-  await expect(page.getByText(`(${count} reviews)`, { exact: true })).toBeVisible()
+  if (count) {
+    await expect(page.getByRole('main').getByText(`${average.toFixed(1)}/5`, { exact: true })).toBeVisible()
+    await expect(page.getByText(`(${count} reviews)`, { exact: true })).toBeVisible()
+  } else {
+    await expect(page.getByRole('button', { name: 'Customer Reviews', exact: true })).toBeVisible()
+    await expect(page.getByRole('main').getByText('0.0/5', { exact: true })).toHaveCount(0)
+  }
   await page.getByRole('button', { name: 'Reviews', exact: true }).click()
-  await expect(page.getByText(`Based on ${count} reviews`, { exact: true })).toBeVisible()
+  if (count) await expect(page.getByText(`Based on ${count} reviews`, { exact: true })).toBeVisible()
 }
 
 test('rejecting the only published review refreshes detail, cards and rejected status without stale stars', async ({ page }) => {
@@ -88,7 +93,7 @@ test('rejecting the only published review refreshes detail, cards and rejected s
   await expect(page.getByRole('heading', { name: 'No reviews yet', exact: true })).toBeVisible()
   await page.goto('/shop')
   const card = page.locator('main .card').filter({ has: page.getByRole('link', { name: 'Rated product', exact: true }) })
-  await expect(card.getByText('(0)', { exact: true })).toBeVisible()
+  await expect(card.getByText('(0)', { exact: true })).toHaveCount(0)
   await expect(card.locator('svg.fill-current')).toHaveCount(0)
 })
 

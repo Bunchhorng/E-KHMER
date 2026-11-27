@@ -62,10 +62,10 @@ onBeforeUnmount(() => clearTimeout(timer))
       <label class="sr-only" :for="`${idPrefix}-max-slider`">Maximum price slider</label>
       <input :id="`${idPrefix}-max-slider`" v-model="maximum" type="range" :min="sliderMin" :max="sliderMax" step="0.01" class="w-full accent-primary" @input="update" @change="commit" />
       <div class="grid grid-cols-2 gap-2">
-        <label class="text-xs text-muted" :for="`${idPrefix}-min`">Minimum price
+        <label class="min-w-0 text-xs text-muted" :for="`${idPrefix}-min`">Minimum price
           <input :id="`${idPrefix}-min`" v-model="minimum" type="number" inputmode="decimal" min="0" step="0.01" class="input mt-1 w-full" :aria-invalid="Boolean(error)" :aria-describedby="error ? `${idPrefix}-error` : undefined" @input="update" @change="commit" />
         </label>
-        <label class="text-xs text-muted" :for="`${idPrefix}-max`">Maximum price
+        <label class="min-w-0 text-xs text-muted" :for="`${idPrefix}-max`">Maximum price
           <input :id="`${idPrefix}-max`" v-model="maximum" type="number" inputmode="decimal" min="0" step="0.01" class="input mt-1 w-full" :aria-invalid="Boolean(error)" :aria-describedby="error ? `${idPrefix}-error` : undefined" @input="update" @change="commit" />
         </label>
       </div>

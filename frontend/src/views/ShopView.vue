@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import { useRoute, useRouter, RouterLink } from 'vue-router'
 import { SlidersHorizontal, X, SearchX } from 'lucide-vue-next'
 import ProductGrid from '@/components/ProductGrid.vue'
@@ -46,6 +46,10 @@ const loading = ref(false)
 const listingError = ref('')
 const facetsError = ref('')
 const priceRange = ref<PriceRange | null>(null)
+const categorySearch = ref('')
+const brandSearch = ref('')
+const visibleCategories = computed(() => facets.value.categories.filter(item => item.name.toLocaleLowerCase().includes(categorySearch.value.trim().toLocaleLowerCase())))
+const visibleBrands = computed(() => facets.value.brands.filter(item => item.name.toLocaleLowerCase().includes(brandSearch.value.trim().toLocaleLowerCase())))
 let request = 0
 
 const filters = reactive<Filters>({
@@ -64,6 +68,18 @@ const filters = reactive<Filters>({
 
 let applying = false
 let previousBodyOverflow = ''
+const filterDrawer = ref<HTMLElement | null>(null)
+const filterTrigger = ref<HTMLButtonElement | null>(null)
+
+function onFilterKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') { ui.closeMobileFilters(); return }
+  if (event.key !== 'Tab' || !filterDrawer.value) return
+  const controls = Array.from(filterDrawer.value.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled]), summary, a[href]')).filter(element => element.getClientRects().length > 0)
+  const first = controls[0]
+  const last = controls[controls.length - 1]
+  if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus() }
+  else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus() }
+}
 
 function toArray(v: unknown): string[] {
   if (Array.isArray(v)) return v.filter((x): x is string => typeof x === 'string')
@@ -128,7 +144,7 @@ async function fetchProducts() {
     if (filters.max !== undefined) params.max = filters.max
     if (filters.rating !== undefined) params.rating = filters.rating
     if (filters.inStockOnly) params.stock = 1
-    if (filters.sort && filters.sort !== 'featured') params.sort = filters.sort
+    if (filters.sort) params.sort = filters.sort
 
     const { data } = await catalogApi.getProducts(params)
     if (current !== request) return
@@ -200,12 +216,17 @@ watch(() => ui.mobileFiltersOpen, (open) => {
   if (open) {
     previousBodyOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', onFilterKeydown)
+    nextTick(() => filterDrawer.value?.querySelector<HTMLButtonElement>('button')?.focus())
   } else {
     document.body.style.overflow = previousBodyOverflow
+    window.removeEventListener('keydown', onFilterKeydown)
+    nextTick(() => filterTrigger.value?.focus())
   }
 })
 onBeforeUnmount(() => {
   request++
+  window.removeEventListener('keydown', onFilterKeydown)
   if (ui.mobileFiltersOpen) {
     ui.closeMobileFilters()
     document.body.style.overflow = previousBodyOverflow
@@ -304,7 +325,7 @@ function setPage(p: number) {
 </script>
 
 <template>
-  <div class="py-6">
+  <div class="min-w-0 py-4 sm:py-6">
     <nav class="text-xs text-gray-500 dark:text-muted dark:text-gray-500">
       <RouterLink to="/" class="hover:text-primary">{{ $t('nav.home') }}</RouterLink>
       <span class="mx-1">/</span>
@@ -317,7 +338,7 @@ function setPage(p: number) {
       </template>
     </nav>
 
-    <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div class="mt-3 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
       <div>
         <h1 class="text-2xl font-bold text-ink dark:text-ink sm:text-3xl">{{ $t('shop.shop_products') }}</h1>
         <p class="mt-1 text-sm text-gray-500 dark:text-muted dark:text-gray-500">
@@ -331,13 +352,14 @@ function setPage(p: number) {
       </div>
     </div>
 
-    <div class="card mt-5 flex items-center justify-between gap-3 p-3">
-      <div class="flex flex-wrap items-center gap-2">
-        <button class="btn-secondary btn-sm lg:hidden" @click="ui.openMobileFilters()">
+    <div class="mt-4 flex min-w-0 flex-wrap items-center gap-2 border-y border-border-gray py-3">
+      <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+        <button ref="filterTrigger" class="btn-secondary btn-sm lg:hidden" @click="ui.openMobileFilters()">
           <SlidersHorizontal class="h-4 w-4" />
           {{ $t('shop.filter') }}
         </button>
-        <div v-if="summaryChips.length" class="flex flex-wrap items-center gap-2">
+        <span class="text-xs text-muted">{{ $t('shop.count_products', { count: totalCount }) }}</span>
+        <div v-if="summaryChips.length" class="flex min-w-0 flex-wrap items-center gap-2">
           <span
             v-for="chip in summaryChips"
             :key="chip.key"
@@ -350,22 +372,25 @@ function setPage(p: number) {
           </span>
         </div>
       </div>
-      <select class="select w-auto" :value="filters.sort" @change="setSort(($event.target as HTMLSelectElement).value)">
+      <select class="select min-w-0 max-w-full flex-1 sm:flex-none sm:w-auto" :aria-label="$t('shop.sort_by')" :value="filters.sort" @change="setSort(($event.target as HTMLSelectElement).value)">
         <option value="featured">{{ $t('shop.sort_featured') }}</option>
+        <option value="newest">{{ $t('shop.sort_newest') }}</option>
         <option value="price-asc">{{ $t('shop.sort_price_asc') }}</option>
         <option value="price-desc">{{ $t('shop.sort_price_desc') }}</option>
         <option value="rating">{{ $t('shop.sort_rating') }}</option>
       </select>
     </div>
 
-    <div class="mt-6 lg:grid lg:grid-cols-[260px_1fr] lg:gap-8">
+    <div class="mt-4 min-w-0 lg:grid lg:grid-cols-[240px_minmax(0,1fr)] lg:gap-6">
       <aside class="hidden lg:block">
-        <div class="card space-y-6 p-5">
+        <div class="border border-border-gray bg-surface p-4">
+          <div class="mb-3 flex items-center justify-between gap-2"><h2 class="font-bold">{{ $t('shop.filter') }}</h2><button class="text-xs font-semibold text-primary hover:underline" @click="clearAll">{{ $t('shop.clear_all') }}</button></div>
           <p v-if="facetsError" role="alert" class="text-sm text-red-600">{{ facetsError }} <button class="underline" @click="fetchFacets">Retry filters</button></p>
-          <div>
-            <div class="label">{{ $t('shop.category') }}</div>
+          <details open class="filter-section">
+            <summary>{{ $t('shop.category') }}</summary>
+            <input v-if="facets.categories.length > 6" v-model="categorySearch" class="input mb-3" type="search" :aria-label="`${$t('header.search')} ${$t('shop.category')}`" :placeholder="$t('header.search')" />
             <div class="space-y-2">
-              <label v-for="c in facets.categories" :key="c.slug" class="flex cursor-pointer items-center justify-between text-sm text-gray-700 dark:text-muted hover:text-primary">
+              <label v-for="c in visibleCategories" :key="c.slug" class="flex cursor-pointer items-center justify-between gap-2 text-sm text-gray-700 dark:text-muted hover:text-primary">
                 <span class="flex items-center gap-2">
                   <input
                     type="radio"
@@ -379,12 +404,13 @@ function setPage(p: number) {
                 <span class="text-xs text-gray-400 dark:text-gray-500">{{ c.count }}</span>
               </label>
             </div>
-          </div>
+          </details>
 
-          <div>
-            <div class="label">{{ $t('shop.brand') }}</div>
+          <details open class="filter-section">
+            <summary>{{ $t('shop.brand') }}</summary>
+            <input v-if="facets.brands.length > 6" v-model="brandSearch" class="input mb-3" type="search" :aria-label="`${$t('header.search')} ${$t('shop.brand')}`" :placeholder="$t('header.search')" />
             <div class="space-y-2">
-              <label v-for="b in facets.brands" :key="b.slug" class="flex cursor-pointer items-center justify-between text-sm text-gray-700 dark:text-muted hover:text-primary">
+              <label v-for="b in visibleBrands" :key="b.slug" class="flex cursor-pointer items-center justify-between gap-2 text-sm text-gray-700 dark:text-muted hover:text-primary">
                 <span class="flex items-center gap-2">
                   <input
                     type="radio"
@@ -398,14 +424,14 @@ function setPage(p: number) {
                 <span class="text-xs text-gray-400 dark:text-gray-500">{{ b.count }}</span>
               </label>
             </div>
-          </div>
+          </details>
 
-          <CatalogPriceFilter id-prefix="catalog-desktop" :range="priceRange" :min="filters.min" :max="filters.max" :loading="loading" @change="setPrice" @retry="fetchProducts" />
-          <CatalogRatingFilter name="rating" :value="filters.rating" @change="setRating" />
+          <details open class="filter-section"><summary>{{ $t('shop.price_range') }}</summary><CatalogPriceFilter id-prefix="catalog-desktop" :range="priceRange" :min="filters.min" :max="filters.max" :loading="loading" @change="setPrice" @retry="fetchProducts" /></details>
+          <details open class="filter-section"><summary>{{ $t('shop.rating') }}</summary><CatalogRatingFilter name="rating" :value="filters.rating" @change="setRating" /></details>
 
-          <CatalogColorFilter :options="facets.colors" :selected="filters.colors" @toggle="toggleColor" />
+          <div class="filter-section"><CatalogColorFilter :options="facets.colors" :selected="filters.colors" @toggle="toggleColor" /></div>
 
-          <div>
+          <div class="filter-section">
             <div class="label">{{ $t('shop.size') }}</div>
             <div class="flex flex-wrap gap-2">
               <button
@@ -421,18 +447,17 @@ function setPage(p: number) {
             </div>
           </div>
 
-          <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
+          <details open class="filter-section"><summary>{{ $t('shop.in_stock_only') }}</summary><label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
             <input type="checkbox" :checked="filters.inStockOnly" class="h-4 w-4 accent-primary" @change="setInStock(($event.target as HTMLInputElement).checked)" />
             {{ $t('shop.in_stock_only') }}
-          </label>
+          </label></details>
 
-          <button class="btn-outline w-full" @click="clearAll">{{ $t('shop.clear_all') }}</button>
         </div>
       </aside>
 
-      <div class="mt-6 lg:mt-0">
-        <div v-if="loading" class="flex items-center justify-center py-20">
-          <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
+      <div class="min-w-0">
+        <div v-if="loading" role="status" :aria-label="$t('common.loading')" class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-3 2xl:grid-cols-4">
+          <div v-for="i in 8" :key="i" class="border border-border-gray bg-surface p-3"><div class="aspect-square animate-pulse bg-surface-muted"></div><div class="mt-3 h-4 animate-pulse bg-surface-muted"></div><div class="mt-2 h-4 w-2/3 animate-pulse bg-surface-muted"></div><div class="mt-5 h-10 animate-pulse bg-surface-muted"></div></div>
         </div>
         <div v-else-if="listingError" role="alert" class="card space-y-3 p-5 text-sm text-red-600">
           <p>{{ listingError }}</p>
@@ -456,6 +481,7 @@ function setPage(p: number) {
         </template>
 
         <BasePagination
+          class="mt-6"
           :page="filters.page"
           :page-count="pageCount"
           :total-items="totalCount"
@@ -471,8 +497,8 @@ function setPage(p: number) {
         class="fixed inset-0 z-50 lg:hidden"
       >
         <div class="absolute inset-0 bg-black/50" @click="ui.closeMobileFilters()"></div>
-        <div role="dialog" :aria-label="$t('shop.filter')" aria-modal="true" class="absolute inset-y-0 right-0 flex h-[100dvh] w-80 max-w-[88vw] flex-col bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl">
-          <div class="flex shrink-0 items-center justify-between border-b border-border-gray px-5 py-4">
+        <div ref="filterDrawer" role="dialog" :aria-label="$t('shop.filter')" aria-modal="true" class="absolute inset-y-0 right-0 flex h-[100dvh] w-80 max-w-[88vw] flex-col bg-surface pb-[env(safe-area-inset-bottom)] shadow-2xl">
+          <div class="flex shrink-0 items-center justify-between border-b border-border-gray px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))]">
             <h3 class="text-lg font-bold text-ink dark:text-ink">{{ $t('shop.filter') }}</h3>
             <button :aria-label="$t('actions.close')" class="btn-icon" @click="ui.closeMobileFilters()">
               <X class="h-5 w-5" />
@@ -482,10 +508,11 @@ function setPage(p: number) {
           <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5">
           <div class="space-y-6">
             <p v-if="facetsError" role="alert" class="text-sm text-red-600">{{ facetsError }} <button class="underline" @click="fetchFacets">Retry filters</button></p>
-            <div>
-              <div class="label">{{ $t('shop.category') }}</div>
+            <details open class="filter-section">
+              <summary>{{ $t('shop.category') }}</summary>
+              <input v-if="facets.categories.length > 6" v-model="categorySearch" class="input mb-3" type="search" :aria-label="`${$t('header.search')} ${$t('shop.category')}`" :placeholder="$t('header.search')" />
               <div class="space-y-2">
-                <label v-for="c in facets.categories" :key="c.slug" class="flex cursor-pointer items-center justify-between text-sm text-gray-700 dark:text-muted">
+                <label v-for="c in visibleCategories" :key="c.slug" class="flex cursor-pointer items-center justify-between gap-2 text-sm text-gray-700 dark:text-muted">
                   <span class="flex items-center gap-2">
                     <input type="radio" name="m-category" :checked="filters.category === c.slug" class="h-4 w-4 accent-primary" @change="setCategory(filters.category === c.slug ? undefined : c.slug)" />
                     {{ c.name }}
@@ -493,12 +520,13 @@ function setPage(p: number) {
                   <span class="text-xs text-gray-400 dark:text-gray-500">{{ c.count }}</span>
                 </label>
               </div>
-            </div>
+            </details>
 
-            <div>
-              <div class="label">{{ $t('shop.brand') }}</div>
+            <details open class="filter-section">
+              <summary>{{ $t('shop.brand') }}</summary>
+              <input v-if="facets.brands.length > 6" v-model="brandSearch" class="input mb-3" type="search" :aria-label="`${$t('header.search')} ${$t('shop.brand')}`" :placeholder="$t('header.search')" />
               <div class="space-y-2">
-                <label v-for="b in facets.brands" :key="b.slug" class="flex cursor-pointer items-center justify-between text-sm text-gray-700 dark:text-muted">
+                <label v-for="b in visibleBrands" :key="b.slug" class="flex cursor-pointer items-center justify-between gap-2 text-sm text-gray-700 dark:text-muted">
                   <span class="flex items-center gap-2">
                     <input type="radio" name="m-brand" :checked="filters.brand === b.slug" class="h-4 w-4 accent-primary" @change="setBrand(filters.brand === b.slug ? undefined : b.slug)" />
                     {{ b.name }}
@@ -506,10 +534,10 @@ function setPage(p: number) {
                   <span class="text-xs text-gray-400 dark:text-gray-500">{{ b.count }}</span>
                 </label>
               </div>
-            </div>
+            </details>
 
-            <CatalogPriceFilter id-prefix="catalog-mobile" :range="priceRange" :min="filters.min" :max="filters.max" :loading="loading" @change="setPrice" @retry="fetchProducts" />
-            <CatalogRatingFilter name="m-rating" :value="filters.rating" @change="setRating" />
+            <details open class="filter-section"><summary>{{ $t('shop.price_range') }}</summary><CatalogPriceFilter id-prefix="catalog-mobile" :range="priceRange" :min="filters.min" :max="filters.max" :loading="loading" @change="setPrice" @retry="fetchProducts" /></details>
+            <details open class="filter-section"><summary>{{ $t('shop.rating') }}</summary><CatalogRatingFilter name="m-rating" :value="filters.rating" @change="setRating" /></details>
 
             <CatalogColorFilter :options="facets.colors" :selected="filters.colors" @toggle="toggleColor" />
 
@@ -520,10 +548,10 @@ function setPage(p: number) {
               </div>
             </div>
 
-            <label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
+            <details open class="filter-section"><summary>{{ $t('shop.in_stock_only') }}</summary><label class="flex cursor-pointer items-center gap-2 text-sm text-gray-700 dark:text-muted">
               <input type="checkbox" :checked="filters.inStockOnly" class="h-4 w-4 accent-primary" @change="setInStock(($event.target as HTMLInputElement).checked)" />
               {{ $t('shop.in_stock_only') }}
-            </label>
+            </label></details>
 
           </div>
           </div>
@@ -536,3 +564,13 @@ function setPage(p: number) {
     </Teleport>
   </div>
 </template>
+
+<style scoped>
+.filter-section { border-top: 1px solid rgb(var(--color-border)); padding: 1rem 0; }
+details > summary { display: flex; cursor: pointer; align-items: center; justify-content: space-between; gap: .5rem; margin-bottom: .75rem; font-weight: 700; list-style: none; }
+details > summary::-webkit-details-marker { display: none; }
+details > summary::after { content: '›'; font-size: 1.25rem; transform: rotate(90deg); }
+details:not([open]) > summary { margin-bottom: 0; }
+details:not([open]) > summary::after { transform: none; }
+details :deep(legend.label) { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+</style>

@@ -23,9 +23,9 @@ onBeforeUnmount(() => window.removeEventListener('scroll', updateScrollElevation
 </script>
 
 <template>
-  <div class="flex min-h-[100dvh] flex-col pb-[calc(3.75rem+env(safe-area-inset-bottom))] lg:pb-0">
+  <div class="flex min-h-[100dvh] flex-col pb-[calc(4.25rem+env(safe-area-inset-bottom))] lg:pb-0">
     <PromotionBar />
-    <div data-testid="mobile-storefront-sticky" class="mobile-storefront-sticky lg:contents" :class="{ 'mobile-storefront-sticky--elevated': scrolled }">
+    <div data-testid="mobile-storefront-sticky" class="mobile-storefront-sticky" :class="{ 'mobile-storefront-sticky--elevated': scrolled }">
       <AppHeader />
       <CategoryNavBar />
     </div>
@@ -56,12 +56,17 @@ onBeforeUnmount(() => window.removeEventListener('scroll', updateScrollElevation
   border-color: rgb(var(--color-border-strong));
   box-shadow: 0 2px 8px rgb(15 23 42 / .10);
 }
-@media (min-width: 1024px) {
-  .mobile-storefront-sticky {
-    position: static;
-    border-bottom: 0;
-    box-shadow: none;
-  }
+/* Keep the row boxes unchanged as controls become visually denser on scroll. */
+.mobile-storefront-sticky :deep(header .container-app > a),
+.mobile-storefront-sticky :deep(header form input) {
+  transition: transform .15s ease;
+}
+.mobile-storefront-sticky--elevated :deep(header .container-app > a) {
+  transform: scale(.95);
+  transform-origin: left center;
+}
+.mobile-storefront-sticky--elevated :deep(header form input) {
+  transform: scaleY(.94);
 }
 @media (prefers-reduced-motion: reduce) {
   .mobile-storefront-sticky { transition: none; }

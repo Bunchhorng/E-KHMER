@@ -114,11 +114,11 @@ onBeforeUnmount(() => {
           </header>
           <div class="grid max-h-[calc(min(76dvh,38rem)-5.5rem)] grid-cols-2 gap-2 overflow-y-auto p-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             <RouterLink to="/shop" class="category-sheet-link" @click="closeCategorySheet">
-              <component :is="getCategoryIcon(category)" :size="18" />
+              <LayoutGrid :size="18" />
               {{ $t('nav.all_products') }}
             </RouterLink>
             <RouterLink v-for="category in categories" :key="category.id" :to="{ name: 'shop', query: { category: category.slug } }" class="category-sheet-link" @click="closeCategorySheet">
-              <LayoutGrid :size="18" />
+              <component :is="getCategoryIcon(category)" :size="18" />
               <span class="truncate">{{ $te(`categories.${category.slug.replace(/-/g, '_')}`) ? $t(`categories.${category.slug.replace(/-/g, '_')}`) : category.name }}</span>
             </RouterLink>
             <p v-if="loadingCategories" class="col-span-2 py-5 text-center text-sm text-muted">{{ $t('common.loading') }}</p>

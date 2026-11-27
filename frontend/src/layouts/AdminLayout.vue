@@ -59,7 +59,7 @@ const groups = computed<DashboardNavGroup[]>(() => {
           active: isActive(record.name)
         } satisfies DashboardNavItem
       })
-      .filter((item): item is DashboardNavItem => item !== null)
+      .filter((item): item is NonNullable<typeof item> => item !== null)
 
     return { id: group.id, label: t(group.titleKey), icon: group.icon, items }
   }).filter(group => group.items.length > 0)
