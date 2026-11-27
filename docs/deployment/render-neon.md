@@ -13,15 +13,26 @@ DB_CONNECTION=pgsql
 DB_URL=postgresql://…@…-pooler.…neon.tech/neondb?sslmode=require
 DB_MIGRATION_URL=postgresql://…@….…neon.tech/neondb?sslmode=require
 DB_SSLMODE=require
-RUN_MIGRATIONS_ON_BOOT=false
-SEED_ESSENTIALS_ON_BOOT=false
+RUN_MIGRATIONS_ON_BOOT=true
 SEED_ESSENTIALS_ON_MIGRATE=true
 ```
 
 `DB_MIGRATION_URL` must be the direct host from Neon’s Connect dialog: it must
 not contain `pooler`. The runtime connection may contain `pooler`.
 
-## Safe release procedure
+## Render Free deployment
+
+Render Free does not support pre-deploy commands. With
+`RUN_MIGRATIONS_ON_BOOT=true`, the container runs
+`/usr/local/bin/render-migrate.sh` before PHP-FPM and Nginx start. The script
+uses the direct Neon URI, applies only outstanding migrations, then seeds
+missing essential settings when `SEED_ESSENTIALS_ON_MIGRATE=true`.
+
+Use this only for a single Free web-service instance connected to the database.
+A failed migration fails the new deployment and leaves the last successful
+deployment running.
+
+## Paid-service release procedure
 
 1. Create a Neon branch from production and set both URLs to that branch.
 2. Build the Render Docker image and execute `/usr/local/bin/render-migrate.sh`

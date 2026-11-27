@@ -27,11 +27,8 @@ php artisan route:clear --no-interaction || true
 php artisan view:clear --no-interaction || true
 
 if [ "${RUN_MIGRATIONS_ON_BOOT:-false}" = "true" ]; then
-    echo "[render-entrypoint] RUN_MIGRATIONS_ON_BOOT is ignored. Run /usr/local/bin/render-migrate.sh as a separate release step using DB_MIGRATION_URL."
-fi
-
-if [ "${SEED_ESSENTIALS_ON_BOOT:-true}" = "true" ]; then
-    echo "[render-entrypoint] SEED_ESSENTIALS_ON_BOOT is ignored. Essential settings are seeded only after a successful separate migration run."
+    echo "[render-entrypoint] Running outstanding migrations with DB_MIGRATION_URL..."
+    /usr/local/bin/render-migrate.sh
 fi
 
 if [ "${SEED_DEMO_ON_BOOT:-false}" = "true" ] && [ "${APP_ENV:-production}" != "production" ]; then

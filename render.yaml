@@ -54,9 +54,9 @@ services:
       - key: MAIL_MAILER
         value: log
       - key: RUN_MIGRATIONS_ON_BOOT
-        value: "false"
-      - key: SEED_ESSENTIALS_ON_BOOT
-        value: "false"
+        # Render Free does not support pre-deploy commands. This runs the
+        # direct-Neon migration script before the web process starts.
+        value: "true"
       - key: SEED_ESSENTIALS_ON_MIGRATE
         value: "true"
       - key: RUN_EMBEDDED_WORKER
