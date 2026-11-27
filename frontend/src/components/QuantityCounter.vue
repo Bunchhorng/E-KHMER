@@ -22,34 +22,34 @@ function setValue(value: number): void {
 
 <template>
   <div
-    class="inline-flex items-center rounded-lg border border-border-gray"
-    :class="size === 'sm' ? 'h-9' : 'h-11'"
+    class="inline-flex items-stretch rounded-none border border-border-strong bg-surface"
+    :class="size === 'sm' ? 'h-[46px] sm:h-[38px]' : 'h-[46px]'"
   >
     <button
       type="button"
-      class="flex h-full items-center justify-center text-gray-500 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-      :class="size === 'sm' ? 'min-w-9 px-2' : 'min-w-11 px-3'"
+      class="flex items-center justify-center rounded-none border-r border-border-gray text-text-secondary transition-colors hover:bg-surface-hover hover:text-primary active:bg-surface-active disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
+      :class="size === 'sm' ? 'min-h-11 min-w-11 px-2 sm:min-h-9 sm:min-w-9' : 'min-h-11 min-w-11 px-3'"
       :disabled="disabled || modelValue <= min"
       aria-label="Decrease quantity"
       @click="setValue(modelValue - 1)"
     >
-      <Minus :size="size === 'sm' ? 13 : 15" />
+      <Minus :size="size === 'sm' ? 14 : 15" aria-hidden="true" />
     </button>
     <span
-      class="w-8 text-center font-semibold tabular-nums text-ink"
-      :class="size === 'sm' ? 'text-xs' : 'text-sm'"
+      class="flex min-w-9 items-center justify-center px-1.5 text-center font-semibold tabular-nums text-ink"
+      :class="[size === 'sm' ? 'text-xs' : 'text-sm', { 'opacity-50': disabled }]"
     >
       {{ modelValue }}
     </span>
     <button
       type="button"
-      class="flex h-full items-center justify-center text-gray-500 transition-colors hover:text-primary disabled:cursor-not-allowed disabled:opacity-40"
-      :class="size === 'sm' ? 'min-w-9 px-2' : 'min-w-11 px-3'"
+      class="flex items-center justify-center rounded-none border-l border-border-gray text-text-secondary transition-colors hover:bg-surface-hover hover:text-primary active:bg-surface-active disabled:cursor-not-allowed disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-text-secondary"
+      :class="size === 'sm' ? 'min-h-11 min-w-11 px-2 sm:min-h-9 sm:min-w-9' : 'min-h-11 min-w-11 px-3'"
       :disabled="disabled || modelValue >= max"
       aria-label="Increase quantity"
       @click="setValue(modelValue + 1)"
     >
-      <Plus :size="size === 'sm' ? 13 : 15" />
+      <Plus :size="size === 'sm' ? 14 : 15" aria-hidden="true" />
     </button>
   </div>
 </template>

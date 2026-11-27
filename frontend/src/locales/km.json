@@ -775,7 +775,8 @@
     "empty_title": "Cart របស់អ្នកទទេ",
     "empty_description": "ស្វែងរកការប្រមូលផ្តុំរបស់យើង និងស្វែងរកអ្វីដែលអ្នកចូលចិត្ត។",
     "subtotal": "តម្លៃសរុបរង",
-    "shipping_note": "ថ្លៃដឹកជញ្ជូន និងពន្ធនឹងត្រូវគណនានៅពេល Checkout",
+    "estimated_total": "សរុបប៉ាន់ស្មាន",
+    "shipping_note": "ថ្លៃដឹកជញ្ជូន និងពន្ធចុងក្រោយនឹងត្រូវបញ្ជាក់នៅពេល Checkout។",
     "remove_item": "ដកធាតុចេញ",
     "close_cart": "បិទ Cart"
   },

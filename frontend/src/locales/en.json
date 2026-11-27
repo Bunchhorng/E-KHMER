@@ -775,7 +775,8 @@
     "empty_title": "Your cart is empty",
     "empty_description": "Explore our collections and find something you love.",
     "subtotal": "Subtotal",
-    "shipping_note": "Shipping &amp; taxes calculated at checkout",
+    "estimated_total": "Estimated Total",
+    "shipping_note": "Final shipping and tax amounts are confirmed at checkout.",
     "remove_item": "Remove item",
     "close_cart": "Close cart"
   },

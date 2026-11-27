@@ -6,26 +6,34 @@ withDefaults(
     title: string
     description?: string
     ctaLabel?: string
+    compact?: boolean
   }>(),
-  { description: '', ctaLabel: '' }
+  { description: '', ctaLabel: '', compact: false }
 )
 
 const emit = defineEmits<{ (e: 'cta'): void }>()
 </script>
 
 <template>
-  <div class="rounded-2xl border-2 border-dashed border-border-gray dark:border-border-gray bg-white dark:bg-canvas px-6 py-14 text-center">
-    <div class="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-canvas dark:bg-surface-hover text-primary">
+  <div
+    class="rounded-none border-2 border-dashed border-border-gray bg-surface text-center dark:bg-canvas"
+    :class="compact ? 'px-5 py-9' : 'px-6 py-14'"
+  >
+    <div
+      class="mx-auto flex items-center justify-center rounded-none border border-border-gray bg-canvas text-primary dark:bg-surface"
+      :class="compact ? 'h-12 w-12' : 'h-16 w-16'"
+    >
       <slot name="icon">
-        <PackageOpen :size="28" />
+        <PackageOpen :size="compact ? 22 : 28" />
       </slot>
     </div>
-    <h3 class="mt-4 text-lg font-semibold text-ink">{{ title }}</h3>
-    <p v-if="description" class="mt-1 text-sm text-gray-500 dark:text-muted">{{ description }}</p>
+    <h3 class="mt-4 font-semibold text-ink" :class="compact ? 'text-base' : 'text-lg'">{{ title }}</h3>
+    <p v-if="description" class="mt-1 text-sm text-text-secondary">{{ description }}</p>
     <button
       v-if="ctaLabel"
       type="button"
-      class="btn-primary btn-sm mt-5"
+      class="btn-primary mt-5 rounded-none"
+      :class="compact ? 'min-h-11 px-5 text-sm' : 'btn-sm'"
       @click="emit('cta')"
     >
       {{ ctaLabel }}
