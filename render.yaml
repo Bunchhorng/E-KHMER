@@ -56,6 +56,8 @@ services:
       - key: RUN_MIGRATIONS_ON_BOOT
         value: "false"
       - key: SEED_ESSENTIALS_ON_BOOT
+        value: "false"
+      - key: SEED_ESSENTIALS_ON_MIGRATE
         value: "true"
       - key: RUN_EMBEDDED_WORKER
         value: "true"

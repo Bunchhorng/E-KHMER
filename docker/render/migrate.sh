@@ -26,3 +26,9 @@ export DB_URL="$DB_MIGRATION_URL"
 php artisan config:clear --no-interaction
 php artisan migrate --force --no-interaction
 
+# SettingSeeder only inserts missing defaults, so it is safe after a successful
+# schema migration and cannot run against a partially migrated database.
+if [ "${SEED_ESSENTIALS_ON_MIGRATE:-true}" = "true" ]; then
+    php artisan db:seed --class=SettingSeeder --force --no-interaction
+fi
+

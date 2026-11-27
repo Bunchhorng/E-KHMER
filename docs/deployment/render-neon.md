@@ -14,6 +14,8 @@ DB_URL=postgresql://…@…-pooler.…neon.tech/neondb?sslmode=require
 DB_MIGRATION_URL=postgresql://…@….…neon.tech/neondb?sslmode=require
 DB_SSLMODE=require
 RUN_MIGRATIONS_ON_BOOT=false
+SEED_ESSENTIALS_ON_BOOT=false
+SEED_ESSENTIALS_ON_MIGRATE=true
 ```
 
 `DB_MIGRATION_URL` must be the direct host from Neon’s Connect dialog: it must
@@ -27,12 +29,19 @@ not contain `pooler`. The runtime connection may contain `pooler`.
    runs outstanding Laravel migrations.
 3. Inspect `php artisan migrate:status` and the command output. Promote only
    after it succeeds.
-4. Set the production direct URI and execute the same script once. Keep
-   `RUN_MIGRATIONS_ON_BOOT=false` so the web service cannot restart-loop.
+4. Set the production direct URI and execute the same script once. It seeds
+   missing essential settings only after migrations succeed. Keep
+   `RUN_MIGRATIONS_ON_BOOT=false` and `SEED_ESSENTIALS_ON_BOOT=false` so the
+   web service cannot restart-loop.
 
 Render’s pre-deploy command is the preferred automation for paid services. On
 the configured free plan, run the script as a one-off release step before
 deploying the web service; do not turn boot-time migrations back on.
+
+The entrypoint intentionally ignores legacy `RUN_MIGRATIONS_ON_BOOT=true` and
+`SEED_ESSENTIALS_ON_BOOT=true` values. This protects an existing Render service
+where dashboard variables override `render.yaml`; update or remove those
+variables after deploying this version.
 
 ## Read-only investigation of a failed database
 
