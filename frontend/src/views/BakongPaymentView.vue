@@ -49,14 +49,14 @@ onBeforeUnmount(() => { generation++; window.clearInterval(clock) })
 <template>
   <div class="space-y-6 py-8">
     <div><h1 class="text-2xl font-bold">{{ t('bakong.title') }}</h1><p class="mt-3 text-sm leading-relaxed text-muted">{{ t('bakong.help') }}</p><p class="mt-2 text-xs text-muted">{{ route.params.orderNumber }}</p></div>
-    <p v-if="error" role="alert" class="card p-4 text-sm text-red-600">{{ error }}</p>
-    <p v-if="expired" role="status" class="rounded-xl bg-amber-500/10 p-4 text-sm">{{ t('bakong.expired') }}</p>
-    <div v-if="loading" class="card h-72 animate-pulse" aria-busy="true"></div>
+    <p v-if="error" role="alert" class="card rounded-none border-danger/40 bg-danger/10 p-4 text-sm text-danger">{{ error }}</p>
+    <p v-if="expired" role="status" class="rounded-none border border-amber-500/40 bg-amber-500/10 p-4 text-sm font-medium text-amber-800 dark:text-amber-300">{{ t('bakong.expired') }}</p>
+    <div v-if="loading" class="card h-72 animate-pulse rounded-none" aria-busy="true"></div>
     <div v-else class="grid gap-6 sm:grid-cols-2">
-      <section v-for="payment in payments" :key="payment.id" class="card rounded-2xl p-6 text-center">
-        <h2 class="text-lg font-semibold">{{ payment.shop_name }}</h2><p class="mt-2 text-xl font-bold">{{ formatPrice(payment.amount, payment.currency) }}</p>
-        <p class="mt-2 text-sm font-medium" :class="payment.status === 'paid' ? 'text-emerald-600' : 'text-muted'">{{ t('bakong.status_' + payment.status) }}</p>
-        <img v-if="payment.status === 'pending' && !expired && payment.image" :src="payment.image" :alt="t('bakong.qr_alt', { shop: payment.shop_name })" class="mx-auto mt-4 max-w-full rounded-xl bg-white" width="320" height="320" />
+      <section v-for="payment in payments" :key="payment.id" class="card rounded-none p-6 text-center">
+        <h2 class="text-lg font-semibold text-ink">{{ payment.shop_name }}</h2><p class="mt-2 text-xl font-bold text-ink">{{ formatPrice(payment.amount, payment.currency) }}</p>
+        <p class="mt-2 text-sm font-medium" :class="payment.status === 'paid' ? 'text-emerald-700 dark:text-success' : 'text-muted'">{{ t('bakong.status_' + payment.status) }}</p>
+        <img v-if="payment.status === 'pending' && !expired && payment.image" :src="payment.image" :alt="t('bakong.qr_alt', { shop: payment.shop_name })" class="mx-auto mt-4 max-w-full rounded-none border border-border-gray bg-white p-2" width="320" height="320" />
         <p class="mt-3 text-xs text-muted">{{ t('bakong.expires') }} {{ new Date(payment.expires_at).toLocaleTimeString() }}</p>
       </section>
     </div>
