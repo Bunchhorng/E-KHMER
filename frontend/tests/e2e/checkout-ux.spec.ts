@@ -140,7 +140,7 @@ test('checkout delivers stepper navigation, compact addresses, backend-only deli
   // Step 4: Review shows confirmed Total, Office address, Bakong / KHQR
   await expect(page.getByRole('heading', { name: /Review & Place Order/ })).toBeVisible()
   await expect(page.getByText('No. 88, Monivong Blvd').first()).toBeVisible()
-  await expect(page.getByText('Bakong / KHQR', { exact: true })).toBeVisible()
+  await expect(page.getByRole('main').getByText('Bakong / KHQR', { exact: true })).toBeVisible()
   await expect(page.getByText('Total', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: 'Place Order · $173.00' })).toBeVisible()
   await page.screenshot({ path: 'test-results/checkout-review-dark-desktop.png', fullPage: true })

@@ -72,4 +72,89 @@ class ReceiptBrandingServiceTest extends TestCase
         $this->assertSame(config('app.name', 'E-KHMER'), $branding['name']);
         $this->assertNull($branding['logo']);
     }
+
+    public function test_receipt_view_distinguishes_unpaid_cod_pro_forma_from_paid_bakong_receipt(): void
+    {
+        $first = Shop::factory()->create(['name' => 'Phnom Penh Tech']);
+        $second = Shop::factory()->create(['name' => 'Angkor Apparel']);
+
+        $codOrder = Order::factory()->create([
+            'order_number' => 'ORD-COD-100',
+            'status' => 'confirmed',
+            'payment_status' => 'unpaid',
+            'subtotal' => 50,
+            'total' => 50,
+            'currency' => 'USD',
+        ]);
+        $codOrder->payment()->create(['method' => 'cod', 'status' => 'pending', 'amount' => 50]);
+        OrderItem::create([
+            'order_id' => $codOrder->id,
+            'shop_id' => $first->id,
+            'product_name' => 'Extra Long Product Name With Extended Specifications For Wrap Testing',
+            'variant_label' => 'Size: M · Finish: Matte',
+            'sku' => 'COD-1',
+            'unit_price' => 25,
+            'quantity' => 1,
+            'line_total' => 25,
+        ]);
+        OrderItem::create([
+            'order_id' => $codOrder->id,
+            'shop_id' => $second->id,
+            'product_name' => 'Second Shop Item',
+            'sku' => 'COD-2',
+            'unit_price' => 25,
+            'quantity' => 1,
+            'line_total' => 25,
+        ]);
+
+        $codOrder->load(['items.shop', 'payment']);
+        $codHtml = view('reports.receipt', [
+            'order' => $codOrder,
+            'branding' => app(ReceiptBrandingService::class)->forOrder($codOrder),
+        ])->render();
+
+        $this->assertStringContainsString('E-KHMER', $codHtml);
+        $this->assertStringContainsString('ORDER CONFIRMATION / PRO FORMA', $codHtml);
+        $this->assertStringContainsString('Pending Cash Collection', $codHtml);
+        $this->assertStringContainsString('Cash on Delivery', $codHtml);
+        $this->assertStringNotContainsString('>Cod<', $codHtml);
+        $this->assertStringNotContainsString('OFFICIAL PAYMENT RECEIPT', $codHtml);
+        $this->assertStringContainsString('Seller: Phnom Penh Tech', $codHtml);
+        $this->assertStringContainsString('Seller: Angkor Apparel', $codHtml);
+
+        $bakongOrder = Order::factory()->create([
+            'order_number' => 'ORD-KHQR-200',
+            'status' => 'confirmed',
+            'payment_status' => 'paid',
+            'subtotal' => 100,
+            'total' => 100,
+            'currency' => 'USD',
+        ]);
+        $bakongOrder->payment()->create([
+            'method' => 'bakong',
+            'status' => 'paid',
+            'amount' => 100,
+            'paid_at' => now(),
+        ]);
+        OrderItem::create([
+            'order_id' => $bakongOrder->id,
+            'shop_id' => $first->id,
+            'product_name' => 'Verified Bakong Item',
+            'sku' => 'KHQR-1',
+            'unit_price' => 100,
+            'quantity' => 1,
+            'line_total' => 100,
+        ]);
+
+        $bakongOrder->load(['items.shop', 'payment']);
+        $bakongHtml = view('reports.receipt', [
+            'order' => $bakongOrder,
+            'branding' => app(ReceiptBrandingService::class)->forOrder($bakongOrder),
+        ])->render();
+
+        $this->assertStringContainsString('OFFICIAL PAYMENT RECEIPT', $bakongHtml);
+        $this->assertStringContainsString('Paid (Verified)', $bakongHtml);
+        $this->assertStringContainsString('Bakong / KHQR', $bakongHtml);
+        $this->assertStringContainsString('Total Paid', $bakongHtml);
+    }
 }

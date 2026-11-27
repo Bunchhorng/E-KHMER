@@ -114,6 +114,8 @@ export interface ApiOrder {
     id: number
     product_id: number
     product_variant_id: number
+    shop_id?: number | null
+    shop?: { id: number; name: string; slug: string } | null
     product_name: string
     variant_label: string | null
     sku: string
