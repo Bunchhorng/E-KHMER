@@ -85,7 +85,8 @@ export const useCartStore = defineStore('cart', {
     loadError: '',
     mutationError: '',
     pendingMutations: 0,
-    pendingActions: {} as Record<string, boolean>
+    pendingActions: {} as Record<string, boolean>,
+    lastRemovedItem: null as { title: string; variantId: string; quantity: number } | null
   }),
 
   getters: {
@@ -196,6 +197,7 @@ export const useCartStore = defineStore('cart', {
     },
 
     async addItem({ variantId, quantity = 1 }: AddToCartInput): Promise<boolean> {
+      this.lastRemovedItem = null
       return this.mutateCart(`add:${variantId}`, () => cartApi.addItem(Number(variantId), quantity), 'cart.add_error')
     },
 
@@ -204,10 +206,29 @@ export const useCartStore = defineStore('cart', {
     },
 
     async removeItem(itemId: string | number): Promise<boolean> {
-      return this.mutateCart(`remove:${itemId}`, () => cartApi.removeItem(Number(itemId)), 'cart.remove_error')
+      const existing = this.items.find(item => item.id === String(itemId))
+      const ok = await this.mutateCart(`remove:${itemId}`, () => cartApi.removeItem(Number(itemId)), 'cart.remove_error')
+      if (ok) {
+        this.lastRemovedItem = existing?.variant?.variantId
+          ? { title: existing.title, variantId: existing.variant.variantId, quantity: existing.quantity }
+          : null
+      }
+      return ok
+    },
+
+    async undoRemove(): Promise<boolean> {
+      const snapshot = this.lastRemovedItem
+      if (!snapshot) return false
+      this.lastRemovedItem = null
+      return this.addItem({ variantId: snapshot.variantId, quantity: snapshot.quantity })
+    },
+
+    dismissLastRemoved(): void {
+      this.lastRemovedItem = null
     },
 
     async clear(): Promise<boolean> {
+      this.lastRemovedItem = null
       return this.mutateCart('clear', () => cartApi.clear(), 'cart.clear_error', true)
     },
 

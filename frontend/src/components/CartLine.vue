@@ -9,7 +9,6 @@ import { formatPrice } from '@/utils/format'
 
 const props = defineProps<{ item: CartItem; compact?: boolean; showSeller?: boolean }>()
 const emit = defineEmits<{
-  (e: 'removed', item: CartItem): void
   (e: 'updated', item: CartItem): void
 }>()
 
@@ -27,9 +26,7 @@ async function updateQuantity(quantity: number) {
 }
 
 async function removeItem() {
-  const snapshot = { ...props.item }
-  const ok = await cart.removeItem(props.item.id)
-  if (ok) emit('removed', snapshot)
+  await cart.removeItem(props.item.id)
 }
 </script>
 

@@ -10,17 +10,10 @@ import QuoteSummary from '@/components/QuoteSummary.vue'
 import EmptyState from '@/components/EmptyState.vue'
 import { formatPrice } from '@/utils/format'
 
-interface RemovedSnapshot {
-  title: string
-  variantId: string
-  quantity: number
-}
-
 const router = useRouter()
 const cartStore = useCartStore()
 
 const couponInput = ref('')
-const lastRemoved = ref<RemovedSnapshot | null>(null)
 const statusNotice = ref('')
 let statusTimer: number | undefined
 
@@ -47,7 +40,6 @@ const sellerGroups = computed(() => {
 })
 
 async function clearCart(): Promise<void> {
-  lastRemoved.value = null
   statusNotice.value = ''
   await cartStore.clear()
 }
@@ -58,22 +50,12 @@ async function applyCoupon(): Promise<void> {
   if (ok) couponInput.value = ''
 }
 
-function onItemRemoved(item: CartItem): void {
-  statusNotice.value = ''
-  lastRemoved.value = item.variant?.variantId
-    ? { title: item.title, variantId: item.variant.variantId, quantity: item.quantity }
-    : null
-}
-
 function onItemUpdated(): void {
   setTransientStatus('cart.updated_notice')
 }
 
 async function undoRemove(): Promise<void> {
-  const snapshot = lastRemoved.value
-  if (!snapshot) return
-  lastRemoved.value = null
-  await cartStore.addItem({ variantId: snapshot.variantId, quantity: snapshot.quantity })
+  await cartStore.undoRemove()
 }
 </script>
 
@@ -113,11 +95,11 @@ async function undoRemove(): Promise<void> {
     <div v-else-if="cartStore.loaded && cartStore.items.length" class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,7fr)_minmax(20rem,3fr)] lg:items-start">
       <div class="min-w-0 space-y-4">
         <div
-          v-if="lastRemoved"
+          v-if="cartStore.lastRemovedItem"
           role="status"
           class="flex flex-wrap items-center justify-between gap-3 rounded-none border border-border-strong bg-surface px-4 py-2.5 text-sm text-ink"
         >
-          <p class="min-w-0 flex-1 truncate">{{ $t('cart.removed_notice', { name: lastRemoved.title }) }}</p>
+          <p class="min-w-0 flex-1 truncate">{{ $t('cart.removed_notice', { name: cartStore.lastRemovedItem.title }) }}</p>
           <div class="flex shrink-0 items-center gap-2">
             <button
               type="button"
@@ -132,7 +114,7 @@ async function undoRemove(): Promise<void> {
               type="button"
               class="btn-icon h-8 w-8 rounded-none text-muted hover:text-ink"
               :aria-label="$t('cart.dismiss')"
-              @click="lastRemoved = null"
+              @click="cartStore.dismissLastRemoved()"
             >
               <X :size="15" aria-hidden="true" />
             </button>
@@ -184,7 +166,6 @@ async function undoRemove(): Promise<void> {
                 v-for="item in group.items"
                 :key="item.id"
                 :item="item"
-                @removed="onItemRemoved"
                 @updated="onItemUpdated"
               />
             </div>
@@ -206,7 +187,6 @@ async function undoRemove(): Promise<void> {
               :key="item.id"
               :item="item"
               show-seller
-              @removed="onItemRemoved"
               @updated="onItemUpdated"
             />
           </div>
