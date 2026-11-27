@@ -11,6 +11,7 @@
         "laravel/framework": "^13.17",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
+        "symfony/filesystem": "^7.4",
         "symfony/html-sanitizer": "^7.4.22"
     },
     "require-dev": {

@@ -15,8 +15,8 @@ mkdir -p \
     storage/logs \
     bootstrap/cache
 
-if [ ! -L public/storage ]; then
-    php artisan storage:link --relative --no-interaction || true
+if [ ! -e public/storage ] && [ ! -L public/storage ]; then
+    php artisan storage:link --relative --no-interaction
 fi
 
 chown -R www-data:www-data storage bootstrap/cache
@@ -27,8 +27,8 @@ php artisan route:clear --no-interaction || true
 php artisan view:clear --no-interaction || true
 
 if [ "${RUN_MIGRATIONS_ON_BOOT:-false}" = "true" ]; then
-    echo "[render-entrypoint] Running database migrations..."
-    php artisan migrate --force --no-interaction
+    echo "[render-entrypoint] RUN_MIGRATIONS_ON_BOOT is deprecated; using the direct migration connection."
+    /usr/local/bin/render-migrate.sh
 fi
 
 if [ "${SEED_ESSENTIALS_ON_BOOT:-true}" = "true" ]; then

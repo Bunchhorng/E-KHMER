@@ -27,6 +27,10 @@ services:
         value: pgsql
       - key: DB_URL
         sync: false
+      # Direct Neon URI, used only by docker/render/migrate.sh. Never use the
+      # pooled endpoint here. Keep it configured as a secret in Render.
+      - key: DB_MIGRATION_URL
+        sync: false
       - key: DB_SSLMODE
         value: require
       - key: CACHE_STORE
@@ -50,7 +54,7 @@ services:
       - key: MAIL_MAILER
         value: log
       - key: RUN_MIGRATIONS_ON_BOOT
-        value: "true"
+        value: "false"
       - key: SEED_ESSENTIALS_ON_BOOT
         value: "true"
       - key: RUN_EMBEDDED_WORKER

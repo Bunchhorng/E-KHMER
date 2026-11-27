@@ -43,9 +43,11 @@ COPY docker/php/uploads.ini /usr/local/etc/php/conf.d/zz-uploads.ini
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/zz-opcache.ini
 COPY docker/render/nginx.conf.template /etc/nginx/templates/default.conf.template
 COPY docker/render/entrypoint.sh /usr/local/bin/render-entrypoint.sh
+COPY docker/render/migrate.sh /usr/local/bin/render-migrate.sh
 
 RUN sed -i 's/\r$//' /usr/local/bin/render-entrypoint.sh \
-    && chmod +x /usr/local/bin/render-entrypoint.sh \
+    && sed -i 's/\r$//' /usr/local/bin/render-migrate.sh \
+    && chmod +x /usr/local/bin/render-entrypoint.sh /usr/local/bin/render-migrate.sh \
     && composer dump-autoload --no-dev --optimize --no-interaction --no-scripts \
     && php artisan package:discover --no-interaction \
     && mkdir -p \
