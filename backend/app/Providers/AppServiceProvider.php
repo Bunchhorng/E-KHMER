@@ -29,6 +29,7 @@ use App\Services\ProductDescriptionSanitizer;
 use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Gate;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -46,6 +47,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        if (str_starts_with((string) config('app.url'), 'https://')) {
+            URL::forceScheme('https');
+        }
+
         Gate::define('business-analytics', [BusinessForecastPolicy::class, 'view']);
         foreach ([Order::class, OrderItem::class, ShopOrder::class, Payment::class,
             PaymentRefund::class, OrderReturn::class, BusinessExpense::class] as $model) {

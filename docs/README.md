@@ -14,6 +14,7 @@ This folder contains the maintained documentation for the E-KHMER e-commerce sys
 | [Database seeding & factories](./DATABASE-SEEDING.md) | Essential vs. demo seeders, Cambodian dataset structure, test accounts, and factory reference. |
 | [Commerce completion](./COMMERCE-COMPLETION.md) | Seller/storefront features, direct Bakong payments, routes, operating rules and launch gates. |
 | [Oracle Cloud deployment](./ORACLE-CLOUD.md) | Production Docker, HTTPS, SMTP, backups and isolated restore verification. |
+| [Render + Cloudflare + Neon deploy](./RENDER-CLOUDFLARE-NEON.md) | Test/staging deployment guide using Render Docker API, Neon PostgreSQL, and Cloudflare Pages. |
 | [QA report](./QA-REPORT.md) | Verified quality findings and their remediation status. |
 | [Feature completion and improvement review](./FEATURE-REVIEW-2026-11-01.md) | Inventory of 100 capabilities, completion gaps, prioritized fixes and optional additions, reviewed 1 November 2026. |
 | [F01 shop coupon implementation](./F01-SHOP-COUPON-IMPLEMENTATION.md) | Shop ownership rules, multi-shop financial allocation, changed files, test evidence, and F03 follow-up. |

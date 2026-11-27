@@ -1,0 +1,57 @@
+services:
+  - type: web
+    name: ekhmer-api
+    runtime: docker
+    dockerfilePath: ./docker/render/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /up
+    envVars:
+      - key: APP_NAME
+        value: E-KHMER
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        generateValue: true
+      - key: APP_URL
+        sync: false
+      - key: FRONTEND_URL
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: CORS_ALLOWED_ORIGIN_PATTERNS
+        value: "^https://.*\\.pages\\.dev$"
+      - key: DB_CONNECTION
+        value: pgsql
+      - key: DB_URL
+        sync: false
+      - key: DB_SSLMODE
+        value: require
+      - key: CACHE_STORE
+        value: database
+      - key: SESSION_DRIVER
+        value: database
+      - key: SESSION_SECURE_COOKIE
+        value: "true"
+      - key: QUEUE_CONNECTION
+        value: database
+      - key: QUEUE_AFTER_COMMIT
+        value: "true"
+      - key: CHECKOUT_LIMITER_STORE
+        value: database
+      - key: PAYMENT_MODE
+        value: sandbox
+      - key: BAKONG_API_URL
+        value: https://api-bakong.nbc.gov.kh
+      - key: BAKONG_API_TOKEN
+        sync: false
+      - key: MAIL_MAILER
+        value: log
+      - key: RUN_MIGRATIONS_ON_BOOT
+        value: "true"
+      - key: SEED_ESSENTIALS_ON_BOOT
+        value: "true"
+      - key: RUN_EMBEDDED_WORKER
+        value: "true"

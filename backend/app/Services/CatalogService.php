@@ -128,16 +128,20 @@ class CatalogService
     {
         $variants = $this->purchasableVariants($filters)->whereColumn('product_variants.product_id', 'products.id');
         $this->variantPriceBounds($variants, $filters);
-        $query->addSelect(['catalog_price' => $variants->selectRaw('MIN(COALESCE(product_variants.price, products.price))')]);
+        $variants->selectRaw('MIN(COALESCE(product_variants.price, products.price))');
+        if ($query->getQuery()->columns === null) {
+            $query->select('products.*');
+        }
+        $query->selectRaw('COALESCE(('.$variants->toSql().'), products.price) as catalog_price', $variants->getBindings());
     }
 
     protected function variantPriceBounds(Builder $query, array $filters): void
     {
         foreach (['min' => '>=', 'max' => '<='] as $key => $operator) {
             if (isset($filters[$key]) && $filters[$key] !== '') {
-                // Numeric coercion also keeps SQLite's expression affinity from
-                // comparing a numeric selling price to a PDO-bound string.
-                $query->whereRaw("COALESCE(product_variants.price, products.price) {$operator} (? + 0)", [(float) $filters[$key]]);
+                // Explicit numeric cast keeps SQLite, MySQL, and PostgreSQL consistent
+                // when PDO binds filter values as strings.
+                $query->whereRaw("COALESCE(product_variants.price, products.price) {$operator} CAST(? AS DECIMAL(12, 2))", [(float) $filters[$key]]);
             }
         }
     }
@@ -373,8 +377,8 @@ class CatalogService
         // Every sort gets a deterministic id tiebreaker, otherwise paginated
         // results can repeat or drop rows when the sort column ties.
         match ($sort) {
-            'price-asc' => $query->orderByRaw('COALESCE(catalog_price, products.price) asc')->orderBy('id', 'asc'),
-            'price-desc' => $query->orderByRaw('COALESCE(catalog_price, products.price) desc')->orderBy('id', 'asc'),
+            'price-asc' => $query->orderBy('catalog_price', 'asc')->orderBy('products.id', 'asc'),
+            'price-desc' => $query->orderBy('catalog_price', 'desc')->orderBy('products.id', 'asc'),
             'name-asc' => $query->orderBy('name', 'asc')->orderBy('id', 'asc'),
             'name-desc' => $query->orderBy('name', 'desc')->orderBy('id', 'asc'),
             'rating' => $query->orderBy('rating_avg', 'desc')->orderBy('rating_count', 'desc')->orderBy('id', 'asc'),

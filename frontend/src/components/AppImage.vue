@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ImageOff } from 'lucide-vue-next'
+import { resolveMediaUrl } from '@/utils/media'
 
 const props = withDefaults(defineProps<{
   src?: string | null
@@ -9,15 +10,16 @@ const props = withDefaults(defineProps<{
   loading?: 'eager' | 'lazy'
 }>(), { src: null, fit: 'cover', loading: 'lazy' })
 
+const resolvedSrc = computed(() => resolveMediaUrl(props.src))
 const failed = ref(false)
 watch(() => props.src, () => { failed.value = false })
 </script>
 
 <template>
-  <div class="shrink-0 overflow-hidden bg-surface-muted" :data-image-state="src && !failed ? 'loaded' : 'fallback'">
+  <div class="shrink-0 overflow-hidden bg-surface-muted" :data-image-state="resolvedSrc && !failed ? 'loaded' : 'fallback'">
     <img
-      v-if="src && !failed"
-      :src="src"
+      v-if="resolvedSrc && !failed"
+      :src="resolvedSrc"
       :alt="alt"
       :loading="loading"
       decoding="async"
