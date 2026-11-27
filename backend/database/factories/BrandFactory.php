@@ -17,8 +17,9 @@ class BrandFactory extends Factory
 
         return [
             'name' => $name,
-            'slug' => Str::slug($name) . '-' . Str::lower(Str::random(4)),
-            'description' => fake()->sentence(),
+            'slug' => Str::slug($name).'-'.Str::lower(Str::random(4)),
+            'description' => 'Official storefront listings from '.$name.' in Cambodia.',
+            'logo' => null,
             'is_active' => true,
         ];
     }

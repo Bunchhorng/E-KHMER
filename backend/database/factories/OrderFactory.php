@@ -14,35 +14,62 @@ class OrderFactory extends Factory
 {
     public function definition(): array
     {
-        $subtotal = fake()->randomFloat(2, 50, 500);
+        $subtotal = fake()->randomFloat(2, 15, 280);
+        $tax = round($subtotal * 0.10, 2);
         $address = [
             'full_name' => fake()->name(),
-            'phone' => fake()->phoneNumber(),
-            'address_line1' => fake()->streetAddress(),
-            'city' => fake()->city(),
-            'state' => fake()->stateAbbr(),
-            'postal_code' => fake()->postcode(),
-            'country' => fake()->countryCode(),
+            'phone' => '+855 12 '.fake()->numerify('### ###'),
+            'address_line1' => 'House #'.fake()->numberBetween(10, 220).', Street '.fake()->randomElement(['271', '2004', '310', '63']),
+            'address_line2' => 'Sangkat Boeng Keng Kang I, Khan Boeng Keng Kang',
+            'city' => 'Phnom Penh',
+            'state' => 'Phnom Penh',
+            'postal_code' => '120101',
+            'country' => 'KH',
         ];
 
         return [
-            'order_number' => 'SV-' . date('Y') . '-' . strtoupper(Str::random(6)),
+            'order_number' => 'EKH-'.date('Y').'-'.strtoupper(Str::random(6)),
             'user_id' => User::factory(),
             'status' => Order::STATUS_PENDING,
             'payment_status' => Order::PAYMENT_UNPAID,
             'subtotal' => $subtotal,
             'discount_amount' => 0,
-            'tax_amount' => round($subtotal * 0.1, 2),
+            'tax_amount' => $tax,
             'shipping_amount' => 0,
-            'total' => round($subtotal * 1.1, 2),
+            'total' => round($subtotal + $tax, 2),
             'currency' => 'USD',
             'shipping_address' => $address,
             'billing_address' => $address,
             'email' => fake()->safeEmail(),
-            'phone' => fake()->phoneNumber(),
-            'customer_name' => fake()->name(),
+            'phone' => $address['phone'],
+            'customer_name' => $address['full_name'],
+            'note' => null,
             'placed_at' => now(),
         ];
+    }
+
+    public function confirmed(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => Order::STATUS_CONFIRMED,
+            'payment_status' => Order::PAYMENT_PAID,
+        ]);
+    }
+
+    public function processing(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => Order::STATUS_PROCESSING,
+            'payment_status' => Order::PAYMENT_PAID,
+        ]);
+    }
+
+    public function shipped(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => Order::STATUS_SHIPPED,
+            'payment_status' => Order::PAYMENT_PAID,
+        ]);
     }
 
     public function delivered(): static
@@ -50,6 +77,14 @@ class OrderFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'status' => Order::STATUS_DELIVERED,
             'payment_status' => Order::PAYMENT_PAID,
+        ]);
+    }
+
+    public function cancelled(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'status' => Order::STATUS_CANCELLED,
+            'payment_status' => Order::PAYMENT_FAILED,
         ]);
     }
 }

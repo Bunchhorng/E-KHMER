@@ -20,6 +20,8 @@ class UserFactory extends Factory
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
+            'phone' => '+855 '.fake()->randomElement(['10', '12', '16', '77', '96']).' '.fake()->numerify('### ###'),
+            'newsletter' => false,
             'password' => static::$password ??= Hash::make('password'),
             'role' => User::ROLE_CUSTOMER,
             'remember_token' => Str::random(10),

@@ -12,9 +12,7 @@ class DatabaseSeeder extends Seeder
 {
     use WithoutModelEvents;
 
-    public const RECORD_COUNT = 20;
-
-    /** Business tables in child-before-parent deletion order. */
+    /** Business tables in child-before-parent dependency order. */
     public const TABLES = [
         'business_expenses',
         'payment_refunds', 'order_returns', 'bakong_payments', 'checkout_attempts',
@@ -30,33 +28,16 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        // Deletes are transactional and leave foreign-key checks enabled.
-        // A failed seed restores the previous dataset on MySQL and SQLite.
         Model::unguarded(function (): void {
             DB::transaction(function (): void {
-                // Authentication records must not retain references to removed accounts.
-                foreach (['personal_access_tokens', 'password_reset_tokens', 'sessions'] as $table) {
-                    DB::table($table)->delete();
-                }
-                foreach (self::TABLES as $table) {
-                    DB::table($table)->delete();
+                // Essential system configuration runs safely and idempotently in every environment.
+                $this->call(SettingSeeder::class);
+
+                // Development/testing demo marketplace data is strictly skipped outside local/testing.
+                if (app()->environment(['local', 'testing'])) {
+                    $this->call(DemoMarketplaceSeeder::class);
                 }
 
-                $this->call([
-                    UserSeeder::class,
-                    ShopSeeder::class,
-                    AddressSeeder::class,
-                    SettingSeeder::class,
-                    CatalogSeeder::class,
-                    ShippingMethodSeeder::class,
-                    CouponSeeder::class,
-                    OrderSeeder::class,
-                    ReviewSeeder::class,
-                    WishlistSeeder::class,
-                    CartSeeder::class,
-                    NotificationSeeder::class,
-                    EngagementSeeder::class,
-                ]);
                 DB::afterCommit(static fn () => BusinessForecastService::invalidate());
             });
         });

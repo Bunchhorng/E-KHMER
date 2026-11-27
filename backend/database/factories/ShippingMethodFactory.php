@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\ShippingMethod;
+use App\Models\Shop;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -16,14 +17,22 @@ class ShippingMethodFactory extends Factory
         $name = fake()->unique()->words(2, true);
 
         return [
+            'shop_id' => null,
             'name' => ucwords($name),
-            'code' => Str::slug($name),
-            'description' => fake()->sentence(),
-            'price' => fake()->randomFloat(2, 0, 20),
-            'estimated_days_min' => fake()->numberBetween(1, 3),
-            'estimated_days_max' => fake()->numberBetween(4, 10),
+            'code' => Str::slug($name).'-'.Str::lower(Str::random(4)),
+            'description' => 'Tracked local delivery across Cambodia.',
+            'price' => fake()->randomFloat(2, 1.50, 6.00),
+            'estimated_days_min' => fake()->numberBetween(1, 2),
+            'estimated_days_max' => fake()->numberBetween(3, 5),
             'is_active' => true,
         ];
+    }
+
+    public function forShop(Shop $shop): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'shop_id' => $shop->id,
+        ]);
     }
 
     public function free(): static

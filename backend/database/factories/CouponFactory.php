@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\Coupon;
+use App\Models\Shop;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Str;
 
@@ -14,6 +15,7 @@ class CouponFactory extends Factory
     public function definition(): array
     {
         return [
+            'shop_id' => null,
             'code' => strtoupper(Str::random(10)),
             'type' => 'percentage',
             'value' => 10,
@@ -28,11 +30,18 @@ class CouponFactory extends Factory
         ];
     }
 
-    public function fixed(int $amount = 20): static
+    public function fixed(int|float $amount = 20): static
     {
         return $this->state(fn (array $attributes) => [
             'type' => 'fixed',
             'value' => $amount,
+        ]);
+    }
+
+    public function forShop(Shop $shop): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'shop_id' => $shop->id,
         ]);
     }
 

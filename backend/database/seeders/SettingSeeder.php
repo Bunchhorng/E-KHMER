@@ -7,9 +7,13 @@ use Illuminate\Database\Seeder;
 
 class SettingSeeder extends Seeder
 {
+    /**
+     * Essential platform settings safe to seed in every environment,
+     * preserving existing administrator overrides.
+     */
     public function run(): void
     {
-        $settings = [
+        $essential = [
             'storeName' => 'E-KHMER',
             'supportEmail' => 'support@ekhmer.com',
             'supportPhone' => '+855 12 555 000',
@@ -21,20 +25,32 @@ class SettingSeeder extends Seeder
             'emailOrderNotifications' => '1',
             'emailLowStockAlerts' => '1',
             'maintenanceMode' => '0',
-            // Dataset metadata, separate from the eleven supported application settings.
-            'demo.name' => 'Twenty records per business table',
-            'demo.version' => '1',
-            'demo.recordsPerTable' => (string) DatabaseSeeder::RECORD_COUNT,
+        ];
+
+        foreach ($essential as $key => $value) {
+            Setting::firstOrCreate(['key' => $key], ['value' => $value]);
+        }
+    }
+
+    /**
+     * Local/testing metadata settings kept strictly separate from production settings.
+     */
+    public static function seedDemoMetadata(): void
+    {
+        if (! app()->environment(['local', 'testing'])) {
+            return;
+        }
+
+        $demo = [
+            'demo.name' => 'E-KHMER Cambodian Marketplace Demo',
+            'demo.version' => '2',
             'demo.currency' => 'USD',
             'demo.country' => 'KH',
-            'demo.orderStatus' => 'delivered',
-            'demo.paymentStatus' => 'partially_refunded',
-            'demo.returnStatus' => 'refunded',
             'demo.gatewayCalls' => '0',
         ];
 
-        foreach ($settings as $key => $value) {
-            Setting::create(['key' => $key, 'value' => $value]);
+        foreach ($demo as $key => $value) {
+            Setting::updateOrCreate(['key' => $key], ['value' => $value]);
         }
     }
 }

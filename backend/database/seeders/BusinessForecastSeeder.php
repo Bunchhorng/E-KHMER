@@ -165,7 +165,8 @@ class BusinessForecastSeeder extends Seeder
             return;
         }
         PaymentTransaction::firstOrCreate(['payment_id' => $payment->id, 'reference' => $number.'-PAY'], [
-            'type' => 'capture', 'status' => 'success', 'amount' => $payment->amount,
+            'shop_order_id' => $allocation->id,
+            'type' => 'collection', 'status' => 'success', 'amount' => $payment->amount,
             'meta' => ['demo' => true], 'created_at' => $paidAt,
         ]);
         Shipment::firstOrCreate(['order_id' => $order->id, 'shop_order_id' => $allocation->id], [

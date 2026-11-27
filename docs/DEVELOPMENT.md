@@ -50,7 +50,7 @@ docker compose exec app php artisan optimize:clear    # clear caches
 docker compose exec app php artisan route:list        # list routes
 ```
 
-> ⚠️ `migrate:fresh` drops all tables and data. `docker compose down -v` deletes the MySQL volume (all data gone).
+> ⚠️ `migrate:fresh` drops all tables and data. `docker compose down -v` deletes the MySQL volume (all data gone). See [Database Seeding & Factories](./DATABASE-SEEDING.md) for safe idempotent seeding, production guards, and demo test accounts.
 
 ## 4. Database & redis
 
