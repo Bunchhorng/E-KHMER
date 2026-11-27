@@ -46,7 +46,7 @@ For zero-cost test deployments, Redis is not required: `render.yaml` configures 
    - `APP_URL`: your Render service URL, e.g. `https://ekhmer-api.onrender.com`
    - `FRONTEND_URL`: your Cloudflare Pages URL, e.g. `https://ekhmer.pages.dev`
    - `CORS_ALLOWED_ORIGINS`: comma-separated origins, e.g. `https://ekhmer.pages.dev`
-   - `CORS_ALLOWED_ORIGIN_PATTERNS`: `^https://.*\.pages\.dev$` (allows Cloudflare Pages preview URLs during testing)
+   - `CORS_ALLOWED_ORIGIN_PATTERNS`: `#^https://.*\.(pages|workers)\.dev$#` (allows Cloudflare Pages and Workers preview URLs during testing)
    - `PAYMENT_MODE`: keep `sandbox` for test deployment; switch to `production` with a real `BAKONG_API_TOKEN` before accepting live payments.
 4. Wait for the build and boot health check (`GET /up` returning HTTP `200`). On first boot with `RUN_MIGRATIONS_ON_BOOT=true` and `SEED_ESSENTIALS_ON_BOOT=true`, `entrypoint.sh` automatically runs `php artisan migrate --force` and `php artisan db:seed --class=SettingSeeder --force`.
 
@@ -59,7 +59,25 @@ Because `DemoMarketplaceSeeder` is restricted to `local` or `testing` environmen
 
 ---
 
-## Step 3: Deploy the Vue 3 Storefront on Cloudflare Pages
+## Step 3: Deploy the Vue 3 Storefront on Cloudflare (Workers Static Assets or Pages)
+
+### Option A: Cloudflare Workers (Recommended — `wrangler.jsonc`)
+
+Both [`frontend/wrangler.jsonc`](../frontend/wrangler.jsonc) and [`wrangler.jsonc`](../wrangler.jsonc) configure Cloudflare Workers Static Assets to build and serve **`dist/`** (never the raw `frontend/` source folder) with `"not_found_handling": "single-page-application"`.
+
+> **Why `"Failed to load module script... MIME type of video/mp2t"` happens:**
+> If Cloudflare deploys raw `frontend/` instead of `frontend/dist`, the browser receives source `index.html` containing `<script type="module" src="/src/main.ts">`. Cloudflare serves `.ts` files as `video/mp2t`, causing a blank white screen. Always build `npm run build` and deploy `./dist` (do **not** pass `--assets=.` in your deploy command).
+
+1. In Cloudflare Dashboard, open **Workers & Pages → Create → Workers → Connect to Git**.
+2. Configure **Build settings**:
+   - **Root directory**: `frontend` (or leave `/` to use the root [`wrangler.jsonc`](../wrangler.jsonc))
+   - **Build command**: `npm run build` (when Root directory is `frontend`)
+   - **Deploy command**: `npx wrangler deploy` (leave without `--assets=.` so `wrangler.jsonc`'s `"assets.directory": "./dist"` is used)
+3. Add **Build environment variables** under **Settings → Build → Variables and secrets** (Vite reads `VITE_*` at build time, not runtime):
+   - `VITE_API_URL=https://ekhmer-api.onrender.com/api`
+4. Deploy and ensure the `workers.dev` URL or custom domain is allowed by Render's CORS (`CORS_ALLOWED_ORIGIN_PATTERNS` on Render should include `#^https://.*\.(pages|workers)\.dev$#` or your exact origin in `CORS_ALLOWED_ORIGINS`).
+
+### Option B: Cloudflare Pages
 
 1. In Cloudflare Dashboard, open **Workers & Pages → Create → Pages → Connect to Git**.
 2. Configure build settings:

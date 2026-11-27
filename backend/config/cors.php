@@ -6,7 +6,22 @@ $rawOrigins = array_filter(array_map(
 ));
 
 $rawPatterns = array_filter(array_map(
-    static fn (string $pattern) => trim($pattern),
+    static function (string $pattern): string {
+        $pattern = trim($pattern);
+        if ($pattern === '') {
+            return '';
+        }
+
+        // fruitcake/php-cors passes allowed_origins_patterns directly to preg_match(),
+        // which requires matching PCRE delimiters (e.g. #^https://...$#).
+        $first = $pattern[0];
+        $last = $pattern[strlen($pattern) - 1];
+        if (strlen($pattern) >= 2 && $first === $last && in_array($first, ['#', '/', '~', '%'], true)) {
+            return $pattern;
+        }
+
+        return '#'.str_replace('#', '\\#', $pattern).'#';
+    },
     explode(',', (string) env('CORS_ALLOWED_ORIGIN_PATTERNS', ''))
 ));
 

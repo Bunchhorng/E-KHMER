@@ -18,6 +18,7 @@ class CloudDeployReadinessTest extends TestCase
     public function test_cors_config_allows_configured_cloudflare_origin(): void
     {
         config()->set('cors.allowed_origins', ['https://ekhmer.pages.dev']);
+        config()->set('cors.allowed_origins_patterns', ['#^https://.*\.(pages|workers)\.dev$#']);
 
         $this->withHeaders([
             'Origin' => 'https://ekhmer.pages.dev',
@@ -25,6 +26,13 @@ class CloudDeployReadinessTest extends TestCase
         ])->options('/api/catalog/products')
             ->assertNoContent()
             ->assertHeader('Access-Control-Allow-Origin', 'https://ekhmer.pages.dev');
+
+        $this->withHeaders([
+            'Origin' => 'https://ekhmer-storefront.demo.workers.dev',
+            'Access-Control-Request-Method' => 'GET',
+        ])->options('/api/catalog/products')
+            ->assertNoContent()
+            ->assertHeader('Access-Control-Allow-Origin', 'https://ekhmer-storefront.demo.workers.dev');
     }
 
     public function test_catalog_price_sorting_and_range_filters_work_with_legacy_and_variant_products(): void

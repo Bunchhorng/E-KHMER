@@ -1,0 +1,12 @@
+{
+  "name": "ekhmer-storefront",
+  "compatibility_date": "2026-03-01",
+  "build": {
+    "command": "npm run build"
+  },
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application",
+    "html_handling": "auto-trailing-slash"
+  }
+}
