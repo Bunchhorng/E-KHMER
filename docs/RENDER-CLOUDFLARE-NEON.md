@@ -42,17 +42,18 @@ For zero-cost test deployments, Redis is not required: `render.yaml` configures 
 1. Push your branch to GitHub/GitLab.
 2. In Render Dashboard, choose **New + → Blueprint** and select this repository (or manually create a **Web Service → Docker** pointing to `docker/render/Dockerfile` with Docker context `.`).
 3. Set the prompted environment variables in Render (see [`backend/.env.render.example`](../backend/.env.render.example)):
-   - `DB_URL`: your Neon `postgresql://...?sslmode=require` connection string
+   - `DB_URL`: your Neon pooled `postgresql://...?sslmode=require` connection string
+   - `DB_MIGRATION_URL`: Neon’s direct (non-pooler) `postgresql://...?sslmode=require` connection string
    - `APP_URL`: your Render service URL, e.g. `https://ekhmer-api.onrender.com`
    - `FRONTEND_URL`: your Cloudflare Pages URL, e.g. `https://ekhmer.pages.dev`
    - `CORS_ALLOWED_ORIGINS`: comma-separated origins, e.g. `https://ekhmer.pages.dev`
    - `CORS_ALLOWED_ORIGIN_PATTERNS`: `#^https://.*\.(pages|workers)\.dev$#` (allows Cloudflare Pages and Workers preview URLs during testing)
    - `PAYMENT_MODE`: keep `sandbox` for test deployment; switch to `production` with a real `BAKONG_API_TOKEN` before accepting live payments.
-4. Wait for the build and boot health check (`GET /up` returning HTTP `200`). On first boot with `RUN_MIGRATIONS_ON_BOOT=true` and `SEED_ESSENTIALS_ON_BOOT=true`, `entrypoint.sh` automatically runs `php artisan migrate --force` and `php artisan db:seed --class=SettingSeeder --force`.
+4. Wait for the build and boot health check (`GET /up` returning HTTP `200`). On first boot with `RUN_MIGRATIONS_ON_BOOT=true` and `SEED_ESSENTIALS_ON_MIGRATE=true`, `entrypoint.sh` invokes `render-migrate.sh`, which uses `DB_MIGRATION_URL` for `php artisan migrate --force` and then runs `SettingSeeder` only.
 
 ### Optional: Loading Cambodian Demo Data on a Staging/Test Database
 Because `DemoMarketplaceSeeder` is restricted to `local` or `testing` environments by safety policy:
-- For **production-like test (`APP_ENV=production`)**: create an admin user via registration or an artisan command in a shell; demo customers/orders stay blocked.
+- For **production-like test (`APP_ENV=production`)**: registration creates customer accounts only. This project intentionally has no production bootstrap-admin seeder or artisan command, so provision the first `super_admin` through an approved, audited operator process; demo customers/orders stay blocked.
 - For a **disposable staging preview with demo catalog/orders**: temporarily set `APP_ENV=local` and `SEED_DEMO_ON_BOOT=true` only on that isolated staging database, or run the catalog seeder manually after verifying you are targeting a non-production database. Remember to revert `APP_ENV=production` and `SEED_DEMO_ON_BOOT=false` afterwards.
 
 > **Render Ephemeral Storage Warning:** Render's free Web Service filesystem resets on every redeploy or spin-down. Product/shop images uploaded via `/api/admin/uploads/*` on the local `public` disk will not survive container rebuilds unless you attach a **Render Persistent Disk** mounted at `/var/www/storage/app` or configure S3/Cloudflare R2 (`FILESYSTEM_DISK=s3`).

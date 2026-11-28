@@ -42,17 +42,16 @@ deployment running.
    after it succeeds.
 4. Set the production direct URI and execute the same script once. It seeds
    missing essential settings only after migrations succeed. Keep
-   `RUN_MIGRATIONS_ON_BOOT=false` and `SEED_ESSENTIALS_ON_BOOT=false` so the
-   web service cannot restart-loop.
+   `RUN_MIGRATIONS_ON_BOOT=false` so the web service cannot restart-loop.
 
 Render’s pre-deploy command is the preferred automation for paid services. On
 the configured free plan, run the script as a one-off release step before
 deploying the web service; do not turn boot-time migrations back on.
 
-The entrypoint intentionally ignores legacy `RUN_MIGRATIONS_ON_BOOT=true` and
-`SEED_ESSENTIALS_ON_BOOT=true` values. This protects an existing Render service
-where dashboard variables override `render.yaml`; update or remove those
-variables after deploying this version.
+The entrypoint honors `RUN_MIGRATIONS_ON_BOOT=true`. Essential settings are
+controlled by `SEED_ESSENTIALS_ON_MIGRATE=true` inside the migration script;
+the legacy `SEED_ESSENTIALS_ON_BOOT` variable has no effect. Update or remove
+that legacy dashboard variable after deploying this version.
 
 ## Read-only investigation of a failed database
 
